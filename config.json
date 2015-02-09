@@ -1,0 +1,18 @@
+{
+    "db-spec":
+    {
+        "classname":"org.postgresql.Driver",
+        "subprotocol":"postgresql",
+        "subname":"auth_test",
+        "user":"cliff",
+        "password":"",
+        "max-conns":6,
+        "min-conns":1,
+        "init-conns":1
+    },
+    "secret":"abc123",
+    "server":
+    {
+        "port":8080
+    }
+}
