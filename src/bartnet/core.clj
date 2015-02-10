@@ -4,15 +4,16 @@
             [liberator.dev :refer [wrap-trace]]
             [ring.middleware.params :refer [wrap-params]]
             [compojure.core :refer :all]
-            [clojure.data.json :as json]
             [cheshire.core :refer :all]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
+            [clojure.tools.cli :refer [parse-opts]]
             [clojure.java.io :as io]
             [liberator.representation :refer [ring-response]]
             [bartnet.sql :as sql]
             [bartnet.auth :as auth]
             [bartnet.identifiers :as identifiers]
+            [bartnet.db-cmd :as db-cmd]
             [yesql.util :refer [slurp-from-classpath]]
             [ring.adapter.jetty9 :refer [run-jetty]])
   (:import [java.util Base64]))
@@ -98,23 +99,17 @@
     (sql/pooled-queries (:db-spec config))))
 
 (defn server-cmd [args]
-  (let [conf (json/read-str (slurp (first args)) :key-fn keyword)]
+  (let [conf (parse-string (slurp (first args)) :true)]
     (do
       (initialize conf)
       (run-jetty handler (:server conf)))))
-
-(defn db-cmd [args]
-  (let [subcmd (first args)
-        subargs (rest args)]
-    (case subcmd
-      "migrate" nil)))
 
 (defn -main [& args]
   (let [cmd (first args)
         subargs (rest args)]
     (case cmd
       "server" (server-cmd subargs)
-      "db" (db-cmd subargs))))
+      "db" (db-cmd/db-cmd subargs))))
 
 
 

@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+         http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.1.xsd">
+
+  <changeSet id="0" author="cliff">
+    <preConditions onFail="CONTINUE">
+      <dbms type="postgresql"/>
+    </preConditions>
+    <createProcedure>
+      CREATE OR REPLACE FUNCTION update_time() RETURNS trigger
+      LANGUAGE plpgsql
+      AS $function$
+      BEGIN
+      NEW.updated_at := CURRENT_TIMESTAMP;
+      RETURN NEW;
+      END;
+      $function$;
+    </createProcedure>
+    <rollback>
+      DROP FUNCTION update_times();
+    </rollback>
+  </changeSet>
+  <changeSet id="2" author="cliff">
+    <createTable tableName="signups">
+      <column name="id" autoIncrement="true" type="INTEGER"><constraints primaryKey="true"/></column>
+      <column name="email" type="VARCHAR(255)"><constraints unique="true" /></column>
+      <column name="name" type="VARCHAR(255)"/>
+      <column name="created_at" type="DATETIME" defaultValue="now()"><constraints nullable="false" /></column>
+      <column name="updated_at" type="DATETIME" defaultValue="now()"><constraints nullable="false" /></column>
+    </createTable>
+    <createTable tableName="logins">
+      <column name="id" autoIncrement="true" type="INTEGER"><constraints primaryKey="true"/></column>
+      <column name="email" type="VARCHAR(255)"><constraints unique="true" nullable="false"/></column>
+      <column name="password_hash" type="VARCHAR(60)"><constraints nullable="false" /></column>
+      <column name="admin" type="BOOLEAN" defaultValueBoolean="false"><constraints nullable="false" /></column>
+      <column name="active" type="BOOLEAN" defaultValueBoolean="false"><constraints nullable="false" /></column>
+      <column name="verified" type="BOOLEAN" defaultValueBoolean="false"><constraints nullable="false" /></column>
+      <column name="created_at" type="DATETIME" defaultValue="now()"><constraints nullable="false" /></column>
+      <column name="updated_at" type="DATETIME" defaultValue="now()"><constraints nullable="false" /></column>
+    </createTable>
+    <createTable tableName="activations">
+      <column name="id" type="VARCHAR(60)"><constraints nullable="false" primaryKey="true"/></column>
+      <column name="signup_id" type="INTEGER"><constraints referencedTableName="signups" referencedColumnNames="id" nullable="false" foreignKeyName="activations_signup_fkey"/></column>
+      <column name="expires" type="DATETIME"><constraints nullable="false" /></column>
+      <column name="created_at" type="DATETIME" defaultValue="now()"><constraints nullable="false" /></column>
+      <column name="updated_at" type="DATETIME" defaultValue="now()"><constraints nullable="false" /></column>
+    </createTable>
+    <createTable tableName="api_tokens">
+      <column name="id" type="INTEGER" autoIncrement="true"><constraints primaryKey="true" nullable="false" /></column>
+      <column name="login_id" type="INTEGER"><constraints nullable="false" referencedTableName="logins" referencedColumnNames="id" foreignKeyName="api_tokens_login_fkey"/></column>
+      <column name="token" type="VARCHAR(60)"><constraints nullable="false" /></column>
+      <column name="name" type="VARCHAR(255)"><constraints nullable="false" /></column>
+      <column name="active" type="BOOLEAN" defaultValueBoolean="false"><constraints nullable="false" /></column>
+      <column name="created_at" type="DATETIME" defaultValue="now()"><constraints nullable="false" /></column>
+      <column name="updated_at" type="DATETIME" defaultValue="now()"><constraints nullable="false" /></column>
+    </createTable>
+    <createTable tableName="environments">
+      <column name="id" type="VARCHAR(60)"><constraints nullable="false" primaryKey="true" /></column>
+      <column name="name" type="VARCHAR(255)"><constraints nullable="false" /></column>
+      <column name="enabled" type="BOOLEAN" defaultValueBoolean="true"><constraints nullable="false" /></column>
+      <column name="created_at" type="DATETIME" defaultValue="now()"><constraints nullable="false" /></column>
+      <column name="updated_at" type="DATETIME" defaultValue="now()"><constraints nullable="false" /></column>
+    </createTable>
+    <createTable tableName="environments_logins">
+      <column name="environment_id" type="VARCHAR(60)"><constraints nullable="false" referencedTableName="environments" referencedColumnNames="id" foreignKeyName="environment_logins_env_fkey"/></column>
+      <column name="login_id" type="INTEGER"><constraints nullable="false" referencedTableName="logins" referencedColumnNames="id" foreignKeyName="login_fkey"/></column>
+      <column name="created_at" type="DATETIME" defaultValue="now()"><constraints nullable="false" /></column>
+    </createTable>
+    <addPrimaryKey tableName="environments_logins" columnNames="environment_id,login_id"/>
+    <createTable tableName="instances">
+      <column name="id" type="VARCHAR(60)"><constraints nullable="false" primaryKey="true" /></column>
+      <column name="image_id" type="VARCHAR(60)" />
+      <column name="kernel_id" type="VARCHAR(60)" />
+      <column name="env_id" type="VARCHAR(60)"><constraints referencedTableName="environments" referencedColumnNames="id" nullable="false" foreignKeyName="instances_env_fkey"/></column>
+      <column name="architecture" type="VARCHAR(60)" />
+      <column name="zone" type="VARCHAR(60)"><constraints nullable="false" /></column>
+      <column name="region" type="VARCHAR(60)"><constraints nullable="false" /></column>
+      <column name="provider" type="VARCHAR(60)"><constraints nullable="false" /></column>
+      <column name="created_at" type="DATETIME" defaultValue="now()"><constraints nullable="false" /></column>
+      <column name="updated_at" type="DATETIME" defaultValue="now()"><constraints nullable="false" /></column>
+    </createTable>
+    <createTable tableName="network_interfaces">
+      <column name="id" type="VARCHAR(60)"><constraints nullable="false" primaryKey="true" /></column>
+      <column name="instance_id" type="VARCHAR(60)"><constraints nullable="false" referencedTableName="instances" referencedColumnNames="id" foreignKeyName="network_interfaces_instance_fkey"/></column>
+      <column name="description" type="VARCHAR(255)"/>
+      <column name="status" type="VARCHAR(60)"/>
+      <column name="mac_address" type="VARCHAR(60)"/>
+      <column name="private_dns_name" type="VARCHAR(255)"/>
+      <column name="private_ip_address" type="VARCHAR(40)"/>
+      <column name="created_at" type="DATETIME" defaultValue="now()"><constraints nullable="false" /></column>
+      <column name="updated_at" type="DATETIME" defaultValue="now()"><constraints nullable="false" /></column>
+    </createTable>
+    <createTable tableName="credentials">
+      <column name="id" type="INTEGER" autoIncrement="true"><constraints nullable="false" primaryKey="true" /></column>
+      <column name="env_id" type="VARCHAR(60)"><constraints nullable="false" referencedTableName="environments" referencedColumnNames="id" foreignKeyName="credentials_env_fkey" /></column>
+      <column name="provider" type="VARCHAR(20)"/>
+      <column name="access_key_id" type="VARCHAR(60)"/>
+      <column name="secret_key" type="VARCHAR(60)"/>
+      <column name="created_at" type="DATETIME" defaultValue="now()"><constraints nullable="false" /></column>
+      <column name="updated_at" type="DATETIME" defaultValue="now()"><constraints nullable="false" /></column>
+    </createTable>
+  </changeSet>
+  <changeSet id="3" author="cliff">
+    <preConditions onFail="CONTINUE">
+      <dbms type="postgresql"/>
+    </preConditions>
+    <sql>
+      CREATE TRIGGER update_signups BEFORE UPDATE ON signups FOR EACH ROW EXECUTE PROCEDURE update_time();
+      CREATE TRIGGER update_api_tokens BEFORE UPDATE ON api_tokens FOR EACH ROW EXECUTE PROCEDURE update_time();
+      CREATE TRIGGER update_activations BEFORE UPDATE ON activations FOR EACH ROW EXECUTE PROCEDURE update_time();
+      CREATE TRIGGER update_logins BEFORE UPDATE ON logins FOR EACH ROW EXECUTE PROCEDURE update_time();
+      CREATE TRIGGER update_environments BEFORE UPDATE ON environments FOR EACH ROW EXECUTE PROCEDURE update_time();
+      CREATE TRIGGER update_instances BEFORE UPDATE ON instances FOR EACH ROW EXECUTE PROCEDURE update_time();
+      CREATE TRIGGER update_network_interfaces BEFORE UPDATE ON network_interfaces FOR EACH ROW EXECUTE PROCEDURE update_time();
+      CREATE TRIGGER update_credentials BEFORE UPDATE ON credentials FOR EACH ROW EXECUTE PROCEDURE update_time();
+    </sql>
+    <rollback>
+      DROP TRIGGER update_signups ON signups;
+      DROP TRIGGER update_logins ON logins;
+      DROP TRIGGER update_activations on activations;
+      DROP TRIGGER update_api_tokens on api_tokens;
+      DROP TRIGGER update_network_interfaces ON network_interfaces;
+      DROP TRIGGER update_instances ON instances;
+      DROP TRIGGER update_environments ON environments;
+      DROP TRIGGER update_credentials ON credentials;
+    </rollback>
+  </changeSet>
+  <changeSet id="4" author="cliff">
+    <preConditions onFail="CONTINUE">
+      <dbms type="h2"/>
+    </preConditions>
+    <sql>
+      CREATE TRIGGER update_signups BEFORE UPDATE ON signups FOR EACH ROW CALL
+      "co.opsee.auth.integration.util.H2Trigger";
+      CREATE TRIGGER update_api_tokens BEFORE UPDATE ON api_tokens FOR EACH ROW CALL
+      "co.opsee.auth.integration.util.H2Trigger";
+      CREATE TRIGGER update_activations BEFORE UPDATE ON activations FOR EACH ROW CALL
+      "co.opsee.auth.integration.util.H2Trigger";
+      CREATE TRIGGER update_logins BEFORE UPDATE ON logins FOR EACH ROW CALL
+      "co.opsee.auth.integration.util.H2Trigger";
+      CREATE TRIGGER update_environments BEFORE UPDATE ON environments FOR EACH ROW CALL
+      "co.opsee.auth.integration.util.H2Trigger";
+      CREATE TRIGGER update_instances BEFORE UPDATE ON instances FOR EACH ROW CALL
+      "co.opsee.auth.integration.util.H2Trigger";
+      CREATE TRIGGER update_network_interfaces BEFORE UPDATE ON network_interfaces FOR EACH ROW CALL
+      "co.opsee.auth.integration.util.H2Trigger";
+      CREATE TRIGGER update_credentials BEFORE UPDATE ON credentials FOR EACH ROW CALL
+      "co.opsee.auth.integration.util.H2Trigger";
+    </sql>
+    <rollback>
+      DROP TRIGGER update_signups ON signups;
+      DROP TRIGGER update_logins ON logins;
+      DROP TRIGGER update_activations on activations;
+      DROP TRIGGER update_api_tokens on api_tokens;
+      DROP TRIGGER update_network_interfaces ON network_interfaces;
+      DROP TRIGGER update_instances ON instances;
+      DROP TRIGGER update_environments ON environments;
+      DROP TRIGGER update_credentials ON credentials;
+    </rollback>
+  </changeSet>
+  <changeSet id="5" author="cliff">
+    <addColumn tableName="logins">
+      <column name="onboard" type="BOOLEAN" defaultValueBoolean="true"><constraints nullable="false" /></column>
+    </addColumn>
+  </changeSet>
+</databaseChangeLog>
