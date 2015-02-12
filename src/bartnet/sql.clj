@@ -1,6 +1,7 @@
 (ns bartnet.sql
   (:import com.mchange.v2.c3p0.ComboPooledDataSource)
-  (:require [yesql.core :refer [defqueries]] [clojure.tools.logging :as log]))
+  (:require [yesql.core :refer [defqueries]]
+            [clojure.tools.logging :as log]))
 
 (defn pool
   [config]
@@ -14,20 +15,4 @@
                (.setInitialPoolSize (:init-conns config)))]
     {:datasource cpds}))
 
-(defn pooled-queries
-  "Partials the connection pool as the first argument and stuffs all the queries into the calling namespace"
-  [db-spec]
-  (binding [*ns* (find-ns 'bartnet.sql)]
-    (def pooled (pool db-spec))
-      (doall
-        (for [var (defqueries "queries.sql")]
-          (let [new-func (partial @var pooled)]
-            (eval `(def ~(:name (meta var)) ~new-func)))))))
-
-(defn unpooled-queries
-  [db-spec]
-  (binding [*ns* (find-ns 'bartnet.sql)]
-    (doall
-      (for [var (defqueries "queries.sql")]
-        (let [new-func (partial @var db-spec)]
-          (eval `(def ~(:name (meta var)) ~new-func)))))))
+(defqueries "queries.sql")

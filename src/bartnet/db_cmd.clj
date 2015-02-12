@@ -36,9 +36,13 @@
   (str "The following errors occurred while parsing your command:\n\n"
        (str/join \newline errors)))
 
-(defn do-migrate [config options]
-  (let [pool (sql/pool (:db-spec config))
-        liquibase (new Liquibase "migrations.xml" (new ClassLoaderResourceAccessor) (new JdbcConnection (.getConnection (:datasource pool))))]
+(defn get-connection [{:keys [connection datasource]}]
+  (cond
+    connection connection
+    datasource (.getConnection datasource)))
+
+(defn migrate-db [pool options]
+  (let [liquibase (new Liquibase "migrations.xml" (new ClassLoaderResourceAccessor) (new JdbcConnection (get-connection pool)))]
     (if-let [count (:count options)]
       (if (:dry-run options)
         (.update liquibase count "" (new OutputStreamWriter System/out (Charset/forName "UTF-8")))
@@ -53,9 +57,10 @@
       (:help options) (exit 0 (usage summary))
       (not= (count arguments) 1) (exit 1 (usage summary))
       errors (exit 1 (error-msg errors)))
-    (let [config (parse-string (slurp (first arguments)) true)]
+    (let [config (parse-string (slurp (first arguments)) true)
+          pool (sql/pool (:db-spec config))]
       (log/info config)
-      (do-migrate config options))))
+      (migrate-db pool options))))
 
 (defn db-cmd [args]
   (case (first args)

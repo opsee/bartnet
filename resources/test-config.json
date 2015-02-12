@@ -1,0 +1,18 @@
+{
+    "db-spec":
+    {
+        "classname":"org.h2.Driver",
+        "subprotocol":"h2",
+        "subname":"/tmp/bartnet_db",
+        "user":"cliff",
+        "password":"",
+        "max-conns":6,
+        "min-conns":1,
+        "init-conns":1
+    },
+    "secret":"abc123",
+    "server":
+    {
+        "port":8080
+    }
+}

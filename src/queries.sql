@@ -50,11 +50,11 @@ select environments.* from environments, environments_logins
           environments_logins.login_id=:login_id and
           enabled=true;
 
--- name: update-environment
+-- name: update-environment!
 -- Updates the mutable field of an environment, the name.
 update environments set name=:name where id=:id;
 
--- name: toggle-environment
+-- name: toggle-environment!
 -- Sets the disabled flag for an environment
 update environments set enabled=:enabled where id=:id;
 

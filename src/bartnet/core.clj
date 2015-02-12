@@ -18,91 +18,108 @@
             [ring.adapter.jetty9 :refer [run-jetty]])
   (:import [java.util Base64]))
 
-; placeholders for init
-(def config)
-(def secret)
-
 (defmethod liberator.representation/render-map-generic "application/json" [data _]
   (generate-string data))
 
 (defmethod liberator.representation/render-seq-generic "application/json" [data _]
   (generate-string data))
 
+(defn json-body [ctx]
+  (parse-stream (io/reader (get-in ctx [:request :body])) true))
+
 (defn allowed-to-auth?
   "Checks the body of the request and uses the password to authenticate the user."
-  [ctx]
-  (let [unsec-login (parse-stream (io/reader (get-in ctx [:request :body])) true)]
-    (auth/basic-authenticate (:email unsec-login) (:password unsec-login))))
+  [db]
+  (fn [ctx]
+    (let [unsec-login (json-body ctx)]
+      (auth/basic-authenticate db (:email unsec-login) (:password unsec-login)))))
 
 (defn add-hmac-to-ctx
   "Gets the login from the context and generates an HMAC which gets added to the response"
-    [ctx]
+  [secret]
+  (fn [ctx]
     (let [login (:login ctx)
           id (str (:id login))
           hmac (str id "--" (.encodeToString (Base64/getUrlEncoder) (auth/generate-hmac-signature id secret)))]
-      (ring-response {:headers {"X-Auth-HMAC" hmac}})))
+      (ring-response {:headers {"X-Auth-HMAC" hmac}}))))
 
 (defn authorized?
   "Determines whether a request has the correct authorization headers, and sets the login id in the ctx."
-  [ctx]
-  (log/info ctx)
-  (let [[auth-type slug] (str/split (get-in ctx [:request :headers "authorization"]) #" " 2)]
-    (auth/authorized? auth-type slug secret)))
+  [db secret]
+  (fn [ctx]
+    (log/info ctx)
+    (if-let [auth-header (get-in ctx [:request :headers "authorization"])]
+      (let [[auth-type slug] (str/split auth-header #" " 2)]
+        (auth/authorized? db auth-type slug secret)))))
 
-(defn list-environments [ctx]
-  (sql/get-environments-for-login (:id (:login ctx))))
 
-(defn create-environment! [ctx]
-  (let [login (:login ctx)
-        id (identifiers/generate)
-        env (assoc (parse-stream (io/reader (get-in ctx [:request :body])) true) :id id)]
-    (log/info env)
-    (if (sql/insert-into-environments! id (:name env))
-      (if (sql/link-environment-and-login! id (:id login))
-        {:env env}))))
+(defn list-environments [db]
+  (fn [ctx]
+    (sql/get-environments-for-login db (:id (:login ctx)))))
+
+(defn create-environment! [db]
+  (fn [ctx]
+    (let [login (:login ctx)
+          id (identifiers/generate)
+          env (assoc (json-body ctx) :id id)]
+      (log/info env)
+      (if (sql/insert-into-environments! db id (:name env))
+        (if (sql/link-environment-and-login! db id (:id login))
+          {:env env})))))
 
 (defn get-environment [ctx]
   (:env ctx))
 
-(defresource authenticate-resource
+(defn environment-exists? [db id]
+  (fn [ctx]
+    (let [login (:login ctx)]
+      (if-let [env (first (sql/get-environment-for-login db id (:id login)))]
+        [true {:env env}]
+        false))))
+
+(defn update-environment! [db id]
+  (fn [ctx]
+    (let [env (json-body ctx)]
+      (if (sql/update-environment! db (:name env) id)
+        {:env env}))))
+
+(defresource authenticate-resource [db secret]
              :available-media-types ["application/json"]
              :allowed-methods [:post]
-             :allowed? allowed-to-auth?
-             :handle-created add-hmac-to-ctx)
+             :allowed? (allowed-to-auth? db)
+             :handle-created (add-hmac-to-ctx secret))
 
-(defresource environments-resource
+(defresource environments-resource [db secret]
              :available-media-types ["application/json"]
              :allowed-methods [:get :post]
-             :allowed? authorized?
-             :post! create-environment!
-             :handle-ok list-environments
+             :allowed? (authorized? db secret)
+             :post! (create-environment! db)
+             :handle-ok (list-environments db)
              :handle-created get-environment)
 
-;(defresource environment-resource [id]
-;             :available-media-types ["application/json"]
-;             :allowed-methods [:get :put :delete])
+(defresource environment-resource [db secret id]
+             :available-media-types ["application/json"]
+             :allowed-methods [:get :put :delete]
+             :allowed? (authorized? db secret)
+             :exists? (environment-exists? db id)
+             :put! (update-environment! db id)
+             :handle-ok get-environment)
 
-(defroutes app
-           (ANY "/authenticate/password" [] authenticate-resource)
-           (ANY "/environments" [] environments-resource)
-           ;(ANY "/environments/:id" [id] (environment-resource id))
-           )
+(defn app [db, config]
+  (let [secret (:secret config)]
+    (routes
+      (ANY "/authenticate/password" [] (authenticate-resource secret))
+      (ANY "/environments" [] (environments-resource db secret))
+      (ANY "/environments/:id" [id] (environment-resource db secret id)))))
 
-(def handler
-  (-> app
+(defn handler [db, config]
+  (-> (app db config)
       (wrap-trace :header :ui)))
 
-(defn initialize [conf]
-  (do
-    (def config conf)
-    (def secret (.getBytes (:secret config)))
-    (sql/pooled-queries (:db-spec config))))
-
 (defn server-cmd [args]
-  (let [conf (parse-string (slurp (first args)) :true)]
-    (do
-      (initialize conf)
-      (run-jetty handler (:server conf)))))
+  (let [config (parse-string (slurp (first args)) true)
+        db (sql/pool (:db-spec config))]
+    (run-jetty handler (:server config))))
 
 (defn -main [& args]
   (let [cmd (first args)
@@ -110,6 +127,4 @@
     (case cmd
       "server" (server-cmd subargs)
       "db" (db-cmd/db-cmd subargs))))
-
-
 

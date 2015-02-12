@@ -135,21 +135,21 @@
     </preConditions>
     <sql>
       CREATE TRIGGER update_signups BEFORE UPDATE ON signups FOR EACH ROW CALL
-      "co.opsee.auth.integration.util.H2Trigger";
+      "bartnet.DateTrigger";
       CREATE TRIGGER update_api_tokens BEFORE UPDATE ON api_tokens FOR EACH ROW CALL
-      "co.opsee.auth.integration.util.H2Trigger";
+      "bartnet.DateTrigger";
       CREATE TRIGGER update_activations BEFORE UPDATE ON activations FOR EACH ROW CALL
-      "co.opsee.auth.integration.util.H2Trigger";
+      "bartnet.DateTrigger";
       CREATE TRIGGER update_logins BEFORE UPDATE ON logins FOR EACH ROW CALL
-      "co.opsee.auth.integration.util.H2Trigger";
+      "bartnet.DateTrigger";
       CREATE TRIGGER update_environments BEFORE UPDATE ON environments FOR EACH ROW CALL
-      "co.opsee.auth.integration.util.H2Trigger";
+      "bartnet.DateTrigger";
       CREATE TRIGGER update_instances BEFORE UPDATE ON instances FOR EACH ROW CALL
-      "co.opsee.auth.integration.util.H2Trigger";
+      "bartnet.DateTrigger";
       CREATE TRIGGER update_network_interfaces BEFORE UPDATE ON network_interfaces FOR EACH ROW CALL
-      "co.opsee.auth.integration.util.H2Trigger";
+      "bartnet.DateTrigger";
       CREATE TRIGGER update_credentials BEFORE UPDATE ON credentials FOR EACH ROW CALL
-      "co.opsee.auth.integration.util.H2Trigger";
+      "bartnet.DateTrigger";
     </sql>
     <rollback>
       DROP TRIGGER update_signups ON signups;
