@@ -8,7 +8,8 @@
             [liquibase.resource ClassLoaderResourceAccessor]
             [liquibase.database.jvm JdbcConnection]
             [java.io OutputStreamWriter]
-            [java.nio.charset Charset]))
+            [java.nio.charset Charset]
+            [liquibase.logging LogFactory LogLevel Logger]))
 
 (def migrate-options
   [
@@ -43,6 +44,8 @@
 
 (defn migrate-db [pool options]
   (let [liquibase (new Liquibase "migrations.xml" (new ClassLoaderResourceAccessor) (new JdbcConnection (get-connection pool)))]
+    (if (:silent options)
+      (.setLogLevel (LogFactory/getLogger) LogLevel/OFF))
     (if (:drop-all options)
       (.dropAll liquibase))
     (if-let [count (:count options)]
@@ -61,7 +64,6 @@
       errors (exit 1 (error-msg errors)))
     (let [config (parse-string (slurp (first arguments)) true)
           pool (sql/pool (:db-spec config))]
-      (log/info config)
       (migrate-db pool options))))
 
 (defn db-cmd [args]

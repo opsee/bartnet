@@ -48,7 +48,6 @@
   "Determines whether a request has the correct authorization headers, and sets the login id in the ctx."
   [db secret]
   (fn [ctx]
-    (log/info ctx)
     (if-let [auth-header (get-in ctx [:request :headers "authorization"])]
       (let [[auth-type slug] (str/split auth-header #" " 2)]
         (auth/authorized? db auth-type slug secret)))))
@@ -63,7 +62,6 @@
     (let [login (:login ctx)
           id (identifiers/generate)
           env (assoc (json-body ctx) :id id)]
-      (log/info env)
       (if (sql/insert-into-environments! db id (:name env))
         (if (sql/link-environment-and-login! db id (:id login))
           {:env env})))))
@@ -111,7 +109,8 @@
     (routes
       (ANY "/authenticate/password" [] (authenticate-resource db secret))
       (ANY "/environments" [] (environments-resource db secret))
-      (ANY "/environments/:id" [id] (environment-resource db secret id)))))
+      (ANY "/environments/:id" [id] (environment-resource db secret id))
+      (ANY "/logins" [] (logins-resource db secret)))))
 
 (defn handler [db, config]
   (-> (app db config)

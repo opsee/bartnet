@@ -21,7 +21,7 @@
   (.digest
     (doto (MessageDigest/getInstance "SHA1")
       (.digest (.getBytes (str id)))
-      (.digest secret))))
+      (.digest (.getBytes secret)))))
 
 (defn do-basic-auth [db slug]
   (let [decoded (B64Code/decode slug StringUtil/__ISO_8859_1)
@@ -49,4 +49,5 @@
   (case (str/lower-case auth-type)
     "basic" (do-basic-auth db slug)
     "token" (do-token-auth db slug)
-    "hmac" (do-hmac-auth db slug secret)))
+    "hmac" (do-hmac-auth db slug secret)
+    false))
