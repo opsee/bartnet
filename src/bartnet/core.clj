@@ -25,13 +25,14 @@
   (generate-string data))
 
 (defn json-body [ctx]
-  (parse-stream (io/reader (get-in ctx [:request :body])) true))
+  (if-let [body (get-in ctx [:request :body])]
+    (parse-stream (io/reader body) true)))
 
 (defn allowed-to-auth?
   "Checks the body of the request and uses the password to authenticate the user."
   [db]
   (fn [ctx]
-    (let [unsec-login (json-body ctx)]
+    (if-let [unsec-login (json-body ctx)]
       (auth/basic-authenticate db (:email unsec-login) (:password unsec-login)))))
 
 (defn add-hmac-to-ctx
@@ -86,13 +87,13 @@
 (defresource authenticate-resource [db secret]
              :available-media-types ["application/json"]
              :allowed-methods [:post]
-             :allowed? (allowed-to-auth? db)
+             :authorized? (allowed-to-auth? db)
              :handle-created (add-hmac-to-ctx secret))
 
 (defresource environments-resource [db secret]
              :available-media-types ["application/json"]
              :allowed-methods [:get :post]
-             :allowed? (authorized? db secret)
+             :authorized? (authorized? db secret)
              :post! (create-environment! db)
              :handle-ok (list-environments db)
              :handle-created get-environment)
@@ -100,7 +101,7 @@
 (defresource environment-resource [db secret id]
              :available-media-types ["application/json"]
              :allowed-methods [:get :put :delete]
-             :allowed? (authorized? db secret)
+             :authorized? (authorized? db secret)
              :exists? (environment-exists? db id)
              :put! (update-environment! db id)
              :handle-ok get-environment)
@@ -108,7 +109,7 @@
 (defn app [db, config]
   (let [secret (:secret config)]
     (routes
-      (ANY "/authenticate/password" [] (authenticate-resource secret))
+      (ANY "/authenticate/password" [] (authenticate-resource db secret))
       (ANY "/environments" [] (environments-resource db secret))
       (ANY "/environments/:id" [id] (environment-resource db secret id)))))
 

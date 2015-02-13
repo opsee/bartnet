@@ -8,6 +8,9 @@
            [org.eclipse.jetty.util B64Code]
            [org.eclipse.jetty.util StringUtil]))
 
+(defn hash-password [password]
+  (BCrypt/hashpw password (BCrypt/gensalt)))
+
 (defn basic-authenticate [db username password]
   (if-let [login (first (sql/get-active-login-by-email db username))]
     (if (BCrypt/checkpw password (:password_hash login))

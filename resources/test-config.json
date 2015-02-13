@@ -3,7 +3,7 @@
     {
         "classname":"org.h2.Driver",
         "subprotocol":"h2",
-        "subname":"/tmp/bartnet_db",
+        "subname":"/tmp/bartnet_db;LOCK_MODE=0",
         "user":"cliff",
         "password":"",
         "max-conns":6,

@@ -43,6 +43,8 @@
 
 (defn migrate-db [pool options]
   (let [liquibase (new Liquibase "migrations.xml" (new ClassLoaderResourceAccessor) (new JdbcConnection (get-connection pool)))]
+    (if (:drop-all options)
+      (.dropAll liquibase))
     (if-let [count (:count options)]
       (if (:dry-run options)
         (.update liquibase count "" (new OutputStreamWriter System/out (Charset/forName "UTF-8")))

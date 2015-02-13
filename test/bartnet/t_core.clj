@@ -6,6 +6,7 @@
             [clojure.test :refer :all]
             [ring.mock.request :as mock]
             [bartnet.sql :as sql]
+            [bartnet.auth :as auth]
             [clojure.java.jdbc :as jdbc]
             [clojure.java.io :as io]
             [clojure.tools.logging :as log]
@@ -21,16 +22,31 @@
 (defn do-setup []
   (do
       (start-connection)
-      (log/info @db)
-      (migrate-db @db {})))
+      (migrate-db @db {:drop-all true})))
 
 (defn app []
   (do (log/info @db)
       (core/app @db test-config)))
 
-(with-state-changes [(before :facts (do-setup))
-                     (around :facts (jdbc/with-db-transaction [databas @db] ?form (jdbc/db-set-rollback-only! databas)))]
+(defn login-fixtures [db]
+  (sql/insert-into-logins! db "cliff@leaninto.it" (auth/hash-password "cliff")))
+
+(defn environment-fixtures [db]
+  (do
+    (sql/insert-into-environments! db "abc123" "Test Env")
+    (sql/link-environment-and-login! db "abc123" 1)))
+
+(with-state-changes
+  [(before :facts (do-setup))
+   ;(around :facts (jdbc/with-db-transaction [databas @db :isolation :read-uncommitted] (log/info @db databas) ?form (jdbc/db-set-rollback-only! databas)))
+   ]
+  (facts "Auth endpoint works"
+         (fact "bounces bad logins"
+               (let [response ((app) (mock/request :post "/authenticate/password"))]
+                 (:status response) => 401))
+         (with-state-changes [(before :facts (do (log/info @db) (login-fixtures @db)))]))
   (facts "Environments endpoint works"
-         (fact "auth bounces bad request"
+         (fact "bounces unauthorized requests"
                (let [response ((app) (mock/request :get "/environments"))]
-                 (:status response) => 401))))
+                 (:status response) => 401))
+         (with-state-changes [(before :facts (do (login-fixtures @db) (environment-fixtures @db)))])))
