@@ -36,7 +36,7 @@
     [true, {:login login}]
     false))
 
-(defn do-hmac-auth [db hmac, secret]
+(defn do-hmac-auth [db hmac secret]
   (let [[id digest] (str/split hmac #"--")]
     (if (MessageDigest/isEqual
           (.decode (Base64/getUrlDecoder) digest)

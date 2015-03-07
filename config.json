@@ -14,5 +14,9 @@
     "server":
     {
         "port":8080
+    },
+    "bastion-server":
+    {
+        "port":4080
     }
 }

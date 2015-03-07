@@ -167,4 +167,9 @@
       <column name="onboard" type="BOOLEAN" defaultValueBoolean="true"><constraints nullable="false" /></column>
     </addColumn>
   </changeSet>
+  <changeSet id="6" author="cliff">
+    <addColumn tableName="logins">
+      <column name="customer-id" type="VARCHAR(255)" defaultValue="cliff"><constraints unique="true" nullable="false" /></column>
+    </addColumn>
+  </changeSet>
 </databaseChangeLog>
