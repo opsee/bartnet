@@ -6,8 +6,8 @@
   :main ^:skip-aot bartnet.core
   :profiles {:uberjar {:aot :all}
              :dev {:dependencies [[midje "1.6.3"]
-                                  [lein-midje "3.0.0"]
-                                  [ring/ring-mock "0.2.0"]]}}
+                                  [ring/ring-mock "0.2.0"]]
+                   :plugins [[lein-midje "3.0.0"]]}}
   :aot [bartnet.DateTrigger]
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [liberator "0.12.2"]
