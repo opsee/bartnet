@@ -1,6 +1,7 @@
 (ns bartnet.t-bastion
   (:use midje.sweet)
-  (:require [bartnet.bastion :as bastion]
+  (:require [bartnet.pubsub :as pubsub]
+            [bartnet.bastion :as bastion]
             [manifold.deferred :as d]
             [manifold.stream :as s]
             [gloss.core :as gloss]
@@ -32,7 +33,8 @@
   []
   (facts "Bastion channel listens"
          (fact "can echo"
-               (let [server (bastion/bastion-server {"echo" echo} {:port 10000})
+               (let [pubsub (pubsub/create-pubsub)
+                     server (bastion/bastion-server pubsub {"echo" echo} {:port 10000})
                      client @(client "localhost" 10000)]
                  @(s/put! client {:cmd "echo", :seq 1}) => true
                  @(s/take! client) => {:cmd "echo", :reply "ok", :seq 1}))))

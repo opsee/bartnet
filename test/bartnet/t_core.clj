@@ -1,6 +1,7 @@
 (ns bartnet.t-core
   (:use midje.sweet)
   (:require [bartnet.core :as core]
+            [bartnet.pubsub :as pubsub]
             [bartnet.db-cmd :refer [migrate-db]]
             [yesql.util :refer [slurp-from-classpath]]
             [clojure.test :refer :all]
@@ -27,7 +28,7 @@
       (migrate-db @db {:drop-all true :silent true})))
 
 (defn app []
-  (do (core/app @db test-config)))
+  (do (core/app (pubsub/create-pubsub) @db test-config)))
 
 (defn login-fixtures [db]
   (sql/insert-into-logins! db "cliff@leaninto.it" (auth/hash-password "cliff")))
