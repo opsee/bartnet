@@ -106,6 +106,22 @@
       (log/info "msg " recv)
       recv)))
 
+(defn list-bastions [pubsub]
+  (fn [ctx]
+    (let [login (:login ctx)]
+      (for [brec (get-bastions pubsub (:customer-id login))
+            :let [reg (:registration brec)]]
+        reg))))
+
+(defn cmd-bastion! [pubsub id]
+  (fn [ctx]
+    (let [cmd (json-body ctx)
+          recv (send-msg pubsub id (:cmd cmd) (:body cmd))]
+      {:msg recv})))
+
+(defn get-msg [ctx]
+  (:msg ctx))
+
 (defresource authenticate-resource [db secret]
              :available-media-types ["application/json"]
              :allowed-methods [:post]
@@ -137,9 +153,16 @@
 
 (defresource bastion-resource [pubsub db secret id]
              :available-media-types ["application/json"]
+             :allowed-methods [:post]
+             :authorized? (authorized? db secret)
+             :post! (cmd-bastion! pubsub id)
+             :handle-created get-msg)
+
+(defresource bastions-resource [pubsub db secret]
+             :available-media-types ["application/json"]
              :allowed-methods [:get]
              :authorized? (authorized? db secret)
-             :handle-ok (ping-bastion! pubsub id))
+             :handle-ok (list-bastions pubsub))
 
 (defn wrap-options [handler]
   (fn [request]
@@ -160,6 +183,7 @@
       (ANY "/environments" [] (environments-resource db secret))
       (ANY "/environments/:id" [id] (environment-resource db secret id))
       (ANY "/logins" [] (logins-resource db secret))
+      (ANY "/bastions" [] (bastions-resource pubsub db secret))
       (ANY "/bastions/:id" [id] (bastion-resource pubsub db secret id)))))
 
 (defn handler [pubsub db config]
