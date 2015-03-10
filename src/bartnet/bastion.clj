@@ -12,7 +12,7 @@
 (defrecord Connection [id customer-id counter stream replies]
   SendableConn
   (send-and-recv [_ cmd msg]
-    (let [out {:cmd cmd, :msg msg, :seq @counter}
+    (let [out {:version 1, :id @counter, :command cmd, :message msg}
           defer (d/deferred)]
       (.put replies @counter defer)
       (swap! counter inc)
@@ -59,9 +59,9 @@
                       msg)
 
                     (fn [reply-msg]
-                      (if (:reply reply-msg)
+                      (if (:in_reply_to reply-msg)
                         (do
-                          (if-let [defer (.remove replies (long (:seq reply-msg)))]
+                          (if-let [defer (.remove replies (long (:in_reply_to reply-msg)))]
                             (do
                               (d/success! defer reply-msg)
                               ::none)))
@@ -70,7 +70,7 @@
                     (fn [msg]
                       (if (= ::none msg)
                         ::none
-                        (if-let [cmd (:cmd msg)]
+                        (if-let [cmd (:command msg)]
                           (if (= cmd "connected")
                             (d/future (register-connection pubsub counter replies stream msg))
                             (d/future ((get cmds cmd) msg))))))
