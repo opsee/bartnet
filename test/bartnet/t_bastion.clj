@@ -10,9 +10,8 @@
             [clojure.tools.logging :as log]
             [aleph.tcp :as tcp]))
 
-(defn do-setup []
-  (do
-    ))
+(def pubsub (pubsub/create-pubsub))
+(def server (atom nil))
 
 (defn echo [msg]
   (assoc msg :reply "ok"))
@@ -29,12 +28,27 @@
     (log/info (str "client " c))
     c))
 
-(with-state-changes
-  []
-  (facts "Bastion channel listens"
-         (fact "can echo"
-               (let [pubsub (pubsub/create-pubsub)
-                     server (bastion/bastion-server pubsub {"echo" echo} {:port 10000})
-                     client @(client "localhost" 10000)]
-                 @(s/put! client {:cmd "echo", :seq 1}) => true
-                 @(s/take! client) => {:cmd "echo", :reply "ok", :seq 1}))))
+(defn setup-server [port cmds]
+  (reset! server (bastion/bastion-server pubsub cmds {:port port})))
+
+(defn teardown-server []
+  (.close @server))
+
+(facts "Bastion channel listens"
+       (with-state-changes
+         [(before :facts (setup-server 10000 {"echo" echo}))
+          (after :facts (teardown-server))]
+         (fact "and can echo the client"
+               (let [client @(client "localhost" 10000)]
+                 @(s/put! client {:command "echo", :id 1}) => true
+                 @(s/take! client) => {:command "echo", :id 1, :reply "ok", :in_reply_to 1}))
+         (fact "registers the client"
+               (let [client @(client "localhost" 10000)]
+                 @(s/put! client {:command "connected",
+                                  :id 1,
+                                  :sent 0,
+                                  :version 1,
+                                  :message {:hostname "cliff.local",
+                                            :id "cliff",
+                                            :customer-id "customer"}}) => true
+                 @(s/take! client) => (contains {:in_reply_to 1})))))

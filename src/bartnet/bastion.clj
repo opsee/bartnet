@@ -9,13 +9,18 @@
             [clojure.tools.logging :as log])
   (:import [org.cliffc.high_scale_lib NonBlockingHashMapLong]))
 
+(defn get-and-inc [counter]
+  (let [i @counter]
+    (swap! counter inc)
+    i))
+
 (defrecord Connection [id customer-id counter stream replies]
   SendableConn
   (send-and-recv [_ cmd msg]
-    (let [out {:version 1, :id @counter, :command cmd, :message msg}
+    (let [i (get-and-inc counter)
+          out {:version 1, :id i, :command cmd, :message msg}
           defer (d/deferred)]
-      (.put replies @counter defer)
-      (swap! counter inc)
+      (.put replies i defer)
       @(s/put! stream out)
       @defer)))
 
@@ -41,11 +46,16 @@
     (send-and-recv connection (:cmd msg) (:body msg))))
 
 (defn register-connection [pubsub counter replies stream msg]
-  (let [id (get-in msg [:host :id])
-        customer-id (get-in msg [:host :customer-id])
+  (let [id (get-in msg [:message :id])
+        customer-id (get-in msg [:message :customer-id])
         connection (Connection. id customer-id counter stream replies)
         stream (register-bastion pubsub connection msg)]
-    (s/consume (consume-commands connection) stream)))
+    (s/consume (consume-commands connection) stream)
+    {:in_reply_to (:id msg),
+     :id (get-and-inc counter),
+     :version 1,
+     :command (:command msg),
+     :message "ok"}))
 
 (defn handler [pubsub counter replies cmds]
   (fn [stream info]
@@ -68,12 +78,15 @@
                         reply-msg))
 
                     (fn [msg]
-                      (if (= ::none msg)
-                        ::none
-                        (if-let [cmd (:command msg)]
-                          (if (= cmd "connected")
-                            (d/future (register-connection pubsub counter replies stream msg))
-                            (d/future ((get cmds cmd) msg))))))
+                      (let [id (:id msg)]
+                        (if (= ::none msg)
+                          ::none
+                          (if-let [cmd (:command msg)]
+                            (if (= cmd "connected")
+                              (d/future (register-connection pubsub counter replies stream msg))
+                              (d/future (assoc
+                                          ((get cmds cmd) msg)
+                                          :in_reply_to id)))))))
 
                     (fn [reply]
                       (s/put! stream reply))
