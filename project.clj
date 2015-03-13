@@ -25,6 +25,11 @@
                  [org.postgresql/postgresql "9.3-1102-jdbc41"]
                  [c3p0/c3p0 "0.9.1.2"]
                  [org.clojure/tools.logging "0.3.1"]
+                 [org.slf4j/slf4j-log4j12 "1.7.7"]
+                 [log4j/log4j "1.2.17" :exclusions [javax.mail/mail
+                                                    javax.jms/jms
+                                                    com.sun.jmdk/jmxtools
+                                                    com.sun.jmx/jmxri]]
                  [org.liquibase/liquibase-core "3.1.1"]
                  [com.novemberain/validateur "2.4.2"]
                  ;[riemann "0.2.8"]

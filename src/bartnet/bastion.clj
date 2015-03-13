@@ -22,7 +22,7 @@
           defer (d/deferred)]
       (.put replies i defer)
       @(s/put! stream out)
-      @defer)))
+      defer)))
 
 (def protocol
   (gloss/compile-frame (gloss/string :utf-8 :delimiters ["\r\n"])))

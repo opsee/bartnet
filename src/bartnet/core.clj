@@ -102,7 +102,7 @@
 
 (defn ping-bastion! [pubsub id]
   (fn [ctx]
-    (let [recv (send-msg pubsub id "echo" "echo")]
+    (let [recv @(send-msg pubsub id "echo" "echo")]
       (log/info "msg " recv)
       recv)))
 
@@ -116,7 +116,7 @@
 (defn cmd-bastion! [pubsub id]
   (fn [ctx]
     (let [cmd (json-body ctx)
-          recv (send-msg pubsub id (:cmd cmd) (:body cmd))]
+          recv @(send-msg pubsub id (:cmd cmd) (:body cmd))]
       {:msg recv})))
 
 (defn get-msg [ctx]
