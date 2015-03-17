@@ -13,6 +13,7 @@
     "secret":"abc123",
     "server":
     {
-        "port":8080
+        "port":8080,
+        "join?":false
     }
 }

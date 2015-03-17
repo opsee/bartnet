@@ -66,4 +66,5 @@
                      msg @(s/take! client)]
                  msg => (contains {:id 1, :message {:msg "hello"}, :version 1})
                  @(s/put! client {:id 2, :in_reply_to 1, :message {:msg "hey"}, :version 1, :sent 0})
-                 @defer => (contains {:in_reply_to 1})))))
+                 @defer => (contains {:in_reply_to 1})
+                 (.close client)))))

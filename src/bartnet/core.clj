@@ -17,10 +17,11 @@
             [bartnet.bastion :as bastion]
             [bartnet.db-cmd :as db-cmd]
             [bartnet.pubsub :refer :all]
+            [bartnet.util :refer [if-and-let]]
             [manifold.stream :as s]
             [aleph.tcp :as tcp]
             [yesql.util :refer [slurp-from-classpath]]
-            [ring.adapter.jetty9 :refer [run-jetty]])
+            [ring.adapter.jetty9 :refer :all])
   (:import [java.util Base64]
            [org.cliffc.high_scale_lib NonBlockingHashMap]))
 
@@ -207,31 +208,37 @@
 (defrecord ClientConnector [id customer-id login])
 
 (defn register-ws-connection [clients db hmac secret ws]
-  (let [[authorized {:keys [login]}] (auth/do-hmac-auth db hmac secret)]
-    (when authorized
-      (.put clients ws (ClientConnector. (identifiers/generate) (:customer-id login) login)))))
+  (if-and-let [auth-resp (auth/do-hmac-auth db hmac secret)
+               [authorized {login :login}] auth-resp
+               client (ClientConnector. (identifiers/generate) (:customer-id login) login)]
+      (when authorized
+        (do
+          (.put clients ws client)
+          client))))
 
 (defn consume-bastion [ws]
   (fn [msg]
     ))
 
-(defn process-authorized-command [client pubsub msg]
+(defn process-authorized-command [client ws pubsub msg]
     (case (:cmd msg)
-    "subscribe" ()
-    "" ()))
+      "subscribe" ()
+      "echo" (do (log/info "echo here") (send! ws "echo"))))
 
 (defn ws-handler [pubsub clients db secret]
   {:on-connect (fn [_])
    :on-text    (fn [ws msg]
                  (let [parsed-msg (parse-string msg true)
                        client (.get clients ws)]
+                   (log/info "ws msg", parsed-msg)
                    (if client
-                     (process-authorized-command client pubsub parsed-msg)
-                     (if-let [hmac (:hmac msg)]
-                       (if-let [client (register-ws-connection clients db hmac secret ws)]
-                         (let [stream (register-ws-client pubsub client)]
-                           (future (s/consume (consume-bastion ws) stream))
-                           (process-authorized-command client pubsub parsed-msg)))))))
+                     (process-authorized-command client ws pubsub parsed-msg)
+                     (if-and-let [hmac (:hmac parsed-msg)
+                                  client (register-ws-connection clients db hmac secret ws)]
+                                 (let [stream (register-ws-client pubsub client)]
+                                   (future (s/consume (consume-bastion ws) stream))
+                                   (process-authorized-command client ws pubsub parsed-msg))
+                                 (send! ws (generate-string {:error "unauthorized"}))))))
    :on-closed  (fn [ws status-code reason]
                  (if-let [client (.remove clients ws)]
                    (do
@@ -248,7 +255,7 @@
     (run-jetty
       (handler pubsub db config)
       (assoc (:server config)
-        :websockets {"/subscribe" (ws-handler pubsub clients db (:secret config))}))))
+        :websockets {"/stream" (ws-handler pubsub clients db (:secret config))}))))
 
 (defn -main [& args]
   (let [cmd (first args)

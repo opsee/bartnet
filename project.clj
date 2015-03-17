@@ -32,6 +32,7 @@
                                                     com.sun.jmx/jmxri]]
                  [org.liquibase/liquibase-core "3.1.1"]
                  [com.novemberain/validateur "2.4.2"]
-                 ;[riemann "0.2.8"]
+                 [riemann "0.2.9" :exclusions [joda-time
+                                               potemkin]]
                  [aleph "0.4.0-beta3"]
                  [manifold "0.1.0-beta11"]])

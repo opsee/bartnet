@@ -11,6 +11,10 @@
 (defn- command-topic [id]
   (str id "-commands"))
 
+(defprotocol Subscription
+  (add-stream [this stream])
+  (close [this]))
+
 (defprotocol SendableConn
   (send-and-recv [this cmd msg]))
 
