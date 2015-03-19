@@ -131,4 +131,22 @@
            (fact "registers a websocket client"
                  (let [client @(websocket-client "ws://localhost:8080/stream/")]
                    @(s/put! client (generate-string {:cmd "echo", :hmac "1--2jmj7l5rSw0yVb_vlWAYkK_YBwk="})) => true
-                   @(s/take! client) => "echo")))))
+                   (parse-string @(s/take! client) true) => (contains {:cmd "echo"})
+                   (.close client)))
+           (fact "rejects commands from an unauthorized client"
+                 (let [client @(websocket-client "ws://localhost:8080/stream/")]
+                   @(s/put! client (generate-string {:cmd "echo"})) => true
+                   (parse-string @(s/take! client) true) => (contains {:error "unauthorized"})
+                   (.close client)))
+           (fact "subscribes to bastion messages"
+                 (let [client @(websocket-client "ws://localhost:8080/stream/")]
+                   @(s/put! client (generate-string {:cmd "subscribe" :topic "discovery" :hmac "1--2jmj7l5rSw0yVb_vlWAYkK_YBwk="})) => true
+                   (parse-string @(s/take! client) true) => (contains {:reply "ok"})
+                   @(pubsub/publish-bastion @pubsub "cliff" {:command "discovery"
+                                                             :id 1
+                                                             :sent 0
+                                                             :message {:group_name "group 1"
+                                                                       :port 3884
+                                                                       :protocol "sql"
+                                                                       :request "select 1;"}}) => true
+                   (parse-string @(s/take! client) true) => (contains {:command "discovery"}))))))

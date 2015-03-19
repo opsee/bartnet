@@ -23,7 +23,8 @@
             [yesql.util :refer [slurp-from-classpath]]
             [ring.adapter.jetty9 :refer :all])
   (:import [java.util Base64]
-           [org.cliffc.high_scale_lib NonBlockingHashMap]))
+           [org.cliffc.high_scale_lib NonBlockingHashMap]
+           [java.util.concurrent CopyOnWriteArraySet]))
 
 (defmethod liberator.representation/render-map-generic "application/json" [data _]
   (generate-string data))
@@ -205,25 +206,45 @@
    "discovery" discovery-handler
    })
 
-(defrecord ClientConnector [id customer-id login])
+(defprotocol Subscriptor
+  (subscribe! [this topic])
+  (unsubscribe! [this topic])
+  (subscribed? [this topic]))
+
+(defrecord ClientConnector [id customer-id login ^CopyOnWriteArraySet topics]
+  Subscriptor
+  (subscribe! [_ topic]
+    (.add topics topic))
+  (unsubscribe! [_ topic]
+    (.remove topics topic))
+  (subscribed? [_ topic]
+    (.contains topics topic)))
+
+(defn create-connector [login]
+  (ClientConnector. (identifiers/generate) (:customer-id login) login (CopyOnWriteArraySet.)))
 
 (defn register-ws-connection [clients db hmac secret ws]
   (if-and-let [auth-resp (auth/do-hmac-auth db hmac secret)
                [authorized {login :login}] auth-resp
-               client (ClientConnector. (identifiers/generate) (:customer-id login) login)]
+               client (create-connector login)]
       (when authorized
         (do
           (.put clients ws client)
           client))))
 
-(defn consume-bastion [ws]
+(defn consume-bastion [ws client]
   (fn [msg]
-    ))
+    (log/info "publish" msg)
+    (let [cmd (:command msg)]
+      (when (subscribed? client cmd)
+        (send! ws (generate-string msg))))))
 
 (defn process-authorized-command [client ws pubsub msg]
     (case (:cmd msg)
-      "subscribe" ()
-      "echo" (do (log/info "echo here") (send! ws "echo"))))
+      "subscribe" (do
+                    (subscribe! client (:topic msg))
+                    (send! ws (generate-string {:reply "ok"})))
+      "echo" (send! ws (generate-string msg))))
 
 (defn ws-handler [pubsub clients db secret]
   {:on-connect (fn [_])
@@ -236,7 +257,7 @@
                      (if-and-let [hmac (:hmac parsed-msg)
                                   client (register-ws-connection clients db hmac secret ws)]
                                  (let [stream (register-ws-client pubsub client)]
-                                   (future (s/consume (consume-bastion ws) stream))
+                                   (future (s/consume (consume-bastion ws client) stream))
                                    (process-authorized-command client ws pubsub parsed-msg))
                                  (send! ws (generate-string {:error "unauthorized"}))))))
    :on-closed  (fn [ws status-code reason]
