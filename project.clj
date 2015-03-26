@@ -9,12 +9,16 @@
                                   [ring/ring-mock "0.2.0"]]
                    :plugins [[lein-midje "3.0.0"]]}}
   :aot [bartnet.DateTrigger]
+  :plugins [[s3-wagon-private "1.1.2"]]
+  :repositories [["snapshots" {:url "s3p://opsee-maven-snapshots/snapshot"
+                               :username [:gpg :env/ACCESS_KEY_ID]
+                               :passphrase [:gpg :env/SECRET_KEY]}]]
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [liberator "0.12.2"]
                  [compojure "1.3.1"]
                  [ring/ring-core "1.3.2"]
                  [info.sunng/ring-jetty9-adapter "0.8.1"]
-                 [yesql "0.4.0"]
+                 [yesql "0.4.1-SNAPSHOT"]
                  [com.h2database/h2 "1.4.185"]
                  [org.clojure/tools.cli "0.3.1"]
                  [cheshire "5.4.0"]

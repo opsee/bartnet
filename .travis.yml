@@ -1,4 +1,8 @@
 language: clojure
 script:
-  - jdk_switcher use oraclejdk8
-  - lein midje
+- jdk_switcher use oraclejdk8
+- lein midje
+env:
+  global:
+  - secure: OytJywSRmcJY4HwhKOil0e2Ez//azzHOyqfyjwdqDfzLhzySivtMs2gSUdZq9d+Ye2FiZJsv3DNJq6VYlOfH7PegOGTBRpxIdcnQx6Uj6UjxUqZlsgjEOZpXeyPYRft4n9Z5OaW7EIxyhI+/zf7pBR9CafJ7GT0H1x+l2TT/rIo=
+  - secure: gN2scwXnAfvNpBobtVUV+OxmljkRYt5mTvuIizXGZi99EOmdkTFhjBhFMi+uMIdD+Oea3FH26eJjsxtUfsWmCQPkvvCWo0MYyeg9p1w/1dNqy0OyWxqWPcQFL469IxiGVB+ZnQKu8DwY3lNAr5nEUYuGeesdD6pYbi4PMePjwBs=
