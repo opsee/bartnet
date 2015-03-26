@@ -34,7 +34,7 @@ insert into environments (id, name, enabled) values (:id, :name, true);
 
 -- name: link-environment-and-login!
 -- Links an environment with a login
-insert into environments_logins (environment_id,login_id) values (:env_id,:login_id);
+insert into environments_logins (environment_id,login_id) values (:environment_id,:login_id);
 
 -- name: get-environment-for-login
 -- Gets an environment for the specified login and env id
@@ -62,3 +62,27 @@ update environments set enabled=:enabled where id=:id;
 -- Gets an environment that's been disabled
 select * from environments where enabled=false and id=:id;
 
+-----------------------------------------------------------------------------
+
+-- name: insert-into-checks!
+-- Inserts a new record into the checks table.
+insert into checks (id,environment_id,name,description,group_type,group_id,check_type,check_request,check_interval,port) values
+                          (:id,:environment_id,:name,:description,:group_type,:group_id,:check_type,:check_request,:check_interval,:port);
+
+-- name: update-check!
+-- Updates an existing health_check record.
+update checks set name=:name, description=:description,
+                  group_type=:group_type, group_id=:group_id,
+                  check_type=:check_type, check_request=:check_request where id=:id;
+
+-- name: get-check-by-id
+-- Retrieves a health check record.
+select * from checks where id=:id;
+
+-- name: get-checks-by-env-id
+-- Retrieves a list of health checks by env id.
+select * from checks where environment_id=:environment_id;
+
+-- name: delete-check-by-id!
+-- Deletes a check record by id.
+delete from checks where id=:id;

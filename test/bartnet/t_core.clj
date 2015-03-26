@@ -47,10 +47,21 @@
 
 (defn environment-fixtures [db]
   (do
-    (sql/insert-into-environments! db "abc123" "Test Env")
-    (sql/insert-into-environments! db "nice123" "Test2")
-    (sql/link-environment-and-login! db "abc123" 1)
-    (sql/link-environment-and-login! db "nice123" 1)))
+    (sql/insert-into-environments! db {:id "abc123", :name "Test Env"})
+    (sql/insert-into-environments! db {:id "nice123", :name "Test2"})
+    (sql/link-environment-and-login! db {:environment_id "abc123", :login_id 1})
+    (sql/link-environment-and-login! db {:environment_id "nice123", :login_id 1})))
+
+(defn check-fixtures [db]
+  (do
+    (sql/insert-into-checks! db {:id "checkid123"
+                                 :environment_id "abc123"
+                                 :name "A Nice Check"
+                                 :description "description"
+                                 :group_type "sg"
+                                 :group_id "sg123"
+                                 :check_type "http"
+                                 :check_request "GET /health_check"})))
 
 (defn start-ws-server []
   (do
@@ -122,6 +133,66 @@
                                            (mock/header "Authorization" auth-header)))]
                    (:status response) => 201
                    (sql/get-environment-for-login @db "abc123" 1) => (just [(contains {:name "Test Update"})])))))
+  (facts "checks endpoint works"
+         (with-state-changes
+           [(before :facts (do (login-fixtures @db) (environment-fixtures @db)))]
+           (fact "empty checks are empty"
+                 (let [response ((app) (-> (mock/request :get "/checks")
+                                           (mock/header "Authorization" auth-header)))]
+                   (:status response) => 200
+                   (parse-string (:body response)) => []))
+           (with-state-changes
+             [(before :facts (check-fixtures @db))]
+             (fact "checks need auth"
+                   (let [response ((app) (-> (mock/request :get "/checks")
+                                             (mock/header "Authorization" "asasdasd")))]
+                     (:status response) => 401))
+             (fact "checks get returned"
+                   (let [response ((app) (-> (mock/request :get "/checks")
+                                             (mock/header "Authorization" auth-header)))]
+                     (:status response) => 200
+                     (parse-string (:body response) true) => (just (contains {:name "A Nice Check" :id "checkid123"}))))
+             (fact "creates new checks"
+                   (let [response ((app) (-> (mock/request :post "/checks" (generate-string
+                                                                             {:name "A New Check"
+                                                                              :description "Here is my nice check"
+                                                                              :group_type "rds"
+                                                                              :group_id "rds123"
+                                                                              :check_type "postgres"
+                                                                              :check_request "select 1;"
+                                                                              :interval 60
+                                                                              :port 5433}))
+                                             (mock/header "Authorization" auth-header)))]
+                     (:status response) => 201
+                     (sql/get-checks-by-env-id @db "abc123") => (contains (contains {:name "A New Check"})))))))
+  (facts "check endpoint works"
+         (with-state-changes
+           [(before :facts (do
+                             (login-fixtures @db)
+                             (environment-fixtures @db)
+                             (check-fixtures @db)))]
+           (fact "checks that don't exist will 404"
+                 (let [response ((app) (-> (mock/request :get "/checks/derpderp")
+                                           (mock/header "Authorization" auth-header)))]
+                   (:status response) => 404))
+           (fact "checks need auth"
+                 (let [response ((app) (-> (mock/request :get "/checks/checkid123")
+                                           (mock/header "Authorization" "sdfsdfsdfsdf")))]
+                   (:status response) => 401))
+           (fact "checks that exist get returned"
+                 (let [response ((app) (-> (mock/request :get "/checks/checkid123")
+                                           (mock/header "Authorization" auth-header)))]
+                   (:status response) => 200
+                   (parse-string (:body response) true) => (contains {:name "A Nice Check" :id "checkid123"})))
+           (fact "checks get deleted"
+                 (let [response ((app) (-> (mock/request :delete "/checks/checkid123")
+                                           (mock/header "Authorization" auth-header)))]
+                   (:status response) => 204
+                   (sql/get-check-by-id @db "checkid123") => empty?))
+           (fact "checks get updated"
+                 (let [response ((app) (-> (mock/request :put "/checks/checkid123")
+                                           (mock/header "Authorization" auth-header)))]
+                   ))))
   (facts "Websocket handling works"
          (with-state-changes
            [(before :facts (do
@@ -138,7 +209,7 @@
                    @(s/put! client (generate-string {:cmd "echo"})) => true
                    (parse-string @(s/take! client) true) => (contains {:error "unauthorized"})
                    (.close client)))
-           (fact "subscribes to bastion messages"
+           (fact "subscribes to bastion discovery messages"
                  (let [client @(websocket-client "ws://localhost:8080/stream/")]
                    @(s/put! client (generate-string {:cmd "subscribe" :topic "discovery" :hmac "1--2jmj7l5rSw0yVb_vlWAYkK_YBwk="})) => true
                    (parse-string @(s/take! client) true) => (contains {:reply "ok"})
@@ -149,4 +220,6 @@
                                                                        :port 3884
                                                                        :protocol "sql"
                                                                        :request "select 1;"}}) => true
-                   (parse-string @(s/take! client) true) => (contains {:command "discovery"}))))))
+                   (parse-string @(s/take! client) true) => (contains {:command "discovery"})
+                   (.close client)))
+           )))

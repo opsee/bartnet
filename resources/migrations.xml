@@ -172,4 +172,24 @@
       <column name="customer-id" type="VARCHAR(255)" defaultValue="cliff"><constraints unique="true" nullable="false" /></column>
     </addColumn>
   </changeSet>
+  <changeSet id="7" author="cliff">
+    <createTable tableName="checks">
+      <column name="id" type="varchar(60)"><constraints nullable="false" primaryKey="true" /></column>
+      <column name="environment_id" type="varchar(60)"><constraints nullable="false" referencedTableName="environments" referencedColumnNames="id" foreignKeyName="health_checks_env_fkey" /></column>
+      <column name="name" type="varchar(20)" />
+      <column name="description" type="text" />
+      <column name="group_type" type="varchar(10)" />
+      <column name="group_id" type="varchar(20)" />
+      <column name="check_type" type="varchar(30)" />
+      <column name="check_request" type="varchar(255)" />
+      <column name="interval" type="integer" />
+      <column name="port" type="integer" />
+      <column name="created_at" type="DATETIME" defaultValue="now()"><constraints nullable="false" /></column>
+      <column name="updated_at" type="DATETIME" defaultValue="now()"><constraints nullable="false" /></column>
+    </createTable>
+  </changeSet>
+  <changeSet id="8" author="cliff">
+    <modifyDataType tableName="checks" columnName="description" newDataType="varchar(255)"/>
+    <renameColumn tableName="checks" oldColumnName="interval" newColumnName="check_interval"/>
+  </changeSet>
 </databaseChangeLog>

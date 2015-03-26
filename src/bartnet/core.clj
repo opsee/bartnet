@@ -102,6 +102,10 @@
       (if (sql/update-environment! db (:name env) id)
         {:env env}))))
 
+(defn delete-environment! [db id]
+  (fn [ctx]
+    (sql/toggle-environment! db false id)))
+
 (defn ping-bastion! [pubsub id]
   (fn [ctx]
     (let [recv @(send-msg pubsub id "echo" "echo")]
@@ -124,6 +128,55 @@
 (defn get-msg [ctx]
   (:msg ctx))
 
+(defn check-exists? [pubsub db id]
+  (fn [ctx]
+    (let [login (:login ctx)
+          env (first (sql/get-environments-for-login db (:id login)))
+          check (first (sql/get-check-by-id db id))]
+      (if (= (:id env) (:environment_id check))
+        {:check check}))))
+
+(defn get-first [a b]
+  (fn [attr]
+    (if-let [val (attr a)]
+      val
+      (attr b))))
+
+(defn update-check! [pubsub db id]
+  (fn [ctx]
+    (let [login (:login ctx)
+          env (first (sql/get-environments-for-login db (:id login)))
+          check (:check ctx)
+          updated-check (json-body ctx)]
+      (if (= (:id env) (:environment_id check))
+        (if (sql/update-check! db (merge check (assoc updated-check :id id)))
+          {:check updated-check})))))
+
+(defn delete-check! [pubsub db id]
+  (fn [ctx]
+    (let [login (:login ctx)
+          env (first (sql/get-environments-for-login db (:id login)))
+          check (first (sql/get-check-by-id db id))]
+      (if (= (:id env) (:environment_id check))
+        (sql/delete-check-by-id! db id)))))
+
+(defn create-check! [pubsub db]
+  (fn [ctx]
+    (let [login (:login ctx)
+          env (first (sql/get-environments-for-login db (:id login)))
+          check (json-body ctx)
+          id (identifiers/generate)]
+      (sql/insert-into-checks! db (merge check {:id id, :environment_id (:id env)})))))
+
+(defn list-checks [pubsub db]
+  (fn [ctx]
+    (let [login (:login ctx)
+          env (first (sql/get-environments-for-login db (:id login)))]
+      (sql/get-checks-by-env-id db (:id env)))))
+
+(defn get-check [ctx]
+  (:check ctx))
+
 (defresource authenticate-resource [db secret]
              :available-media-types ["application/json"]
              :allowed-methods [:post]
@@ -144,6 +197,7 @@
              :authorized? (authorized? db secret)
              :exists? (environment-exists? db id)
              :put! (update-environment! db id)
+             :delete! (delete-environment! db id)
              :handle-ok get-environment)
 
 (defresource logins-resource [db secret]
@@ -166,6 +220,27 @@
              :authorized? (authorized? db secret)
              :handle-ok (list-bastions pubsub))
 
+(defresource discovery-resource [pubsub db secret]
+             :available-media-types ["application/json"]
+             :allowed-methods [:get])
+
+(defresource check-resource [pubsub db secret id]
+             :available-media-types ["application/json"]
+             :allowed-methods [:get :put :delete]
+             :authorized? (authorized? db secret)
+             :exists? (check-exists? pubsub db id)
+             :put! (update-check! pubsub db id)
+             :delete! (delete-check! pubsub db id)
+             :handle-ok get-check)
+
+(defresource checks-resource [pubsub db secret]
+             :available-media-types ["application/json"]
+             :allowed-methods [:get :post]
+             :authorized? (authorized? db secret)
+             :post! (create-check! pubsub db)
+             :handle-created get-check
+             :handle-ok (list-checks pubsub db))
+
 (defn wrap-options [handler]
   (fn [request]
     (log/info request)
@@ -186,7 +261,10 @@
       (ANY "/environments/:id" [id] (environment-resource db secret id))
       (ANY "/logins" [] (logins-resource db secret))
       (ANY "/bastions" [] (bastions-resource pubsub db secret))
-      (ANY "/bastions/:id" [id] (bastion-resource pubsub db secret id)))))
+      (ANY "/bastions/:id" [id] (bastion-resource pubsub db secret id))
+      (ANY "/discovery" [] (discovery-resource pubsub db secret))
+      (ANY "/checks" [] (checks-resource pubsub db secret))
+      (ANY "/checks/:id" [id] (check-resource pubsub db secret id)))))
 
 (defn handler [pubsub db config]
   (-> (app pubsub db config)
