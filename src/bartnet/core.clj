@@ -136,12 +136,6 @@
       (if (= (:id env) (:environment_id check))
         {:check check}))))
 
-(defn get-first [a b]
-  (fn [attr]
-    (if-let [val (attr a)]
-      val
-      (attr b))))
-
 (defn update-check! [pubsub db id]
   (fn [ctx]
     (let [login (:login ctx)
@@ -149,8 +143,11 @@
           check (:check ctx)
           updated-check (json-body ctx)]
       (if (= (:id env) (:environment_id check))
-        (if (sql/update-check! db (merge check (assoc updated-check :id id)))
-          {:check updated-check})))))
+        (let [merged (merge check (assoc updated-check :id id))]
+          (log/info merged)
+          (if (sql/update-check! db merged)
+            {:check (first (sql/get-check-by-id db id))}))
+        ))))
 
 (defn delete-check! [pubsub db id]
   (fn [ctx]
@@ -230,6 +227,8 @@
              :authorized? (authorized? db secret)
              :exists? (check-exists? pubsub db id)
              :put! (update-check! pubsub db id)
+             :new? false
+             :respond-with-entity? #(not= (get-in % [:request :request-method]) :delete)
              :delete! (delete-check! pubsub db id)
              :handle-ok get-check)
 

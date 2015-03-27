@@ -73,7 +73,8 @@ insert into checks (id,environment_id,name,description,group_type,group_id,check
 -- Updates an existing health_check record.
 update checks set name=:name, description=:description,
                   group_type=:group_type, group_id=:group_id,
-                  check_type=:check_type, check_request=:check_request where id=:id;
+                  check_type=:check_type, check_request=:check_request,
+                  check_interval=:check_interval, port=:port where id=:id;
 
 -- name: get-check-by-id
 -- Retrieves a health check record.

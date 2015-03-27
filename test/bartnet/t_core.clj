@@ -61,7 +61,9 @@
                                  :group_type "sg"
                                  :group_id "sg123"
                                  :check_type "http"
-                                 :check_request "GET /health_check"})))
+                                 :check_request "GET /health_check"
+                                 :check_interval 60
+                                 :port 80})))
 
 (defn start-ws-server []
   (do
@@ -160,7 +162,7 @@
                                                                               :group_id "rds123"
                                                                               :check_type "postgres"
                                                                               :check_request "select 1;"
-                                                                              :interval 60
+                                                                              :check_interval 60
                                                                               :port 5433}))
                                              (mock/header "Authorization" auth-header)))]
                      (:status response) => 201
@@ -190,9 +192,12 @@
                    (:status response) => 204
                    (sql/get-check-by-id @db "checkid123") => empty?))
            (fact "checks get updated"
-                 (let [response ((app) (-> (mock/request :put "/checks/checkid123")
+                 (let [response ((app) (-> (mock/request :put "/checks/checkid123" (generate-string {:check_interval 100
+                                                                                                     :port 443}))
                                            (mock/header "Authorization" auth-header)))]
-                   ))))
+                   (:status response) => 200
+                   (parse-string (:body response) true) => (contains {:port 443 :check_interval 100})
+                   (sql/get-check-by-id @db "checkid123") => (just (contains {:port 443 :check_interval 100}))))))
   (facts "Websocket handling works"
          (with-state-changes
            [(before :facts (do
