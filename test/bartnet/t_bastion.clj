@@ -2,6 +2,7 @@
   (:use midje.sweet)
   (:require [bartnet.pubsub :as pubsub]
             [bartnet.bastion :as bastion]
+            [bartnet.fixtures :refer :all]
             [manifold.deferred :as d]
             [manifold.stream :as s]
             [gloss.core :as gloss]
@@ -9,6 +10,7 @@
             [gloss.io :as io]
             [clojure.tools.logging :as log]
             [aleph.tcp :as tcp]))
+
 
 (def pubsub (atom nil))
 (def server (atom nil))
@@ -23,7 +25,7 @@
                   :version 1,
                   :message {:hostname "cliff.local",
                             :id "cliff",
-                            :customer-id "customer"}}))
+                            :customer-id "cliff"}}))
 
 (defn client [host port]
   (let [c (-> (tcp/client {:host host, :port port})
@@ -39,8 +41,9 @@
 
 (defn setup-server [port cmds]
   (do
+    (start-connection)
     (reset! pubsub (pubsub/create-pubsub))
-    (reset! server (bastion/bastion-server @pubsub cmds {:port port}))))
+    (reset! server (bastion/bastion-server @db @pubsub cmds {:port port}))))
 
 (defn teardown-server []
   (.close @server))
@@ -58,6 +61,18 @@
                  @(send-reg client) => true
                  @(s/take! client) => (contains {:in_reply_to 1})
                  (.close client)))
+         (with-state-changes
+           [(before :facts (do
+                             (login-fixtures @db)
+                             (environment-fixtures @db)
+                             (check-fixtures @db)))]
+           (fact "bastions will get existing checks on registration"
+                 (let [client @(client "localhost" 10000)]
+                   @(send-reg client) => true
+                   @(s/take! client) => (contains {:in_reply_to 1})
+                   (let [msg @(s/take! client)]
+                     msg => (contains {:command "healthcheck"})
+                     (:message msg) => (contains {:name "A Nice Check"})))))
          (fact "can send commands to the client"
                (let [client @(client "localhost" 10000)
                      _ @(send-reg client)

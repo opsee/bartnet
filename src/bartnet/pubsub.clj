@@ -21,6 +21,8 @@
 (defprotocol PubSub
   (register-bastion [this connection msg])
   (register-ws-client [this connection])
+  (subscribe-bastion [this customer-id])
+  (subscribe-command [this customer-id])
   (publish-command [this customer-id msg])
   (publish-bastion [this customer-id msg])
   (get-bastions [this customer-id])
@@ -40,6 +42,10 @@
           stream (b/subscribe bus (bastion-topic id))]
       (.put ws-clients (:id connection) {:connection connection, :stream stream})
       stream))
+  (subscribe-bastion [_ customer-id]
+    (b/subscribe bus (command-topic customer-id)))
+  (subscribe-command [_ customer-id]
+    (b/subscribe bus (command-topic customer-id)))
   (publish-command [_ customer-id msg]
     (b/publish! bus (command-topic customer-id) msg))
   (publish-bastion [_ customer-id msg]

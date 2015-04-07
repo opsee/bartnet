@@ -115,7 +115,7 @@
 (defn list-bastions [pubsub]
   (fn [ctx]
     (let [login (:login ctx)]
-      (for [brec (get-bastions pubsub (:customer-id login))
+      (for [brec (get-bastions pubsub (:customer_id login))
             :let [reg (:registration brec)]]
         reg))))
 
@@ -298,7 +298,7 @@
     (.contains topics topic)))
 
 (defn create-connector [login]
-  (ClientConnector. (identifiers/generate) (:customer-id login) login (CopyOnWriteArraySet.)))
+  (ClientConnector. (identifiers/generate) (:customer_id login) login (CopyOnWriteArraySet.)))
 
 (defn register-ws-connection [clients db hmac secret ws]
   (if-and-let [auth-resp (auth/do-hmac-auth db hmac secret)
@@ -334,7 +334,7 @@
                      (if-and-let [hmac (:hmac parsed-msg)
                                   client (register-ws-connection clients db hmac secret ws)]
                                  (let [stream (register-ws-client pubsub client)]
-                                   (future (s/consume (consume-bastion ws client) stream))
+                                   (s/consume (consume-bastion ws client) stream)
                                    (process-authorized-command client ws pubsub parsed-msg))
                                  (send! ws (generate-string {:error "unauthorized"}))))))
    :on-closed  (fn [ws status-code reason]
@@ -349,7 +349,7 @@
         db (sql/pool (:db-spec config))
         pubsub (create-pubsub)
         clients (NonBlockingHashMap.)]
-    (bastion/bastion-server pubsub bastion-handlers (:bastion-server config))
+    (bastion/bastion-server db pubsub bastion-handlers (:bastion-server config))
     (run-jetty
       (handler pubsub db config)
       (assoc (:server config)

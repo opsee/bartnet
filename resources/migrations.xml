@@ -192,4 +192,7 @@
     <modifyDataType tableName="checks" columnName="description" newDataType="varchar(255)"/>
     <renameColumn tableName="checks" oldColumnName="interval" newColumnName="check_interval"/>
   </changeSet>
+  <changeSet id="9" author="cliff">
+    <renameColumn tableName="logins" oldColumnName="customer-id" newColumnName="customer_id"/>
+  </changeSet>
 </databaseChangeLog>

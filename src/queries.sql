@@ -84,6 +84,14 @@ select * from checks where id=:id;
 -- Retrieves a list of health checks by env id.
 select * from checks where environment_id=:environment_id;
 
+-- name: get-checks-by-customer-id
+-- Retrieves all of the checks for a particular customer id.
+select checks.* from checks inner join environments on checks.environment_id = environments.id
+    inner join environments_logins on environments.id = environments_logins.environment_id
+    inner join logins on environments_logins.login_id = logins.id
+    where logins.customer_id = :customer_id;
+
+
 -- name: delete-check-by-id!
 -- Deletes a check record by id.
 delete from checks where id=:id;
