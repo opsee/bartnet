@@ -153,17 +153,36 @@
                    (:status response) => 200
                    (parse-string (:body response) true) => (contains {:name "A Nice Check" :id "checkid123"})))
            (fact "checks get deleted"
-                 (let [response ((app) (-> (mock/request :delete "/checks/checkid123")
+                 (let [stream (pubsub/subscribe-command @pubsub "cliff")
+                       response ((app) (-> (mock/request :delete "/checks/checkid123")
                                            (mock/header "Authorization" auth-header)))]
                    (:status response) => 204
-                   (sql/get-check-by-id @db "checkid123") => empty?))
+                   (sql/get-check-by-id @db "checkid123") => empty?
+                   @(s/take! stream) => (contains {:cmd "delete"
+                                                   :body (contains {:checks (just "checkid123")})})))
            (fact "checks get updated"
-                 (let [response ((app) (-> (mock/request :put "/checks/checkid123" (generate-string {:check_interval 100
+                 (let [stream (pubsub/subscribe-command @pubsub "cliff")
+                       response ((app) (-> (mock/request :put "/checks/checkid123" (generate-string {:check_interval 100
                                                                                                      :port 443}))
                                            (mock/header "Authorization" auth-header)))]
                    (:status response) => 200
                    (parse-string (:body response) true) => (contains {:port 443 :check_interval 100})
-                   (sql/get-check-by-id @db "checkid123") => (just (contains {:port 443 :check_interval 100}))))))
+                   (sql/get-check-by-id @db "checkid123") => (just (contains {:port 443 :check_interval 100}))
+                   @(s/take! stream) => (contains {:body (contains {:port 443 :check_interval 100})})))
+           (fact "new checks get saved"
+                 (let [stream (pubsub/subscribe-command @pubsub "cliff")
+                       response ((app) (-> (mock/request :post "/checks" (generate-string {:environment_id "abc123"
+                                                                                           :name "My Dope Fuckin Check"
+                                                                                           :description "yo"
+                                                                                           :group_type "sg"
+                                                                                           :group_id "sg345"
+                                                                                           :check_type "postgres"
+                                                                                           :check_request "select 1 from table;"
+                                                                                           :check_interval 60
+                                                                                           :port 5432}))
+                                           (mock/header "Authorization" auth-header)))]
+                   (:status response) => 201
+                   @(s/take! stream) => (contains {:body (contains {:name "My Dope Fuckin Check"})})))))
   (facts "Websocket handling works"
          (with-state-changes
            [(before :facts (do

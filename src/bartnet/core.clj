@@ -146,8 +146,10 @@
         (let [merged (merge check (assoc updated-check :id id))]
           (log/info merged)
           (if (sql/update-check! db merged)
-            {:check (first (sql/get-check-by-id db id))}))
-        ))))
+            (let [final-check (first (sql/get-check-by-id db id))]
+              (publish-command pubsub (:customer_id login) {:cmd "healthcheck"
+                                                            :body final-check})
+              {:check final-check})))))))
 
 (defn delete-check! [pubsub db id]
   (fn [ctx]
@@ -155,15 +157,21 @@
           env (first (sql/get-environments-for-login db (:id login)))
           check (first (sql/get-check-by-id db id))]
       (if (= (:id env) (:environment_id check))
-        (sql/delete-check-by-id! db id)))))
+        (do
+          (sql/delete-check-by-id! db id)
+          (publish-command pubsub (:customer_id login) {:cmd "delete"
+                                                        :body {:checks [id]}}))))))
 
 (defn create-check! [pubsub db]
   (fn [ctx]
     (let [login (:login ctx)
           env (first (sql/get-environments-for-login db (:id login)))
           check (json-body ctx)
-          id (identifiers/generate)]
-      (sql/insert-into-checks! db (merge check {:id id, :environment_id (:id env)})))))
+          id (identifiers/generate)
+          final-check (merge check {:id id, :environment_id (:id env)})]
+      (sql/insert-into-checks! db final-check)
+      (publish-command pubsub (:customer_id login) {:cmd "healthcheck"
+                                                    :body final-check}))))
 
 (defn list-checks [pubsub db]
   (fn [ctx]
