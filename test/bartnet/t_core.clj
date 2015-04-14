@@ -141,7 +141,13 @@
                                                                             {:email "cliff+newsignup@leaninto.it"
                                                                              :name "cliff moon"}))))]
                    (:status response) => 201
-                   (sql/get-signup-by-email @db "cliff+newsignup@leaninto.it") =not=> empty?))))
+                   (sql/get-signup-by-email @db "cliff+newsignup@leaninto.it") =not=> empty?))
+           (fact "signups don't get duplicated"
+                 (let [response ((app) (-> (mock/request :post "/signups" (generate-string
+                                                                            {:email "cliff+signup@leaninto.it"
+                                                                             :name "cliff 2"}))))]
+                   (:status response) => 200
+                   (count (sql/get-signups @db 100 0)) => 1))))
   (facts "check endpoint works"
          (with-state-changes
            [(before :facts (do
