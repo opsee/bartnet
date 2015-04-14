@@ -315,6 +315,7 @@
 (defn app [pubsub db config]
   (let [secret (:secret config)]
     (routes
+      (GET "/health_check", [], "A ok")
       (ANY "/signups" [] (signups-resource db secret))
       (ANY "/authenticate/password" [] (authenticate-resource db secret))
       (ANY "/environments" [] (environments-resource db secret))
