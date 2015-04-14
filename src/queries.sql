@@ -95,3 +95,15 @@ select checks.* from checks inner join environments on checks.environment_id = e
 -- name: delete-check-by-id!
 -- Deletes a check record by id.
 delete from checks where id=:id;
+
+-----------------------------------------------------------------------------
+
+-- name: insert-into-signups!
+-- Inserts a new record into the signups table
+insert into signups (email,name) values (:email,:name);
+
+--name: get-signups
+select * from signups order by email limit :limit offset :offset;
+
+--name: get-signup-by-email
+select * from signups where email=:email;

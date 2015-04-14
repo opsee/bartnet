@@ -133,6 +133,15 @@
                                              (mock/header "Authorization" auth-header)))]
                      (:status response) => 201
                      (sql/get-checks-by-env-id @db "abc123") => (contains (contains {:name "A New Check"})))))))
+  (facts "signups enpoint works"
+         (with-state-changes
+           [(before :facts (do (login-fixtures @db) (signup-fixtures @db)))]
+           (fact "signups get created"
+                 (let [response ((app) (-> (mock/request :post "/signups" (generate-string
+                                                                            {:email "cliff+newsignup@leaninto.it"
+                                                                             :name "cliff moon"}))))]
+                   (:status response) => 201
+                   (sql/get-signup-by-email @db "cliff+newsignup@leaninto.it") =not=> empty?))))
   (facts "check endpoint works"
          (with-state-changes
            [(before :facts (do

@@ -6,6 +6,7 @@
             [compojure.core :refer :all]
             [cheshire.core :refer :all]
             [clojure.string :as str]
+            [clj-http.client :as client]
             [clojure.tools.logging :as log]
             [clojure.tools.cli :refer [parse-opts]]
             [clojure.java.io :as io]
@@ -19,7 +20,6 @@
             [bartnet.pubsub :refer :all]
             [bartnet.util :refer [if-and-let]]
             [manifold.stream :as s]
-            [aleph.tcp :as tcp]
             [yesql.util :refer [slurp-from-classpath]]
             [ring.adapter.jetty9 :refer :all])
   (:import [java.util Base64]
@@ -32,9 +32,18 @@
 (defmethod liberator.representation/render-seq-generic "application/json" [data _]
   (generate-string data))
 
+(defn send-mail [config from to subject body]
+  (let [api-key (:mailgun_api_key config)]
+    (client/post "https://api.mailgun.net/v3/mg.opsee.co/messages"
+                 {:basic-auth ["api" api-key]
+                  :form-params {:from from
+                                :to to
+                                :subject subject
+                                :text body}})))
+
 (defn json-body [ctx]
   (if-let [body (get-in ctx [:request :body])]
-    (parse-stream (io/reader body) true)))
+      (parse-stream (io/reader body) true)))
 
 (defn allowed-to-auth?
   "Checks the body of the request and uses the password to authenticate the user."
@@ -52,19 +61,28 @@
           hmac (str id "--" (.encodeToString (Base64/getUrlEncoder) (auth/generate-hmac-signature id secret)))]
       (ring-response {:headers {"X-Auth-HMAC" hmac}}))))
 
+(defn user-authorized?
+  [db secret ctx]
+  (if-let [auth-header (get-in ctx [:request :headers "authorization"])]
+    (let [[auth-type slug] (str/split auth-header #" " 2)]
+      (auth/authorized? db auth-type slug secret))))
+
+(defn superuser-authorized?
+  [db secret ctx]
+  (if-let [[answer {login :login}] (user-authorized? db secret ctx)]
+    (if (and answer (re-matches #"@opsee.co$" (:email login)))
+      [true, {:login login}])))
+
 (defn authorized?
   "Determines whether a request has the correct authorization headers, and sets the login id in the ctx."
-  [db secret]
+  ([db secret fn-auth-level]
   (fn [ctx]
-    (if-let [auth-header (get-in ctx [:request :headers "authorization"])]
-      (let [[auth-type slug] (str/split auth-header #" " 2)]
-        (auth/authorized? db auth-type slug secret)))))
-
-(defn logins-resource-authorized? [db secret]
-  (fn [ctx]
-    (if-let [[answer {login :login}] ((authorized? db secret) ctx)]
-      (if (and answer (re-matches #"@opsee.co$" (:email login)))
-        [true, {:login login}]))))
+    (case (fn-auth-level ctx)
+      :unauthenticated true
+      :user (user-authorized? db secret ctx)
+      :superuser (superuser-authorized? db secret ctx))))
+  ([db secret]
+   (authorized? db secret (fn [ctx] :user))))
 
 (defn create-login! [db]
   (fn [ctx]
@@ -182,6 +200,40 @@
 (defn get-check [ctx]
   (:check ctx))
 
+(def query-limit 100)
+
+(defn signup-exists? [db]
+  (fn [ctx]
+    (let [new-signup (json-body ctx)]
+      (if-let [signup (first (sql/get-signup-by-email db (:email new-signup)))]
+        {:signup signup}
+        [false, {:signup new-signup}]))))
+
+(defn create-signup! [db]
+  (fn [ctx]
+    (let [signup (:signup ctx)]
+      (sql/insert-into-signups! db signup))))
+
+(defn list-signups [db]
+  (fn [ctx]
+    (let [page (or (get-in ctx [:request :params :page]) 1)]
+      (sql/get-signups db query-limit (* (- page 1) query-limit)))))
+
+(defn get-signup [ctx]
+  (:signup ctx))
+
+(defresource signups-resource [db secret]
+             :available-media-types ["application/json"]
+             :allowed-methods [:post :get]
+             :exists? (signup-exists? db)
+             :post-to-existing? false
+             :authorized? (authorized? db secret #(case (get-in % [:request :request-method])
+                                                   :get :superuser
+                                                   :unauthenticated))
+             :post! (create-signup! db)
+             :handle-ok (list-signups db)
+             :handle-created get-signup)
+
 (defresource authenticate-resource [db secret]
              :available-media-types ["application/json"]
              :allowed-methods [:post]
@@ -208,7 +260,7 @@
 (defresource logins-resource [db secret]
              :available-media-types ["application/json"]
              :allowed-methods [:get :post]
-             :authorized? (logins-resource-authorized? db secret)
+             :authorized? (authorized? db secret (fn [_] :superuser))
              :post! (create-login! db)
              :handle-created get-new-login)
 
@@ -263,6 +315,7 @@
 (defn app [pubsub db config]
   (let [secret (:secret config)]
     (routes
+      (ANY "/signups" [] (signups-resource db secret))
       (ANY "/authenticate/password" [] (authenticate-resource db secret))
       (ANY "/environments" [] (environments-resource db secret))
       (ANY "/environments/:id" [id] (environment-resource db secret id))
@@ -279,6 +332,7 @@
                  :access-control-allow-methods [:get :put :post :patch :delete]
                  :access-control-allow-headers ["X-Auth-HMAC"])
       (wrap-options)
+      (wrap-params)
       (wrap-trace :header :ui)))
 
 (defn discovery-handler [msg]

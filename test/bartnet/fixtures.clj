@@ -37,3 +37,7 @@
                                  :check_request "GET /health_check"
                                  :check_interval 60
                                  :port 80})))
+
+(defn signup-fixtures [db]
+  (do
+    (sql/insert-into-signups! db {:email "cliff+signup@leaninto.it" :name "cliff moon"})))
