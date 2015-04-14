@@ -42,6 +42,10 @@
     connection connection
     datasource (.getConnection datasource)))
 
+(defn drop-all [pool options]
+  (let [liquibase (new Liquibase "migrations.xml" (new ClassLoaderResourceAccessor) (new JdbcConnection (get-connection pool)))]
+    (.dropAll liquibase)))
+
 (defn migrate-db [pool options]
   (let [liquibase (new Liquibase "migrations.xml" (new ClassLoaderResourceAccessor) (new JdbcConnection (get-connection pool)))]
     (if (:silent options)
@@ -56,7 +60,7 @@
         (.update liquibase "" (new OutputStreamWriter System/out (Charset/forName "UTF-8")))
         (.update liquibase "")))))
 
-(defn migrate-cmd [args]
+(defn migrate-cmd [args cmd]
   (let [{:keys [options arguments errors summary]} (cli/parse-opts args migrate-options)]
     (cond
       (:help options) (exit 0 (usage summary))
@@ -64,9 +68,10 @@
       errors (exit 1 (error-msg errors)))
     (let [config (parse-string (slurp (first arguments)) true)
           pool (sql/pool (:db-spec config))]
-      (migrate-db pool options))))
+      (cmd pool options))))
 
 (defn db-cmd [args]
   (case (first args)
-    "migrate" (migrate-cmd (rest args))))
+    "migrate" (migrate-cmd (rest args) migrate-db)
+    "drop-all" (migrate-cmd (rest args) drop-all)))
 
