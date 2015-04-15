@@ -54,7 +54,8 @@
            (fact "sets hmac header on good login"
                  (let [response ((app) (mock/request :post "/authenticate/password" (generate-string {"email" "cliff@leaninto.it" "password" "cliff"})))]
                    (:status response) => 201
-                   (get-in response [:headers "X-Auth-HMAC"]) => "1--2jmj7l5rSw0yVb_vlWAYkK_YBwk="))))
+                   (get-in response [:headers "X-Auth-HMAC"]) => "1--2jmj7l5rSw0yVb_vlWAYkK_YBwk="
+                   (:body response) => "HMAC 1--2jmj7l5rSw0yVb_vlWAYkK_YBwk="))))
   (facts "Environments endpoint works"
          (fact "bounces unauthorized requests"
                (let [response ((app) (mock/request :get "/environments"))]
@@ -146,8 +147,9 @@
                  (let [response ((app) (-> (mock/request :post "/signups" (generate-string
                                                                             {:email "cliff+signup@leaninto.it"
                                                                              :name "cliff 2"}))))]
-                   (:status response) => 200
-                   (count (sql/get-signups @db 100 0)) => 1))))
+                   (:status response) => 409
+                   (count (sql/get-signups @db 100 0)) => 1
+                   (:body response) => #"Conflict"))))
   (facts "check endpoint works"
          (with-state-changes
            [(before :facts (do

@@ -59,7 +59,8 @@
     (let [login (:login ctx)
           id (str (:id login))
           hmac (str id "--" (.encodeToString (Base64/getUrlEncoder) (auth/generate-hmac-signature id secret)))]
-      (ring-response {:headers {"X-Auth-HMAC" hmac}}))))
+      (ring-response {:headers {"X-Auth-HMAC" hmac}
+                      :body (str "HMAC " hmac)}))))
 
 (defn user-authorized?
   [db secret ctx]
@@ -226,10 +227,12 @@
              :available-media-types ["application/json"]
              :allowed-methods [:post :get]
              :exists? (signup-exists? db)
-             :post-to-existing? false
              :authorized? (authorized? db secret #(case (get-in % [:request :request-method])
                                                    :get :superuser
                                                    :unauthenticated))
+             :post-to-existing? false
+             :put-to-existing? true
+             :conflict? true
              :post! (create-signup! db)
              :handle-ok (list-signups db)
              :handle-created get-signup)
