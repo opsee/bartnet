@@ -60,7 +60,7 @@
           id (str (:id login))
           hmac (str id "--" (.encodeToString (Base64/getUrlEncoder) (auth/generate-hmac-signature id secret)))]
       (ring-response {:headers {"X-Auth-HMAC" hmac}
-                      :body (generate-string (str "HMAC " hmac))}))))
+                      :body (generate-string {:token (str "HMAC " hmac)})}))))
 
 (defn user-authorized?
   [db secret ctx]
@@ -226,7 +226,7 @@
 (defn get-signup [ctx]
   (if (:duplicate ctx)
     (ring-response {:status 409
-                    :body (generate-string "Conflict: that email is already signed up.")})
+                    :body (generate-string {:error "Conflict: that email is already signed up."})})
     (:signup ctx)))
 
 (defresource signups-resource [db secret]
@@ -239,6 +239,9 @@
              :post! (create-signup! db)
              :handle-ok (list-signups db)
              :handle-created get-signup)
+
+(defresource signup-resource [db secret]
+             :available-media-types ["application/json"])
 
 (defresource authenticate-resource [db secret]
              :available-media-types ["application/json"]
@@ -323,6 +326,7 @@
     (routes
       (GET "/health_check", [], "A ok")
       (ANY "/signups" [] (signups-resource db secret))
+      (ANY "/signups/:id/activate" [] (signup-resource db secret))
       (ANY "/authenticate/password" [] (authenticate-resource db secret))
       (ANY "/environments" [] (environments-resource db secret))
       (ANY "/environments/:id" [id] (environment-resource db secret id))
