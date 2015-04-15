@@ -1,0 +1,140 @@
+FORMAT: 1A
+
+# Opsee API
+This is the publicly accessible API for the Opsee backend. 
+
+# Group Signups
+Signups are the resources that get created when a user first
+signs up for the service.  For a signup to become an active login
+they must have a verification email sent with an activation token.
+
+## Signups Collection [/signups]
+### Create a Signup [POST]
++ Request (application/json)
+
+        {
+            "email": "person@gmail.com",
+            "password": "a_password"
+        }
+        
++ Response 201 (application/json)
+
+        {"email": "person@gmail.com"}
+        
++ Response 409 (text/plain)
+
+        Conflict: this email address is already signed up.
+        
+
+# Group Authenticate
+The authentication resource provides a means by which the user
+can provide credentials and get back a time limited token for use
+in subsequent API calls.
+
+## Authenticate Collection [/authenticate/password]
+### Authenticate via password [POST]
++ Request (application/json)
+
+        {"email": "person@gmail.com", "password" : "a_password"}
+        
++ Response 201 (text/plain)
+    + Headers
+    
+            X-Auth-HMAC: 1--2jmj7l5rSw0yVb_vlWAYkK_YBwk=
+
+    + Body
+            
+            HMAC 1--2jmj7l5rSw0yVb_vlWAYkK_YBwk=
+
+# Group Environments
+Environments provide a way for customers to segment their data into
+different partitions. For instance, a customer might have one environment
+for their production install, and a separate environment for dev.
+For any resource that is owned by an environment, that resource's
+path is namespaced by the environment ID.
+
+## Environment [/environments/{id}]
+A single environment.
+
+The environment resource has the following attributes:
+
+- id
+- name
+- created_at
+- updated_at
+
+The states *created_at* and *updated_at* are assigned by the Opsee API
+at the moment of creation / update.  The state *id* is required to be unique
+per customer, and cannot be changed once set.
+
++ Parameters
+    + id (string) ... ID of the environment, must be a url safe string.
+    
++ Model (application/json)
+
+            {
+                "id" : "url-safe-unique-identifier", 
+                "name" : "The Display Name", 
+                "create_at" : "2015-02-18T02:15:15Z",
+                "updated_at" : "2015-02-18T02:15:15Z"
+            }
+
+### Retrieve a Single Environment [GET]
++ Response 200
+
+    [Environment][]
+    
+### Create a New Environment [POST]
+Creates an environment at the given ID.
+
++ Request (application/json)
+    + Headers
+            
+            X-Auth-HMAC: 1--2jmj7l5rSw0yVb_vlWAYkK_YBwk=
+            
+    + Body
+    
+            {"name": "The Display Name"}
+            
++ Response 201
+
+    [Environment][]
+    
+### Edit an Environment [PATCH]
+Update the display name of an environment. The ID is immutable and will
+not be modified even if included in the hash.
+
++ Request (application/json)
+    + Headers
+    
+            X-Auth-HMAC: 1--2jmj7l5rSw0yVb_vlWAYkK_YBwk=
+
+    + Body
+
+            {"name": "New Display Name"}
+        
++ Response 200
+
+    [Environment][]
+
+### Delete an Environment [DELETE]
++ Response 204
+
+## Environments Collection [/environments]
+### List All Environments [GET]
+Lists all the environments linked to the token's user ID.
++ Request
+    + Headers
+    
+            Authorization: Token 1--2jmj7l5rSw0yVb_vlWAYkK_YBwk=
+
++ Response 200 (application/json)
+
+        [
+            {
+                "id" : "url-safe-unique-identifier", 
+                "name" : "The Display Name", 
+                "create_at" : "2015-02-18T02:15:15Z",
+                "updated_at" : "2015-02-18T02:15:15Z"
+            }
+        ]
