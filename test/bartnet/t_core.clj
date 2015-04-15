@@ -136,7 +136,7 @@
                      (sql/get-checks-by-env-id @db "abc123") => (contains (contains {:name "A New Check"})))))))
   (facts "signups enpoint works"
          (with-state-changes
-           [(before :facts (do (login-fixtures @db) (signup-fixtures @db)))]
+           [(before :facts (do (login-fixtures @db) (signup-fixtures @db) (admin-fixtures @db)))]
            (fact "signups get created"
                  (let [response ((app) (-> (mock/request :post "/signups" (generate-string
                                                                             {:email "cliff+newsignup@leaninto.it"
@@ -149,7 +149,12 @@
                                                                              :name "cliff 2"}))))]
                    (:status response) => 409
                    (count (sql/get-signups @db 100 0)) => 1
-                   (:body response) => #"Conflict"))))
+                   (parse-string (:body response)) => #"Conflict"))
+           (fact "superusers can list out signups"
+                 (let [response ((app) (-> (mock/request :get "/signups")
+                                           (mock/header "Authorization" auth-header)))]
+                   (:status response) => 200
+                   (parse-string (:body response) true) => (just (contains {:email "cliff+signup@leaninto.it"}))))))
   (facts "check endpoint works"
          (with-state-changes
            [(before :facts (do

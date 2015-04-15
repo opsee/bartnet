@@ -38,6 +38,10 @@
                                  :check_interval 60
                                  :port 80})))
 
+(defn admin-fixtures [db]
+  (do
+    (sql/make-superuser! db true "cliff@leaninto.it")))
+
 (defn signup-fixtures [db]
   (do
     (sql/insert-into-signups! db {:email "cliff+signup@leaninto.it" :name "cliff moon"})))

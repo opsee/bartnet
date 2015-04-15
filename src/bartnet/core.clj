@@ -71,7 +71,7 @@
 (defn superuser-authorized?
   [db secret ctx]
   (if-let [[answer {login :login}] (user-authorized? db secret ctx)]
-    (if (and answer (re-matches #"@opsee.co$" (:email login)))
+    (if (and answer (:admin login))
       [true, {:login login}])))
 
 (defn authorized?
@@ -205,15 +205,18 @@
 
 (defn signup-exists? [db]
   (fn [ctx]
-    (let [new-signup (json-body ctx)]
+    (if-let [new-signup (json-body ctx)]
       (if-let [signup (first (sql/get-signup-by-email db (:email new-signup)))]
-        {:signup signup}
-        [false, {:signup new-signup}]))))
+        {:signup signup :duplicate true}
+        [false, {:signup new-signup}])
+      true)))
 
 (defn create-signup! [db]
   (fn [ctx]
-    (let [signup (:signup ctx)]
-      (sql/insert-into-signups! db signup))))
+    (if (not (:duplicate ctx))
+      (let [signup (:signup ctx)]
+        (sql/insert-into-signups! db signup)))))
+
 
 (defn list-signups [db]
   (fn [ctx]
@@ -221,7 +224,10 @@
       (sql/get-signups db query-limit (* (- page 1) query-limit)))))
 
 (defn get-signup [ctx]
-  (:signup ctx))
+  (if (:duplicate ctx)
+    (ring-response {:status 409
+                    :body (generate-string "Conflict: that email is already signed up.")})
+    (:signup ctx)))
 
 (defresource signups-resource [db secret]
              :available-media-types ["application/json"]
@@ -230,13 +236,9 @@
              :authorized? (authorized? db secret #(case (get-in % [:request :request-method])
                                                    :get :superuser
                                                    :unauthenticated))
-             :post-to-existing? false
-             :put-to-existing? true
-             :conflict? true
              :post! (create-signup! db)
              :handle-ok (list-signups db)
-             :handle-created get-signup
-             :handle-conflict (generate-string "Conflict: that signup already exists."))
+             :handle-created get-signup)
 
 (defresource authenticate-resource [db secret]
              :available-media-types ["application/json"]

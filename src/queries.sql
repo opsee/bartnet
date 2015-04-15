@@ -22,6 +22,10 @@ insert into logins (email, password_hash, active) values (:email,:password_hash,
 -- Updates the login, but will not modify the password
 update logins set email=:email, onboard=:onboard where id=:id;
 
+-- name: make-superuser!
+-- Flip the superuser bit.
+update logins set admin=:admin where email=:email;
+
 -- name: update-login-password!
 -- Updates the password for a login
 update logins set password_hash=:password_hash where id=:id;
@@ -102,8 +106,8 @@ delete from checks where id=:id;
 -- Inserts a new record into the signups table
 insert into signups (email,name) values (:email,:name);
 
---name: get-signups
+-- name: get-signups
 select * from signups order by email limit :limit offset :offset;
 
---name: get-signup-by-email
+-- name: get-signup-by-email
 select * from signups where email=:email;
