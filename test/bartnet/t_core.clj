@@ -55,7 +55,7 @@
                  (let [response ((app) (mock/request :post "/authenticate/password" (generate-string {"email" "cliff@leaninto.it" "password" "cliff"})))]
                    (:status response) => 201
                    (get-in response [:headers "X-Auth-HMAC"]) => "1--2jmj7l5rSw0yVb_vlWAYkK_YBwk="
-                   (:body response) => "HMAC 1--2jmj7l5rSw0yVb_vlWAYkK_YBwk="))))
+                   (:body response) => "\"HMAC 1--2jmj7l5rSw0yVb_vlWAYkK_YBwk=\""))))
   (facts "Environments endpoint works"
          (fact "bounces unauthorized requests"
                (let [response ((app) (mock/request :get "/environments"))]

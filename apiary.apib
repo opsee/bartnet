@@ -22,9 +22,9 @@ they must have a verification email sent with an activation token.
 
         {"email": "person@gmail.com"}
         
-+ Response 409 (text/plain)
++ Response 409 (application/json)
 
-        Conflict: this email address is already signed up.
+        "Conflict: this email address is already signed up."
         
 
 # Group Authenticate
@@ -38,14 +38,14 @@ in subsequent API calls.
 
         {"email": "person@gmail.com", "password" : "a_password"}
         
-+ Response 201 (text/plain)
++ Response 201 (application/json)
     + Headers
     
             X-Auth-HMAC: 1--2jmj7l5rSw0yVb_vlWAYkK_YBwk=
 
     + Body
             
-            HMAC 1--2jmj7l5rSw0yVb_vlWAYkK_YBwk=
+            "HMAC 1--2jmj7l5rSw0yVb_vlWAYkK_YBwk="
 
 # Group Environments
 Environments provide a way for customers to segment their data into

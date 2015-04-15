@@ -60,7 +60,7 @@
           id (str (:id login))
           hmac (str id "--" (.encodeToString (Base64/getUrlEncoder) (auth/generate-hmac-signature id secret)))]
       (ring-response {:headers {"X-Auth-HMAC" hmac}
-                      :body (str "HMAC " hmac)}))))
+                      :body (generate-string (str "HMAC " hmac))}))))
 
 (defn user-authorized?
   [db secret ctx]
@@ -235,7 +235,8 @@
              :conflict? true
              :post! (create-signup! db)
              :handle-ok (list-signups db)
-             :handle-created get-signup)
+             :handle-created get-signup
+             :handle-conflict (generate-string "Conflict: that signup already exists."))
 
 (defresource authenticate-resource [db secret]
              :available-media-types ["application/json"]
