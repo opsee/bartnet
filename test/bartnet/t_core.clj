@@ -5,6 +5,7 @@
             [bartnet.fixtures :refer :all]
             [yesql.util :refer [slurp-from-classpath]]
             [clojure.test :refer :all]
+            [clojure.string :as string]
             [ring.mock.request :as mock]
             [bartnet.sql :as sql]
             [manifold.stream :as s]
@@ -29,7 +30,7 @@
     (start-connection)))
 
 (defn app []
-  (do (core/app @pubsub @db test-config)))
+  (do (core/handler @pubsub @db test-config)))
 
 (defn start-ws-server []
   (do
@@ -158,7 +159,17 @@
                  (let [response ((app) (-> (mock/request :get "/signups")
                                            (mock/header "Authorization" auth-header)))]
                    (:status response) => 200
-                   (:body response) => (is-json (just (contains {:email "cliff+signup@leaninto.it"})))))))
+                   (:body response) => (is-json (just (contains {:email "cliff+signup@leaninto.it"})))))
+           (fact "superusers can send an activation email"
+                 ;(with-redefs-fn {#'core/send-mail! (fn [c f t s b] (log/info "fsdfsdfsdf") )}
+                 (let [response ((app) (-> (mock/request :post "/signups/send-activation?email=cliff%2Bsignup@leaninto.it")
+                                           (mock/header "Authorization" auth-header)))
+                       [_ _ id] (string/split (get-in response [:headers "Location"]) #"/")]
+
+                   (log/info "id" id)
+                   (:status response) => 303
+                   (get-in response [:headers "Location"]) => #"/activations/"
+                   (count (sql/get-unused-activation @db id)) => 1))))
   (facts "check endpoint works"
          (with-state-changes
            [(before :facts (do

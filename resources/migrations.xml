@@ -195,4 +195,43 @@
   <changeSet id="9" author="cliff">
     <renameColumn tableName="logins" oldColumnName="customer-id" newColumnName="customer_id"/>
   </changeSet>
+  <changeSet id="10" author="cliff">
+    <dropTable tableName="activations"></dropTable>
+    <createTable tableName="activations">
+      <column name="id" type="varchar(60)"><constraints nullable="false" primaryKey="true"/></column>
+      <column name="email" type="varchar(255)" />
+      <column name="name" type="varchar(255)" />
+      <column name="used" type="boolean" />
+      <column name="created_at" type="DATETIME" defaultValue="now()"><constraints nullable="false"/></column>
+      <column name="updated_at" type="DATETIME" defaultValue="now()"><constraints nullable="false"/></column>
+    </createTable>
+  </changeSet>
+  <changeSet id="11" author="cliff">
+    <preConditions onFail="CONTINUE">
+      <dbms type="postgresql"/>
+    </preConditions>
+    <sql>
+      CREATE TRIGGER update_activations BEFORE UPDATE ON activations FOR EACH ROW EXECUTE PROCEDURE update_time();
+    </sql>
+    <rollback>
+      DROP TRIGGER update_activations ON activations;
+    </rollback>
+  </changeSet>
+  <changeSet id="12" author="cliff">
+    <preConditions>
+      <dbms type="h2"/>
+    </preConditions>
+    <sql>
+      CREATE TRIGGER update_activations BEFORE UPDATE ON activations FOR EACH ROW CALL
+      "bartnet.DateTrigger";
+    </sql>
+    <rollback>
+      DROP TRIGGER update_activations ON activations;
+    </rollback>
+  </changeSet>
+  <changeSet id="13" author="cliff">
+    <addColumn tableName="logins">
+      <column name="name" type="varchar(255)" />
+    </addColumn>
+  </changeSet>
 </databaseChangeLog>

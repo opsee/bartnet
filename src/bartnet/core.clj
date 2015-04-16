@@ -32,9 +32,10 @@
 (defmethod liberator.representation/render-seq-generic "application/json" [data _]
   (generate-string data))
 
-(defn send-mail [config from to subject body]
-  (let [api-key (:mailgun_api_key config)]
-    (client/post "https://api.mailgun.net/v3/mg.opsee.co/messages"
+(defn send-mail! [config from to subject body]
+  (let [api-key (:api_key config)
+        base-url (:url config)]
+    (client/post (str base-url "/messages")
                  {:basic-auth ["api" api-key]
                   :form-params {:from from
                                 :to to
@@ -78,12 +79,14 @@
   "Determines whether a request has the correct authorization headers, and sets the login id in the ctx."
   ([db secret fn-auth-level]
   (fn [ctx]
-    (case (fn-auth-level ctx)
+    (case (if (fn? fn-auth-level)
+            (fn-auth-level ctx)
+            fn-auth-level)
       :unauthenticated true
       :user (user-authorized? db secret ctx)
       :superuser (superuser-authorized? db secret ctx))))
   ([db secret]
-   (authorized? db secret (fn [ctx] :user))))
+   (authorized? db secret :user)))
 
 (defn create-login! [db]
   (fn [ctx]
@@ -203,13 +206,31 @@
 
 (def query-limit 100)
 
+(defn retr-signup [db email default]
+  (if-let [signup (first (sql/get-signup-by-email db email))]
+    {:signup signup :duplicate true}
+    [false, {:signup default}]))
+
 (defn signup-exists? [db]
   (fn [ctx]
     (if-let [new-signup (json-body ctx)]
-      (if-let [signup (first (sql/get-signup-by-email db (:email new-signup)))]
-        {:signup signup :duplicate true}
-        [false, {:signup new-signup}])
-      true)))
+      (retr-signup db (:email new-signup) new-signup)
+      (if-let [email (get-in ctx [:request :params "email"])]
+        (retr-signup db email nil)
+        true))))
+
+(defn send-activation! [config email id]
+  (send-mail! config "welcome@opsee.co" email "Confirm your email" (str "Welcome to opsee! Please confirm your email address by clicking on the following link: http://opsee.co/signup/activation?token=" id)))
+
+(defn create-and-send-activation! [db config]
+  (fn [ctx]
+    (let [id (identifiers/generate)
+          signup (:signup ctx)
+          activation (assoc signup :id id)]
+      (log/info "activation" activation)
+      (if (sql/insert-into-activations! db activation)
+        (send-activation! config (:email signup) id))
+      {:redirect {:location (str "/activations/" id)}})))
 
 (defn create-signup! [db]
   (fn [ctx]
@@ -220,7 +241,7 @@
 
 (defn list-signups [db]
   (fn [ctx]
-    (let [page (or (get-in ctx [:request :params :page]) 1)]
+    (let [page (or (get-in ctx [:request :params "page"]) 1)]
       (sql/get-signups db query-limit (* (- page 1) query-limit)))))
 
 (defn get-signup [ctx]
@@ -228,6 +249,27 @@
     (ring-response {:status 409
                     :body (generate-string {:error "Conflict: that email is already signed up."})})
     (:signup ctx)))
+
+(defn activation-exists? [db id]
+  (fn [_]
+    (if-let [activation (first (sql/get-unused-activation db id))]
+      {:activation activation})))
+
+(defn activate-activation! [db id]
+  (fn [ctx]
+    (if-let [login-details (json-body ctx)]
+      (let [hashed-pw (auth/hash-password (:password login-details))
+            activation (:activation ctx)
+            login (assoc login-details :password_hash hashed-pw
+                                       :email (:email activation)
+                                       :name (:name activation))]
+        (if (sql/insert-into-logins! db login)
+          (let [saved-login (first (sql/get-active-login-by-email db (:email login)))]
+            (sql/update-activations-set-used! db id)
+            {:redirect {:location (str "/logins/" (:id saved-login))}}))))))
+
+(defn get-activation [ctx]
+  (:activation ctx))
 
 (defresource signups-resource [db secret]
              :available-media-types ["application/json"]
@@ -240,8 +282,21 @@
              :handle-ok (list-signups db)
              :handle-created get-signup)
 
-(defresource signup-resource [db secret]
-             :available-media-types ["application/json"])
+(defresource signup-resource [db secret config]
+             :available-media-types ["application/json"]
+             :allowed-methods [:post]
+             :authorized? (authorized? db secret :superuser)
+             :exists? (signup-exists? db)
+             :post! (create-and-send-activation! db config)
+             :post-redirect? #(:redirect %))
+
+(defresource activation-resource [db id]
+             :available-media-types ["application/json"]
+             :allowed-methods [:get :post]
+             :exists? (activation-exists? db id)
+             :post! (activate-activation! db id)
+             :handle-ok get-activation
+             :post-redirect? #(:redirect %))
 
 (defresource authenticate-resource [db secret]
              :available-media-types ["application/json"]
@@ -322,11 +377,13 @@
       (handler request))))
 
 (defn app [pubsub db config]
-  (let [secret (:secret config)]
+  (let [secret (:secret config)
+        mailgun (:mailgun config)]
     (routes
       (GET "/health_check", [], "A ok")
       (ANY "/signups" [] (signups-resource db secret))
-      (ANY "/signups/:id/activate" [] (signup-resource db secret))
+      (ANY "/signups/send-activation" [] (signup-resource db secret mailgun))
+      (ANY "/activations/:id", [id] (activation-resource db id))
       (ANY "/authenticate/password" [] (authenticate-resource db secret))
       (ANY "/environments" [] (environments-resource db secret))
       (ANY "/environments/:id" [id] (environment-resource db secret id))

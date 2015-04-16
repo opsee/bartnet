@@ -16,7 +16,7 @@ select * from logins where id=:id and active=true;
 
 -- name: insert-into-logins!
 -- Inserts a new login for the given email address
-insert into logins (email, password_hash, active) values (:email,:password_hash,true);
+insert into logins (email,name, password_hash, active,customer_id) values (:email,:name,:password_hash,true,:customer_id);
 
 -- name: update-login!
 -- Updates the login, but will not modify the password
@@ -111,3 +111,19 @@ select * from signups order by email limit :limit offset :offset;
 
 -- name: get-signup-by-email
 select * from signups where email=:email;
+
+-----------------------------------------------------------------------------
+
+-- name: insert-into-activations!
+-- Inserts a new record into the activations table
+insert into activations (id,email,used,name) values (:id,:email,false,:name);
+
+-- name: get-unused-activation
+-- Gets an unused activation by its id
+select * from activations where used=false and id=:id;
+
+-- name: update-activations-set-used!
+-- Sets the used flag for an activation record, ensuring that it cannot be reused.
+update activations set used=true where id=:id;
+
+-----------------------------------------------------------------------------

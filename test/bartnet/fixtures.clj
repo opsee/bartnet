@@ -16,7 +16,9 @@
     (migrate-db @db {:drop-all true :silent true})))
 
 (defn login-fixtures [db]
-  (sql/insert-into-logins! db "cliff@leaninto.it" (auth/hash-password "cliff")))
+  (sql/insert-into-logins! db {:email         "cliff@leaninto.it"
+                               :password_hash (auth/hash-password "cliff")
+                               :customer_id   "cliff"}))
 
 (defn environment-fixtures [db]
   (do
