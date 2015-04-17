@@ -26,7 +26,7 @@ they must have a verification email sent with an activation token.
 
         "Conflict: this email address is already signed up."
 
-## Activate Signups [/signups/send-activation]
+## Activate Signups [/signups/send-activation?email=]
 ### Activate a Signup [POST]
 
 Activating signups requires an authorization header that has superuser
@@ -53,7 +53,7 @@ inclusion into the beta.
 Requesting an activation by ID provides confirmation that an
 activation exists and has not yet been used.
 
-+Response 200 (application/json)
++ Response 200 (application/json)
     + Body
 
             {
@@ -75,11 +75,11 @@ status code 409 Conflict. Upon success the activation ID will be marked used
 in the database and a 303 response code returned, along with a Location header
 for the resulting login.
 
-+Request (application/json)
++ Request (application/json)
 
         {"password" : "a password", "customer_id" : "a-dns-safe-string"}
 
-+Response 303 (application/json)
++ Response 303 (application/json)
     + Headers
 
             Location: /logins/123
