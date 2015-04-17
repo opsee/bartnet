@@ -35,12 +35,13 @@
 (defn send-mail! [config from to subject body]
   (let [api-key (:api_key config)
         base-url (:url config)]
-    (client/post (str base-url "/messages")
-                 {:basic-auth ["api" api-key]
-                  :form-params {:from from
-                                :to to
-                                :subject subject
-                                :text body}})))
+    (if base-url
+      (client/post (str base-url "/messages")
+                   {:basic-auth ["api" api-key]
+                    :form-params {:from from
+                                  :to to
+                                  :subject subject
+                                  :text body}}))))
 
 (defn json-body [ctx]
   (if-let [body (get-in ctx [:request :body])]
@@ -255,7 +256,7 @@
     (if-let [activation (first (sql/get-unused-activation db id))]
       {:activation activation})))
 
-(defn activate-activation! [db id]
+(defn activate-activation! [db]
   (fn [ctx]
     (if-let [login-details (json-body ctx)]
       (let [hashed-pw (auth/hash-password (:password login-details))
@@ -265,7 +266,7 @@
                                        :name (:name activation))]
         (if (sql/insert-into-logins! db login)
           (let [saved-login (first (sql/get-active-login-by-email db (:email login)))]
-            (sql/update-activations-set-used! db id)
+            (sql/update-activations-set-used! db (:id activation))
             {:redirect {:location (str "/logins/" (:id saved-login))}}))))))
 
 (defn get-activation [ctx]
@@ -287,14 +288,13 @@
              :allowed-methods [:post]
              :authorized? (authorized? db secret :superuser)
              :exists? (signup-exists? db)
-             :post! (create-and-send-activation! db config)
-             :post-redirect? #(:redirect %))
+             :post! (create-and-send-activation! db config))
 
 (defresource activation-resource [db id]
              :available-media-types ["application/json"]
-             :allowed-methods [:get :post]
+             :allowed-methods [:post]
              :exists? (activation-exists? db id)
-             :post! (activate-activation! db id)
+             :post! (activate-activation! db)
              :handle-ok get-activation
              :post-redirect? #(:redirect %))
 
@@ -383,7 +383,8 @@
       (GET "/health_check", [], "A ok")
       (ANY "/signups" [] (signups-resource db secret))
       (ANY "/signups/send-activation" [] (signup-resource db secret mailgun))
-      (ANY "/activations/:id", [id] (activation-resource db id))
+      (GET "/activations/:id", [id] (activation-resource db id))
+      (POST "/activations/:id/activate", [id] (activation-resource db id))
       (ANY "/authenticate/password" [] (authenticate-resource db secret))
       (ANY "/environments" [] (environments-resource db secret))
       (ANY "/environments/:id" [id] (environment-resource db secret id))

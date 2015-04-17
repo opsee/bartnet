@@ -122,6 +122,10 @@ insert into activations (id,email,used,name) values (:id,:email,false,:name);
 -- Gets an unused activation by its id
 select * from activations where used=false and id=:id;
 
+-- name: get-unused-activations
+-- Gets all unused activations
+select * from activations where used=false;
+
 -- name: update-activations-set-used!
 -- Sets the used flag for an activation record, ensuring that it cannot be reused.
 update activations set used=true where id=:id;

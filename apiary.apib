@@ -25,7 +25,64 @@ they must have a verification email sent with an activation token.
 + Response 409 (application/json)
 
         "Conflict: this email address is already signed up."
-        
+
+## Activate Signups [/signups/send-activation]
+### Activate a Signup [POST]
+
+Activating signups requires an authorization header that has superuser
+privileges. Superuser privileges are attached to the login table in the
+database.
+
++ Parameters
+    + email (string) ... Email address of the signup to activate
+
++ Request (application/json)
+    + Headers
+
+            Authorization: HMAC 1--2jmj7l5rSw0yVb_vlWAYkK_YBwk=
+
++ Response 201
+
+# Group Activations
+The activation resource gets created when a signup is activated for
+inclusion into the beta.
+
+## Activations Collection [/activations/{id}/activate]
+### Request an Activation [GET]
+
+Requesting an activation by ID provides confirmation that an
+activation exists and has not yet been used.
+
++Response 200 (application/json)
+    + Body
+
+            {
+                "id" : "url-safe-unique-identifier",
+                "email" : "email@domain.com",
+                "name" : "Users Name",
+                "used" : false,
+                "create_at" : "2015-02-18T02:15:15Z",
+                "updated_at" : "2015-02-18T02:15:15Z"
+            }
+
+### Confirm an Activation [POST]
+
+Confirming the activation using its unique ID ensures validation of the
+user's email. The body of the post should be the rest of the info necessary
+to create a login, the password and the customer's unique customer ID (chosen by them).
+In the case that the customer ID is already taken, this resource will return
+status code 409 Conflict. Upon success the activation ID will be marked used
+in the database and a 303 response code returned, along with a Location header
+for the resulting login.
+
++Request (application/json)
+
+        {"password" : "a password", "customer_id" : "a-dns-safe-string"}
+
++Response 303 (application/json)
+    + Headers
+
+            Location: /logins/123
 
 # Group Authenticate
 The authentication resource provides a means by which the user
@@ -91,7 +148,7 @@ Creates an environment at the given ID.
 + Request (application/json)
     + Headers
             
-            X-Auth-HMAC: 1--2jmj7l5rSw0yVb_vlWAYkK_YBwk=
+            Authorization: HMAC 1--2jmj7l5rSw0yVb_vlWAYkK_YBwk=
             
     + Body
     
@@ -108,7 +165,7 @@ not be modified even if included in the hash.
 + Request (application/json)
     + Headers
     
-            X-Auth-HMAC: 1--2jmj7l5rSw0yVb_vlWAYkK_YBwk=
+            Authorization: HMAC 1--2jmj7l5rSw0yVb_vlWAYkK_YBwk=
 
     + Body
 
@@ -127,7 +184,7 @@ Lists all the environments linked to the token's user ID.
 + Request
     + Headers
     
-            Authorization: Token 1--2jmj7l5rSw0yVb_vlWAYkK_YBwk=
+            Authorization: HMAC 1--2jmj7l5rSw0yVb_vlWAYkK_YBwk=
 
 + Response 200 (application/json)
 

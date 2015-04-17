@@ -15,9 +15,5 @@
     {
         "port":8080,
         "join?":false
-    },
-    "mailgun":{
-        "api_key":"key-d45f90c5a3e2ac33a26cd4c30715b71b",
-        "url":"https://api.mailgun.net/v3/sandbox231bb83871cd4637a6787b5e4ae18d42.mailgun.org"
     }
 }

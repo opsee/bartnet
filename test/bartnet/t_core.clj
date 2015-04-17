@@ -48,14 +48,14 @@
   (fn [actual]
     (checker (parse-string actual true))))
 
-(with-state-changes
-  [(before :facts (do-setup))]
   (facts "Auth endpoint works"
          (fact "bounces bad logins"
                (let [response ((app) (mock/request :post "/authenticate/password"))]
                  (:status response) => 401))
          (with-state-changes
-           [(before :facts (login-fixtures @db))]
+           [(before :facts
+                    (doto (do-setup)
+                          login-fixtures))]
            (fact "sets hmac header on good login"
                  (let [response ((app) (mock/request :post "/authenticate/password" (generate-string {:email "cliff@leaninto.it" :password "cliff"})))]
                    (:status response) => 201
@@ -69,7 +69,9 @@
                                          (mock/header "Authorization" "blorpbloop")))]
                  (:status response) => 401))
          (with-state-changes
-           [(before :facts (do (login-fixtures @db)))]
+           [(before :facts (doto
+                             (do-setup)
+                             login-fixtures))]
            (fact "lets in authorized requests"
                  (let [response ((app) (-> (mock/request :get "/environments")
                                            (mock/header "Authorization" auth-header)))]
@@ -81,7 +83,10 @@
                    (:status response) => 201
                    (sql/get-environment-for-login @db (:id (parse-string (:body response) true)) 1) => (just [(contains {:name "New Environment"})]))))
          (with-state-changes
-           [(before :facts (do (login-fixtures @db) (environment-fixtures @db)))]
+           [(before :facts (doto
+                             (do-setup)
+                             login-fixtures
+                             environment-fixtures))]
            (fact "returns an array of environments"
                  (let [response ((app) (-> (mock/request :get "/environments")
                                            (mock/header "Authorization" auth-header)))]
@@ -90,13 +95,18 @@
                                                        (contains {:id "nice123" :name "Test2"})]))))))
   (facts "Environment endpoint works"
          (with-state-changes
-           [(before :facts (login-fixtures @db))]
+           [(before :facts (doto
+                             (do-setup)
+                             login-fixtures))]
            (fact "404's unknown environments"
                  (let [response ((app) (-> (mock/request :get "/environments/abc123")
                                            (mock/header "Authorization" auth-header)))]
                    (:status response) => 404)))
          (with-state-changes
-           [(before :facts (do (login-fixtures @db) (environment-fixtures @db)))]
+           [(before :facts (doto
+                             (do-setup)
+                             login-fixtures
+                             environment-fixtures))]
            (fact "returns known environments"
                  (let [response ((app) (-> (mock/request :get "/environments/abc123")
                                            (mock/header "Authorization" auth-header)))]
@@ -109,7 +119,10 @@
                    (sql/get-environment-for-login @db "abc123" 1) => (just [(contains {:name "Test Update"})])))))
   (facts "checks endpoint works"
          (with-state-changes
-           [(before :facts (do (login-fixtures @db) (environment-fixtures @db)))]
+           [(before :facts (doto
+                             (do-setup)
+                             login-fixtures
+                             environment-fixtures))]
            (fact "empty checks are empty"
                  (let [response ((app) (-> (mock/request :get "/checks")
                                            (mock/header "Authorization" auth-header)))]
@@ -141,7 +154,11 @@
                      (sql/get-checks-by-env-id @db "abc123") => (contains (contains {:name "A New Check"})))))))
   (facts "signups enpoint works"
          (with-state-changes
-           [(before :facts (do (login-fixtures @db) (signup-fixtures @db) (admin-fixtures @db)))]
+           [(before :facts (doto
+                             (do-setup)
+                             login-fixtures
+                             signup-fixtures
+                             admin-fixtures))]
            (fact "signups get created"
                  (let [response ((app) (-> (mock/request :post "/signups" (generate-string
                                                                             {:email "cliff+newsignup@leaninto.it"
@@ -161,21 +178,31 @@
                    (:status response) => 200
                    (:body response) => (is-json (just (contains {:email "cliff+signup@leaninto.it"})))))
            (fact "superusers can send an activation email"
-                 ;(with-redefs-fn {#'core/send-mail! (fn [c f t s b] (log/info "fsdfsdfsdf") )}
                  (let [response ((app) (-> (mock/request :post "/signups/send-activation?email=cliff%2Bsignup@leaninto.it")
-                                           (mock/header "Authorization" auth-header)))
-                       [_ _ id] (string/split (get-in response [:headers "Location"]) #"/")]
-
-                   (log/info "id" id)
+                                           (mock/header "Authorization" auth-header)))]
+                   (:status response) => 201
+                   (count (sql/get-unused-activations @db)) => 1))))
+  (facts "activations endpoint works"
+         (with-state-changes
+           [(before :facts (doto
+                             (do-setup)
+                             login-fixtures
+                             signup-fixtures
+                             admin-fixtures
+                             activation-fixtures))]
+           (fact "activation endpoint turns into a login"
+                 (let [response ((app) (-> (mock/request :post "/activations/abc123" (generate-string {:password "cliff"
+                                                                                                       :customer_id "custie"}))))
+                       [_, _, id] (string/split (get "Location" response) #"/")]
                    (:status response) => 303
-                   (get-in response [:headers "Location"]) => #"/activations/"
-                   (count (sql/get-unused-activation @db id)) => 1))))
+                   (sql/get-active-login-by-id @db id)))))
   (facts "check endpoint works"
          (with-state-changes
-           [(before :facts (do
-                             (login-fixtures @db)
-                             (environment-fixtures @db)
-                             (check-fixtures @db)))]
+           [(before :facts (doto
+                             (do-setup)
+                             login-fixtures
+                             environment-fixtures
+                             check-fixtures))]
            (fact "checks that don't exist will 404"
                  (let [response ((app) (-> (mock/request :get "/checks/derpderp")
                                            (mock/header "Authorization" auth-header)))]
@@ -223,6 +250,7 @@
   (facts "Websocket handling works"
          (with-state-changes
            [(before :facts (do
+                             (do-setup)
                              (login-fixtures @db)
                              (start-ws-server)))
             (after :facts (stop-ws-server))]
@@ -249,4 +277,4 @@
                                                                        :request "select 1;"}}) => true
                    @(s/take! client) => (is-json (contains {:command "discovery"}))
                    (.close client)))
-           )))
+           ))

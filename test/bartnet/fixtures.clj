@@ -13,7 +13,8 @@
 (defn start-connection []
   (do
     (reset! db {:connection (jdbc/get-connection (:db-spec test-config))})
-    (migrate-db @db {:drop-all true :silent true})))
+    (migrate-db @db {:drop-all true :silent true}))
+  @db)
 
 (defn login-fixtures [db]
   (sql/insert-into-logins! db {:email         "cliff@leaninto.it"
@@ -47,3 +48,12 @@
 (defn signup-fixtures [db]
   (do
     (sql/insert-into-signups! db {:email "cliff+signup@leaninto.it" :name "cliff moon"})))
+
+(defn activation-fixtures [db]
+  (do
+    (sql/insert-into-activations! db {:id "abc123"
+                                      :email "cliff+signup@leaninto.it"
+                                      :name "cliff"})
+    (sql/insert-into-activations! db {:id "badid"
+                                      :email "cliff+badsignup@leaninto.it"
+                                      :name "derp"})))
