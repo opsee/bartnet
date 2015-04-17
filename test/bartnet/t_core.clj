@@ -191,11 +191,13 @@
                              admin-fixtures
                              activation-fixtures))]
            (fact "activation endpoint turns into a login"
-                 (let [response ((app) (-> (mock/request :post "/activations/abc123" (generate-string {:password "cliff"
-                                                                                                       :customer_id "custie"}))))
-                       [_, _, id] (string/split (get "Location" response) #"/")]
+                 (let [response ((app) (-> (mock/request :post "/activations/abc123/activate" (generate-string
+                                                                                                {:password "cliff"
+                                                                                                 :customer_id "custie"}))))
+                       [_, _, id] (string/split (get-in response [:headers "Location"]) #"/")]
                    (:status response) => 303
-                   (sql/get-active-login-by-id @db id)))))
+                   (sql/get-active-login-by-id @db id) => (just (contains {:email "cliff+signup@leaninto.it"}))
+                       ))))
   (facts "check endpoint works"
          (with-state-changes
            [(before :facts (doto
