@@ -24,13 +24,27 @@
             [ring.adapter.jetty9 :refer :all])
   (:import [java.util Base64]
            [org.cliffc.high_scale_lib NonBlockingHashMap]
-           [java.util.concurrent CopyOnWriteArraySet]))
+           [java.util.concurrent CopyOnWriteArraySet]
+           (java.sql BatchUpdateException)))
 
 (defmethod liberator.representation/render-map-generic "application/json" [data _]
   (generate-string data))
 
 (defmethod liberator.representation/render-seq-generic "application/json" [data _]
   (generate-string data))
+
+(defn log-and-error [ex]
+  (log/error ex "problem encountered")
+  {:status 500
+   :headers {"Content-Type" "application/json"}
+   :body (generate-string {:error (.getMessage ex)})})
+
+(defn robustify [handler]
+  (fn [request]
+    (try
+      (handler request)
+      (catch BatchUpdateException ex (log-and-error (.getNextException ex)))
+      (catch Exception ex (log-and-error ex)))))
 
 (defn send-mail! [config from to subject body]
   (let [api-key (:api_key config)
@@ -397,6 +411,7 @@
 
 (defn handler [pubsub db config]
   (-> (app pubsub db config)
+      (robustify)
       (wrap-cors :access-control-allow-origin [#".*"]
                  :access-control-allow-methods [:get :put :post :patch :delete]
                  :access-control-allow-headers ["X-Auth-HMAC"])
