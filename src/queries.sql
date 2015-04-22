@@ -2,6 +2,10 @@
 -- Gets only active logins with the given email addy
 select * from logins where email=:email and active=true;
 
+-- name: get-any-login-by-email
+-- Gets a login by email regardless of active state
+select * from logins where email=:email;
+
 -- name: get-active-login-by-token
 -- Gets only active logins with the given token
 select * from logins, api_tokens
@@ -16,11 +20,11 @@ select * from logins where id=:id and active=true;
 
 -- name: insert-into-logins!
 -- Inserts a new login for the given email address
-insert into logins (email,name, password_hash, active,customer_id) values (:email,:name,:password_hash,true,:customer_id);
+insert into logins (email,name, password_hash, active,customer_id,verified) values (:email,:name,:password_hash,true,:customer_id,true);
 
 -- name: update-login!
 -- Updates the login, but will not modify the password
-update logins set email=:email,name=:name where id=:id;
+update logins set email=:email,name=:name,verified=:verified where id=:id;
 
 -- name: make-superuser!
 -- Flip the superuser bit.

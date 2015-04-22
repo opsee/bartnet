@@ -197,7 +197,8 @@
                                                                                                :customer_id "custie"}))))
                      [_, _, id] (string/split (get-in response [:headers "Location"]) #"/")]
                  (:status response) => 303
-                 (sql/get-active-login-by-id @db id) => (just (contains {:email "cliff+signup@leaninto.it"}))))))
+                 (sql/get-active-login-by-id @db id) => (just (contains {:email "cliff+signup@leaninto.it"}))))
+         (fact "activation records for existing logins will result in a ")))
 (facts "logins endpoint works"
        (with-state-changes
          [(before :facts (doto
@@ -222,11 +223,22 @@
                (let [response ((app) (-> (mock/request :put "/logins/2" (generate-string {:name "derp"}))
                                          (mock/header "Authorization" auth-header2)))]
                  (:status response) => 200
-                 (:body response) => (is-json (contains {:id 2 :name "derp"}))))
+                 (:body response) => (is-json (contains {:id 2 :name "derp" :verified true}))))
+         (fact "changing email address will change verified status"
+               (let [response ((app) (-> (mock/request :put "/logins/2" (generate-string {:email "cliff+hello@leaninto.it"}))
+                                         (mock/header "Authorization" auth-header2)))]
+                 (:status response) => 200
+                 (:body response) => (is-json (contains {:id 2 :email "cliff+hello@leaninto.it" :verified false}))))
+         (fact "changing to an existing email address will return a 409"
+               (let [response ((app) (-> (mock/request :put "/logins/2" (generate-string {:email "cliff@leaninto.it"}))
+                                         (mock/header "Authorization" auth-header2)))]
+                 (:status response) => 409
+                 (first (sql/get-active-login-by-id @db 2)) => (contains {:email "cliff+notsuper@leaninto.it"})))
          (fact "a user can deactivate their account"
                (let [response ((app) (-> (mock/request :delete "/logins/2")
                                          (mock/header "Authorization" auth-header2)))]
-                 (:status response) => 204))))
+                 (:status response) => 204
+                 (sql/get-active-login-by-id @db 2) => empty?))))
 (facts "check endpoint works"
        (with-state-changes
          [(before :facts (doto

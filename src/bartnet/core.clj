@@ -6,7 +6,6 @@
             [compojure.core :refer :all]
             [cheshire.core :refer :all]
             [clojure.string :as str]
-            [clj-http.client :as client]
             [clojure.tools.logging :as log]
             [clojure.tools.cli :refer [parse-opts]]
             [clojure.java.io :as io]
@@ -16,6 +15,7 @@
             [bartnet.auth :as auth]
             [bartnet.identifiers :as identifiers]
             [bartnet.bastion :as bastion]
+            [bartnet.email :refer [send-activation! send-verification!]]
             [bartnet.db-cmd :as db-cmd]
             [bartnet.pubsub :refer :all]
             [bartnet.util :refer [if-and-let]]
@@ -46,16 +46,7 @@
       (catch BatchUpdateException ex (log-and-error (.getNextException ex)))
       (catch Exception ex (log-and-error ex)))))
 
-(defn send-mail! [config from to subject body]
-  (let [api-key (:api_key config)
-        base-url (:url config)]
-    (if base-url
-      (client/post (str base-url "/messages")
-                   {:basic-auth ["api" api-key]
-                    :form-params {:from from
-                                  :to to
-                                  :subject subject
-                                  :text body}}))))
+
 
 (defn json-body [ctx]
   (if-let [body (get-in ctx [:request :body])]
@@ -127,7 +118,11 @@
   (:env ctx))
 
 (defn get-new-login [ctx]
-  (or (:new-login ctx) (:old-login ctx)))
+  (if-let [duplicate-email (:duplicate ctx)]
+    (ring-response {:status 409
+                    :body (generate-string {:error (str "Email " duplicate-email " already exists.")})
+                    :headers {"Content-Type" "application/json"}})
+    (or (:new-login ctx) (:old-login ctx))))
 
 (defn environment-exists? [db id]
   (fn [ctx]
@@ -237,18 +232,22 @@
         (retr-signup db email nil)
         true))))
 
-(defn send-activation! [config email id]
-  (send-mail! config "welcome@opsee.co" email "Confirm your email" (str "Welcome to opsee! Please confirm your email address by clicking on the following link: http://opsee.co/signup/activation?token=" id)))
-
 (defn create-and-send-activation! [db config]
   (fn [ctx]
     (let [id (identifiers/generate)
           signup (:signup ctx)
           activation (assoc signup :id id)]
-      (log/info "activation" activation)
       (if (sql/insert-into-activations! db activation)
-        (send-activation! config (:email signup) id))
+        (send-activation! config signup id))
       {:redirect {:location (str "/activations/" id)}})))
+
+(defn create-and-send-verification! [db config login]
+  (let [id (identifiers/generate)
+        activation {:id id
+                    :email (:email login)
+                    :name (:name login)}]
+    (if (sql/insert-into-activations! db activation)
+      (send-verification! config login id))))
 
 (defn create-signup! [db]
   (fn [ctx]
@@ -265,7 +264,8 @@
 (defn get-signup [ctx]
   (if (:duplicate ctx)
     (ring-response {:status 409
-                    :body (generate-string {:error "Conflict: that email is already signed up."})})
+                    :body (generate-string {:error "Conflict: that email is already signed up."})
+                    :headers {"Content-Type" "application/json"}})
     (:signup ctx)))
 
 (defn activation-exists? [db id]
@@ -300,13 +300,21 @@
     (if-let [login (first (sql/get-active-login-by-id db id))]
       [true, {:old-login login}])))
 
-(defn update-login! [db id]
+(defn update-login! [db config id]
   (fn [ctx]
     (let [new-login (json-body ctx)
-          old-login (:old-login ctx)]
-      (if (sql/update-login! db (merge old-login new-login))
-        (if-let [saved-login (first (sql/get-active-login-by-id db id))]
-          {:new-login saved-login})))))
+          old-login (:old-login ctx)
+          verified (if (contains? new-login :email)
+                     (= (:email new-login) (:email old-login))
+                     true)]
+      (if (and (not verified)
+               (not (empty? (sql/get-any-login-by-email db (:email new-login)))))
+        {:duplicate (:email new-login)}
+        (if (sql/update-login! db (merge old-login new-login {:verified verified}))
+          (if-let [saved-login (first (sql/get-active-login-by-id db id))]
+            (do
+              (if-not verified (create-and-send-verification! db config new-login))
+              {:new-login saved-login})))))))
 
 (defn delete-login! [db id]
   (fn [ctx]
@@ -368,13 +376,13 @@
              :post! (create-login! db)
              :handle-created get-new-login)
 
-(defresource login-resource [db secret id]
+(defresource login-resource [db config secret id]
              :available-media-types ["application/json"]
              :allowed-methods [:get :put :delete]
              :authorized? (authorized? db secret)
              :allowed? (allowed-edit-login? id)
              :exists? (login-exists? db id)
-             :put! (update-login! db id)
+             :put! (update-login! db config id)
              :delete! (delete-login! db id)
              :new? false
              :respond-with-entity? respond-with-entity?
@@ -441,7 +449,7 @@
       (ANY "/environments" [] (environments-resource db secret))
       (ANY "/environments/:id" [id] (environment-resource db secret id))
       (ANY "/logins" [] (logins-resource db secret))
-      (ANY "/logins/:id" [id] (login-resource db secret id))
+      (ANY "/logins/:id" [id] (login-resource db config secret id))
       (ANY "/bastions" [] (bastions-resource pubsub db secret))
       (ANY "/bastions/:id" [id] (bastion-resource pubsub db secret id))
       (ANY "/discovery" [] (discovery-resource pubsub db secret))

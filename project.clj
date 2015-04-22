@@ -40,4 +40,5 @@
                  [riemann "0.2.9" :exclusions [joda-time
                                                potemkin]]
                  [aleph "0.4.0-beta3"]
+                 [de.ubercode.clostache/clostache "1.4.0"]
                  [manifold "0.1.0-beta11"]])
