@@ -20,8 +20,8 @@
 (defn generate-hmac-signature [id, secret]
   (.digest
     (doto (MessageDigest/getInstance "SHA1")
-      (.digest (.getBytes (str id)))
-      (.digest (.getBytes secret)))))
+      (.update (.getBytes (str id)))
+      (.update (.getBytes secret)))))
 
 (defn do-basic-auth [db slug]
   (let [decoded (B64Code/decode slug StringUtil/__ISO_8859_1)
