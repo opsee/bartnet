@@ -204,7 +204,29 @@
                            (do-setup)
                            login-fixtures
                            admin-fixtures))]
-         (fact "can retrieve own login")))
+         (fact "can retrieve own login"
+               (let [response ((app) (-> (mock/request :get "/logins/2")
+                                         (mock/header "Authorization" auth-header2)))]
+                 (:status response) => 200
+                 (:body response) => (is-json (contains {:id 2}))))
+         (fact "cannot retrieve someone elses login"
+               (let [response ((app) (-> (mock/request :get "/logins/1")
+                                         (mock/header "Authorization" auth-header2)))]
+                 (:status response) => 403))
+         (fact "superuser can retrieve someone elses login"
+               (let [response ((app) (-> (mock/request :get "/logins/2")
+                                         (mock/header "Authorization" auth-header)))]
+                 (:status response) => 200
+                 (:body response) => (is-json (contains {:id 2}))))
+         (fact "user can edit their own name"
+               (let [response ((app) (-> (mock/request :put "/logins/2" (generate-string {:name "derp"}))
+                                         (mock/header "Authorization" auth-header2)))]
+                 (:status response) => 200
+                 (:body response) => (is-json (contains {:id 2 :name "derp"}))))
+         (fact "a user can deactivate their account"
+               (let [response ((app) (-> (mock/request :delete "/logins/2")
+                                         (mock/header "Authorization" auth-header2)))]
+                 (:status response) => 204))))
 (facts "check endpoint works"
        (with-state-changes
          [(before :facts (doto

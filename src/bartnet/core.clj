@@ -61,6 +61,9 @@
   (if-let [body (get-in ctx [:request :body])]
       (parse-stream (io/reader body) true)))
 
+(defn respond-with-entity? [ctx]
+  (not= (get-in ctx [:request :request-method]) :delete))
+
 (defn allowed-to-auth?
   "Checks the body of the request and uses the password to authenticate the user."
   [db]
@@ -124,7 +127,7 @@
   (:env ctx))
 
 (defn get-new-login [ctx]
-  (:new-login ctx))
+  (or (:new-login ctx) (:old-login ctx)))
 
 (defn environment-exists? [db id]
   (fn [ctx]
@@ -286,6 +289,29 @@
 (defn get-activation [ctx]
   (:activation ctx))
 
+(defn allowed-edit-login? [id]
+  (fn [ctx]
+    (let [login (:login ctx)]
+      (or (:admin login)
+          (= id (str (:id login)))))))
+
+(defn login-exists? [db id]
+  (fn [ctx]
+    (if-let [login (first (sql/get-active-login-by-id db id))]
+      [true, {:old-login login}])))
+
+(defn update-login! [db id]
+  (fn [ctx]
+    (let [new-login (json-body ctx)
+          old-login (:old-login ctx)]
+      (if (sql/update-login! db (merge old-login new-login))
+        (if-let [saved-login (first (sql/get-active-login-by-id db id))]
+          {:new-login saved-login})))))
+
+(defn delete-login! [db id]
+  (fn [ctx]
+    (sql/deactivate-login! db id)))
+
 (defresource signups-resource [db secret]
              :available-media-types ["application/json"]
              :allowed-methods [:post :get]
@@ -342,6 +368,18 @@
              :post! (create-login! db)
              :handle-created get-new-login)
 
+(defresource login-resource [db secret id]
+             :available-media-types ["application/json"]
+             :allowed-methods [:get :put :delete]
+             :authorized? (authorized? db secret)
+             :allowed? (allowed-edit-login? id)
+             :exists? (login-exists? db id)
+             :put! (update-login! db id)
+             :delete! (delete-login! db id)
+             :new? false
+             :respond-with-entity? respond-with-entity?
+             :handle-ok get-new-login)
+
 (defresource bastion-resource [pubsub db secret id]
              :available-media-types ["application/json"]
              :allowed-methods [:post]
@@ -366,7 +404,7 @@
              :exists? (check-exists? pubsub db id)
              :put! (update-check! pubsub db id)
              :new? false
-             :respond-with-entity? #(not= (get-in % [:request :request-method]) :delete)
+             :respond-with-entity? respond-with-entity?
              :delete! (delete-check! pubsub db id)
              :handle-ok get-check)
 
@@ -403,6 +441,7 @@
       (ANY "/environments" [] (environments-resource db secret))
       (ANY "/environments/:id" [id] (environment-resource db secret id))
       (ANY "/logins" [] (logins-resource db secret))
+      (ANY "/logins/:id" [id] (login-resource db secret id))
       (ANY "/bastions" [] (bastions-resource pubsub db secret))
       (ANY "/bastions/:id" [id] (bastion-resource pubsub db secret id))
       (ANY "/discovery" [] (discovery-resource pubsub db secret))

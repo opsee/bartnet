@@ -19,7 +19,10 @@
 (defn login-fixtures [db]
   (sql/insert-into-logins! db {:email         "cliff@leaninto.it"
                                :password_hash (auth/hash-password "cliff")
-                               :customer_id   "cliff"}))
+                               :customer_id   "cliff"})
+  (sql/insert-into-logins! db {:email         "cliff+notsuper@leaninto.it"
+                               :password_hash (auth/hash-password "cliff")
+                               :customer_id   "cliff2"}))
 
 (defn environment-fixtures [db]
   (do

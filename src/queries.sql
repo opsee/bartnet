@@ -20,7 +20,7 @@ insert into logins (email,name, password_hash, active,customer_id) values (:emai
 
 -- name: update-login!
 -- Updates the login, but will not modify the password
-update logins set email=:email, onboard=:onboard where id=:id;
+update logins set email=:email,name=:name where id=:id;
 
 -- name: make-superuser!
 -- Flip the superuser bit.
@@ -30,6 +30,9 @@ update logins set admin=:admin where email=:email;
 -- Updates the password for a login
 update logins set password_hash=:password_hash where id=:id;
 
+-- name: deactivate-login!
+-- Deactivates a login
+update logins set active=false where id=:id;
 -----------------------------------------------------------------------------
 
 -- name: insert-into-environments!
