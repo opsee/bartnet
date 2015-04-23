@@ -27,6 +27,9 @@
            [java.util.concurrent CopyOnWriteArraySet]
            (java.sql BatchUpdateException)))
 
+(defn param->int [n]
+  (Integer/parseInt n))
+
 (defmethod liberator.representation/render-map-generic "application/json" [data _]
   (generate-string data))
 
@@ -96,10 +99,6 @@
       :superuser (superuser-authorized? db secret ctx))))
   ([db secret]
    (authorized? db secret :user)))
-
-(defn create-login! [db]
-  (fn [ctx]
-    ))
 
 (defn list-environments [db]
   (fn [ctx]
@@ -301,7 +300,7 @@
   (fn [ctx]
     (let [login (:login ctx)]
       (or (:admin login)
-          (= id (str (:id login)))))))
+          (= id (:id login))))))
 
 (defn login-exists? [db id]
   (fn [ctx]
@@ -377,12 +376,13 @@
              :delete! (delete-environment! db id)
              :handle-ok get-environment)
 
-(defresource logins-resource [db secret]
-             :available-media-types ["application/json"]
-             :allowed-methods [:get :post]
-             :authorized? (authorized? db secret (fn [_] :superuser))
-             :post! (create-login! db)
-             :handle-created get-new-login)
+;(defresource logins-resource [db secret]
+;             :available-media-types ["application/json"]
+;             :allowed-methods [:get :post]
+;             :authorized? (authorized? db secret (fn [_] :superuser))
+;             :post! (create-login! db)
+;             :handle-ok (list-logins db)
+;             :handle-created get-new-login)
 
 (defresource login-resource [db config secret id]
              :available-media-types ["application/json"]
@@ -453,11 +453,12 @@
       (ANY "/signups/send-activation" [] (signup-resource db secret mailgun))
       (GET "/activations/:id", [id] (activation-resource db id))
       (POST "/activations/:id/activate", [id] (activation-resource db id))
+      (POST "/verifications/:id/activate", [id] (activation-resource db id))
       (ANY "/authenticate/password" [] (authenticate-resource db secret))
       (ANY "/environments" [] (environments-resource db secret))
       (ANY "/environments/:id" [id] (environment-resource db secret id))
-      (ANY "/logins" [] (logins-resource db secret))
-      (ANY "/logins/:id" [id] (login-resource db config secret id))
+      ;(ANY "/logins" [] (logins-resource db secret))
+      (ANY "/logins/:id" [id] (login-resource db config secret (param->int id)))
       (ANY "/bastions" [] (bastions-resource pubsub db secret))
       (ANY "/bastions/:id" [id] (bastion-resource pubsub db secret id))
       (ANY "/discovery" [] (discovery-resource pubsub db secret))

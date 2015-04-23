@@ -43,22 +43,24 @@
     datasource (.getConnection datasource)))
 
 (defn drop-all [pool options]
-  (let [liquibase (new Liquibase "migrations.xml" (new ClassLoaderResourceAccessor) (new JdbcConnection (get-connection pool)))]
-    (.dropAll liquibase)))
+  (with-open [conn (new JdbcConnection (get-connection pool))]
+    (let [liquibase (new Liquibase "migrations.xml" (new ClassLoaderResourceAccessor) conn)]
+      (.dropAll liquibase))))
 
 (defn migrate-db [pool options]
-  (let [liquibase (new Liquibase "migrations.xml" (new ClassLoaderResourceAccessor) (new JdbcConnection (get-connection pool)))]
-    (if (:silent options)
-      (.setLogLevel (LogFactory/getLogger) LogLevel/OFF))
-    (if (:drop-all options)
-      (.dropAll liquibase))
-    (if-let [count (:count options)]
-      (if (:dry-run options)
-        (.update liquibase count "" (new OutputStreamWriter System/out (Charset/forName "UTF-8")))
-        (.update liquibase count ""))
-      (if (:dry-run options)
-        (.update liquibase "" (new OutputStreamWriter System/out (Charset/forName "UTF-8")))
-        (.update liquibase "")))))
+  (with-open [conn (new JdbcConnection (get-connection pool))]
+    (let [liquibase (new Liquibase "migrations.xml" (new ClassLoaderResourceAccessor) conn)]
+      (if (:silent options)
+        (.setLogLevel (LogFactory/getLogger) LogLevel/OFF))
+      (if (:drop-all options)
+        (.dropAll liquibase))
+      (if-let [count (:count options)]
+        (if (:dry-run options)
+          (.update liquibase count "" (new OutputStreamWriter System/out (Charset/forName "UTF-8")))
+          (.update liquibase count ""))
+        (if (:dry-run options)
+          (.update liquibase "" (new OutputStreamWriter System/out (Charset/forName "UTF-8")))
+          (.update liquibase ""))))))
 
 (defn migrate-cmd [args cmd]
   (let [{:keys [options arguments errors summary]} (cli/parse-opts args migrate-options)]

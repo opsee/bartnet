@@ -1,6 +1,5 @@
 (ns bartnet.fixtures
   (:require [bartnet.sql :as sql]
-            [clojure.java.jdbc :as jdbc]
             [bartnet.auth :as auth]
             [cheshire.core :refer :all]
             [yesql.util :refer [slurp-from-classpath]]
@@ -12,7 +11,7 @@
 
 (defn start-connection []
   (do
-    (reset! db {:connection (jdbc/get-connection (:db-spec test-config))})
+    (if-not @db (reset! db (sql/pool (:db-spec test-config))))
     (migrate-db @db {:drop-all true :silent true}))
   @db)
 

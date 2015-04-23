@@ -20,7 +20,6 @@
                  [ring/ring-core "1.3.2"]
                  [info.sunng/ring-jetty9-adapter "0.8.1"]
                  [yesql "0.4.1-SNAPSHOT"]
-                 [com.h2database/h2 "1.4.185"]
                  [org.clojure/tools.cli "0.3.1"]
                  [cheshire "5.4.0"]
                  [com.boundary/high-scale-lib "1.0.6"]

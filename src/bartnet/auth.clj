@@ -41,7 +41,7 @@
     (if (MessageDigest/isEqual
           (.decode (Base64/getUrlDecoder) digest)
           (generate-hmac-signature id secret))
-      (if-let [login (first (sql/get-active-login-by-id db (read-string id)))]
+      (if-let [login (first (sql/get-active-login-by-id db (Integer/parseInt id)))]
         [true {:login login}]
         false))))
 

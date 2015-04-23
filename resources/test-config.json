@@ -1,10 +1,10 @@
 {
     "db-spec":
     {
-        "classname":"org.h2.Driver",
-        "subprotocol":"h2",
-        "subname":"/tmp/bartnet_db;LOCK_MODE=0",
-        "user":"cliff",
+        "classname":"org.postgresql.Driver",
+        "subprotocol":"postgresql",
+        "subname":"bartnet_test",
+        "user":"postgres",
         "password":"",
         "max-conns":6,
         "min-conns":1,
