@@ -24,6 +24,12 @@
                                :password_hash (auth/hash-password "cliff")
                                :customer_id   "cliff2"}))
 
+(defn unverified-fixtures [db]
+  (sql/update-login! db {:id 2
+                         :email "cliff+notsuper@leaninto.it"
+                         :name ""
+                         :verified false}))
+
 (defn environment-fixtures [db]
   (do
     (sql/insert-into-environments! db {:id "abc123", :name "Test Env"})
@@ -59,4 +65,7 @@
                                       :name "cliff"})
     (sql/insert-into-activations! db {:id "badid"
                                       :email "cliff+badsignup@leaninto.it"
-                                      :name "derp"})))
+                                      :name "derp"})
+    (sql/insert-into-activations! db {:id "existing"
+                                      :email "cliff+notsuper@leaninto.it"
+                                      :name ""})))

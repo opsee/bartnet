@@ -273,18 +273,26 @@
     (if-let [activation (first (sql/get-unused-activation db id))]
       {:activation activation})))
 
+(defn- use-activation! [db login activation]
+  (let [saved-login (first (sql/get-active-login-by-email db (:email login)))]
+    (sql/update-activations-set-used! db (:id activation))
+    {:redirect {:location (str "/logins/" (:id saved-login))}}))
+
 (defn activate-activation! [db]
   (fn [ctx]
-    (if-let [login-details (json-body ctx)]
-      (let [hashed-pw (auth/hash-password (:password login-details))
-            activation (:activation ctx)
-            login (assoc login-details :password_hash hashed-pw
-                                       :email (:email activation)
-                                       :name (:name activation))]
-        (if (sql/insert-into-logins! db login)
-          (let [saved-login (first (sql/get-active-login-by-email db (:email login)))]
-            (sql/update-activations-set-used! db (:id activation))
-            {:redirect {:location (str "/logins/" (:id saved-login))}}))))))
+    (let [activation (:activation ctx)]
+      (if-let [existing-login (first (sql/get-active-login-by-email db (:email activation)))]
+        ;this is a verification of an existing login's email change
+        (if (sql/update-login! db (merge existing-login {:verified true}))
+          (use-activation! db existing-login activation))
+        ;this is the activation of a new account
+        (if-let [login-details (json-body ctx)]
+          (let [hashed-pw (auth/hash-password (:password login-details))
+                login (assoc login-details :password_hash hashed-pw
+                                           :email (:email activation)
+                                           :name (:name activation))]
+            (if (sql/insert-into-logins! db login)
+              (use-activation! db login activation))))))))
 
 (defn get-activation [ctx]
   (:activation ctx))
