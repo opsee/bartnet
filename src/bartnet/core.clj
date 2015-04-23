@@ -121,7 +121,7 @@
     (ring-response {:status 409
                     :body (generate-string {:error (str "Email " duplicate-email " already exists.")})
                     :headers {"Content-Type" "application/json"}})
-    (or (:new-login ctx) (:old-login ctx))))
+    (dissoc (or (:new-login ctx) (:old-login ctx)) :password_hash)))
 
 (defn environment-exists? [db id]
   (fn [ctx]

@@ -232,7 +232,8 @@
                (let [response ((app) (-> (mock/request :put "/logins/2" (generate-string {:email "cliff+hello@leaninto.it"}))
                                          (mock/header "Authorization" auth-header2)))]
                  (:status response) => 200
-                 (:body response) => (is-json (contains {:id 2 :email "cliff+hello@leaninto.it" :verified false}))))
+                 (:body response) => (is-json (contains {:id 2 :email "cliff+hello@leaninto.it" :verified false}))
+                 (:body response) =not=> (is-json (contains {:password_hash #""}))))
          (fact "changing to an existing email address will return a 409"
                (let [response ((app) (-> (mock/request :put "/logins/2" (generate-string {:email "cliff@leaninto.it"}))
                                          (mock/header "Authorization" auth-header2)))]
