@@ -15,7 +15,7 @@ they must have a verification email sent with an activation token.
 
         {
             "email": "person@gmail.com",
-            "password": "a_password"
+            "name": "person's name"
         }
         
 + Response 201 (application/json)
@@ -41,13 +41,17 @@ database.
 
             Authorization: HMAC 1--2jmj7l5rSw0yVb_vlWAYkK_YBwk=
 
+    + Body
+
+            {"email" : "email@domain.com"}
+
 + Response 201
 
 # Group Activations
 The activation resource gets created when a signup is activated for
 inclusion into the beta.
 
-## Activations Collection [/activations/{id}/activate]
+## Activation [/activations/{id}/activate]
 ### Request an Activation [GET]
 
 Requesting an activation by ID provides confirmation that an
@@ -84,6 +88,101 @@ for the resulting login.
 
             Location: /logins/123
 
+# Group Verifications
+
+Confirming the verification using its unique ID ensures validation of the
+an email change for an existing user.  The post requires no body, and will
+return a redirect to the now verified login.
+
+## Verification [/verifications/{id}/activate]
+### Confirm a Verification [POST]
+
+Confirming the verification using its unique ID ensures validation of the email
+change for a login.  Unlike activations, this POST does not require a body.  Upon success
+the verification ID will be marked as used in the database and a 303 response code
+returned, along with a Location header to the affected login.
+
++ Response 303 (application/json)
+    + Headers
+
+            Location: /logins/123
+
+# Group Logins
+The login resource provides retrieval and editing capabilities for some of the fields
+in a user's login, as well as means to deactivate a login.
+
+## Login [/logins/{id}]
+
++ Parameters
+    + id (required, int) ... Unique login ID in the form of an integer
+
++ Model (application/json)
+    + Body
+
+            {
+                "email":"cliff@leaninto.it",
+                "admin":true,
+                "name":"cliff",
+                "updated_at":"2015-04-15T19:17:54Z",
+                "onboard":true,
+                "active":true,
+                "id":1,
+                "verified":true,
+                "created_at":"2014-10-12T13:28:36Z",
+                "customer_id":"cliff"
+            }
+
+### Retrieve a single login [GET]
+
+Retrieving all logins requires a superuser access token.
+
++ Request
+    + Headers
+
+            Authorization: HMAC 1--2jmj7l5rSw0yVb_vlWAYkK_YBwk=
+
++ Response 200 (application/json)
+    +Body
+
+            [Login][]
+
+### Edit a login [PATCH]
+Not every field of a login is editable by an ordinary user, fields
+such as `verified` and `admin` cannot be changed via patch. If the
+user chooses to change their password, then two fields must be present:
+`old_password` and `new_password`.  `old_password` must validate
+against the existing stored password hash.
+
++ Request (application/json)
+    + Headers
+
+            Authorization: HMAC 1--2jmj7l5rSw0yVb_vlWAYkK_YBwk=
+
+    + Body
+
+            {
+                "name" : "cliff",
+                "email" : "cliff@leaninto.it",
+                "old_password" : "cliff",
+                "new_password" : "cliff1"
+            }
+
++ Response 200 (application/json)
+    + Body
+
+            [Login][]
+
+### Deactivate a login [DELETE]
+Once the delete is processed, a deactivated login can no longer authenticate
+via any method and its API tokens stop working as well.
+
++ Request
+    + Headers
+
+            Authorization: HMAC 1--2jmj7l5rSw0yVb_vlWAYkK_YBwk=
+
++ Response 204
+
 # Group Authenticate
 The authentication resource provides a means by which the user
 can provide credentials and get back a time limited token for use
@@ -102,5 +201,11 @@ in subsequent API calls.
 
     + Body
             
-            "HMAC 1--2jmj7l5rSw0yVb_vlWAYkK_YBwk="
+            {"token": "HMAC 1--2jmj7l5rSw0yVb_vlWAYkK_YBwk="}
 
+# Group Checks
+Check resources provide the means for creating and pushing down health checks to a customer's
+bastion hosts. Once created, health checks will be sent down to any bastions connected under
+that particular customer's ID, and resent every time a bastion connection initiates. The bastion
+itself is responsible for determining whether a particular check is relevant to its current
+VPC or subnet. As such, there are a number of
