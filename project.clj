@@ -8,7 +8,6 @@
              :dev {:dependencies [[midje "1.6.3"]
                                   [ring/ring-mock "0.2.0"]]
                    :plugins [[lein-midje "3.0.0"]]}}
-  :aot [bartnet.DateTrigger]
   :plugins [[s3-wagon-private "1.1.2"]]
   :repositories [["snapshots" {:url "s3p://opsee-maven-snapshots/snapshot"
                                :username [:gpg :env/ACCESS_KEY_ID]
