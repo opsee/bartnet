@@ -386,11 +386,11 @@
 
 (defresource login-resource [db config secret id]
              :available-media-types ["application/json"]
-             :allowed-methods [:get :put :delete]
+             :allowed-methods [:get :patch :delete]
              :authorized? (authorized? db secret)
              :allowed? (allowed-edit-login? id)
              :exists? (login-exists? db id)
-             :put! (update-login! db config id)
+             :patch! (update-login! db config id)
              :delete! (delete-login! db id)
              :new? false
              :respond-with-entity? respond-with-entity?
