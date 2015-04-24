@@ -13,7 +13,7 @@
                     :form-params {:from from
                                   :to to
                                   :subject subject
-                                  :text body}}))))
+                                  :html body}}))))
 
 (defn render-email [template-path data]
   (let [rendered (render-resource template-path data)

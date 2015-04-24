@@ -121,7 +121,7 @@
     (ring-response {:status 409
                     :body (generate-string {:error (str "Email " duplicate-email " already exists.")})
                     :headers {"Content-Type" "application/json"}})
-    (or (:new-login ctx) (:old-login ctx))))
+    (dissoc (or (:new-login ctx) (:old-login ctx)) :password_hash)))
 
 (defn environment-exists? [db id]
   (fn [ctx]
@@ -299,17 +299,31 @@
 (defn allowed-edit-login? [id]
   (fn [ctx]
     (let [login (:login ctx)]
-      (or (:admin login)
-          (= id (:id login))))))
+      (if (or (:admin login)
+              (= id (:id login)))
+        (let [new-login (json-body ctx)]
+          (if (:new_password new-login)
+            (if (auth/password-match? (:old_password new-login)
+                                      (:password_hash login))
+              [true, {:new-login new-login}]
+              false)
+            [true, {:new-login new-login}]))))))
 
 (defn login-exists? [db id]
   (fn [ctx]
     (if-let [login (first (sql/get-active-login-by-id db id))]
       [true, {:old-login login}])))
 
+(defn- do-update! [db old-login new-login verified]
+  (let [hash (if (:new_password new-login)
+               (auth/hash-password (:new_password new-login))
+               (:password_hash old-login))
+        merged (merge old-login new-login {:verified verified :password_hash hash})]
+    (sql/update-login! db merged)))
+
 (defn update-login! [db config id]
   (fn [ctx]
-    (let [new-login (json-body ctx)
+    (let [new-login (:new-login ctx)
           old-login (:old-login ctx)
           verified (if (contains? new-login :email)
                      (= (:email new-login) (:email old-login))
@@ -317,7 +331,7 @@
       (if (and (not verified)
                (not (empty? (sql/get-any-login-by-email db (:email new-login)))))
         {:duplicate (:email new-login)}
-        (if (sql/update-login! db (merge old-login new-login {:verified verified}))
+        (if (do-update! db old-login new-login verified)
           (if-let [saved-login (first (sql/get-active-login-by-id db id))]
             (do
               (if-not verified (create-and-send-verification! db config new-login))
@@ -386,11 +400,11 @@
 
 (defresource login-resource [db config secret id]
              :available-media-types ["application/json"]
-             :allowed-methods [:get :put :delete]
+             :allowed-methods [:get :patch :delete]
              :authorized? (authorized? db secret)
              :allowed? (allowed-edit-login? id)
              :exists? (login-exists? db id)
-             :put! (update-login! db config id)
+             :patch! (update-login! db config id)
              :delete! (delete-login! db id)
              :new? false
              :respond-with-entity? respond-with-entity?

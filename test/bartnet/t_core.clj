@@ -12,7 +12,8 @@
             [aleph.http :refer [websocket-client]]
             [clojure.tools.logging :as log]
             [cheshire.core :refer :all]
-            [ring.adapter.jetty9 :refer [run-jetty]])
+            [ring.adapter.jetty9 :refer [run-jetty]]
+            [bartnet.auth :as auth])
   (:import [org.cliffc.high_scale_lib NonBlockingHashMap]))
 
 (def clients (atom nil))
@@ -224,17 +225,29 @@
                  (:status response) => 200
                  (:body response) => (is-json (contains {:id 2}))))
          (fact "user can edit their own name"
-               (let [response ((app) (-> (mock/request :put "/logins/2" (generate-string {:name "derp"}))
+               (let [response ((app) (-> (mock/request :patch "/logins/2" (generate-string {:name "derp"}))
                                          (mock/header "Authorization" auth-header2)))]
                  (:status response) => 200
                  (:body response) => (is-json (contains {:id 2 :name "derp" :verified true}))))
          (fact "changing email address will change verified status"
-               (let [response ((app) (-> (mock/request :put "/logins/2" (generate-string {:email "cliff+hello@leaninto.it"}))
+               (let [response ((app) (-> (mock/request :patch "/logins/2" (generate-string {:email "cliff+hello@leaninto.it"}))
                                          (mock/header "Authorization" auth-header2)))]
                  (:status response) => 200
-                 (:body response) => (is-json (contains {:id 2 :email "cliff+hello@leaninto.it" :verified false}))))
+                 (:body response) => (is-json (contains {:id 2 :email "cliff+hello@leaninto.it" :verified false}))
+                 (:body response) =not=> (is-json (contains {:password_hash #""}))))
+         (fact "changing the password without the old one will result in a 403"
+               (let [response ((app) (-> (mock/request :patch "/logins/2" (generate-string {:old_password "nomegusta"
+                                                                                            :new_password "hacker"}))
+                                         (mock/header "Authorization" auth-header2)))]
+                 (:status response) => 403))
+         (fact "changing the password with a matching old one will work"
+               (let [response ((app) (-> (mock/request :patch "/logins/2" (generate-string {:old_password "cliff"
+                                                                                            :new_password "huck"}))
+                                         (mock/header "Authorization" auth-header2)))]
+                 (:status response) => 200
+                 (:password_hash (first (sql/get-active-login-by-id @db 2))) => #(auth/password-match? "huck" %)))
          (fact "changing to an existing email address will return a 409"
-               (let [response ((app) (-> (mock/request :put "/logins/2" (generate-string {:email "cliff@leaninto.it"}))
+               (let [response ((app) (-> (mock/request :patch "/logins/2" (generate-string {:email "cliff@leaninto.it"}))
                                          (mock/header "Authorization" auth-header2)))]
                  (:status response) => 409
                  (first (sql/get-active-login-by-id @db 2)) => (contains {:email "cliff+notsuper@leaninto.it"})))
