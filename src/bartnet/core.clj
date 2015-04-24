@@ -237,8 +237,9 @@
           signup (:signup ctx)
           activation (assoc signup :id id)]
       (if (sql/insert-into-activations! db activation)
-        (send-activation! config signup id))
-      {:redirect {:location (str "/activations/" id)}})))
+        (send-activation! config signup id)
+        (let [saved-activation (first (sql/get-unused-activation db id))]
+          {:activation saved-activation})))))
 
 (defn create-and-send-verification! [db config login]
   (let [id (identifiers/generate)
@@ -275,7 +276,7 @@
 (defn- use-activation! [db login activation]
   (let [saved-login (first (sql/get-active-login-by-email db (:email login)))]
     (sql/update-activations-set-used! db (:id activation))
-    {:redirect {:location (str "/logins/" (:id saved-login))}}))
+    {:new-login saved-login}))
 
 (defn activate-activation! [db]
   (fn [ctx]
@@ -357,7 +358,8 @@
              :allowed-methods [:post]
              :authorized? (authorized? db secret :superuser)
              :exists? (signup-exists? db)
-             :post! (create-and-send-activation! db config))
+             :post! (create-and-send-activation! db config)
+             :handle-created get-activation)
 
 (defresource activation-resource [db id]
              :available-media-types ["application/json"]
@@ -365,7 +367,7 @@
              :exists? (activation-exists? db id)
              :post! (activate-activation! db)
              :handle-ok get-activation
-             :post-redirect? #(:redirect %))
+             :handle-created get-new-login)
 
 (defresource authenticate-resource [db secret]
              :available-media-types ["application/json"]

@@ -196,13 +196,13 @@
          (fact "activation endpoint turns into a login"
                (let [response ((app) (-> (mock/request :post "/activations/abc123/activate" (generate-string
                                                                                               {:password "cliff"
-                                                                                               :customer_id "custie"}))))
-                     [_, _, id] (string/split (get-in response [:headers "Location"]) #"/")]
-                 (:status response) => 303
-                 (sql/get-active-login-by-id @db (Integer/parseInt id)) => (just (contains {:email "cliff+signup@leaninto.it"}))))
+                                                                                               :customer_id "custie"}))))]
+                 (:status response) => 201
+                 (:body response) => (is-json (contains {:email "cliff+signup@leaninto.it"}))))
          (fact "activation records for existing logins will result in the login being set to verified"
                (let [response ((app) (-> (mock/request :post "/activations/existing/activate")))]
-                 (:status response) => 303
+                 (:status response) => 201
+                 (:body response) => (is-json (contains {:id 2}))
                  (sql/get-active-login-by-id @db 2) => (just (contains {:verified true}))))))
 (facts "login endpoint works"
        (with-state-changes
