@@ -23,8 +23,8 @@ select * from logins where id=:id and active=true;
 insert into logins (email,name, password_hash, active,customer_id,verified) values (:email,:name,:password_hash,true,:customer_id,true);
 
 -- name: update-login!
--- Updates the login, but will not modify the password
-update logins set email=:email,name=:name,verified=:verified where id=:id;
+-- Updates the login
+update logins set email=:email,name=:name,password_hash=:password_hash,verified=:verified where id=:id;
 
 -- name: make-superuser!
 -- Flip the superuser bit.

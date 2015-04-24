@@ -17,6 +17,9 @@
       [true, {:login login}]
       false)))
 
+(defn password-match? [pass hash]
+  (BCrypt/checkpw pass hash))
+
 (defn generate-hmac-signature [id, secret]
   (.digest
     (doto (MessageDigest/getInstance "SHA1")

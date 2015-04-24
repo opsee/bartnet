@@ -26,6 +26,7 @@
 (defn unverified-fixtures [db]
   (sql/update-login! db {:id 2
                          :email "cliff+notsuper@leaninto.it"
+                         :password_hash (auth/hash-password "cliff")
                          :name ""
                          :verified false}))
 
