@@ -65,7 +65,7 @@ activation exists and has not yet been used.
                 "email" : "email@domain.com",
                 "name" : "Users Name",
                 "used" : false,
-                "create_at" : "2015-02-18T02:15:15Z",
+                "created_at" : "2015-02-18T02:15:15Z",
                 "updated_at" : "2015-02-18T02:15:15Z"
             }
 
@@ -81,7 +81,11 @@ newly created login.
 
 + Request (application/json)
 
-        {"password" : "a password", "customer_id" : "a-dns-safe-string"}
+        {
+            "password" : "a password",
+            "customer_id" : "a-dns-safe-string"
+            "team_name" : "Team Display Name"
+        }
 
 + Response 201 (application/json)
     + Body
@@ -209,4 +213,37 @@ Check resources provide the means for creating and pushing down health checks to
 bastion hosts. Once created, health checks will be sent down to any bastions connected under
 that particular customer's ID, and resent every time a bastion connection initiates. The bastion
 itself is responsible for determining whether a particular check is relevant to its current
-VPC or subnet. As such, there are a number of
+VPC or subnet.
+
+## Check [/checks/{id}]
+
++ Parameters
+    + id (required, string) ... Unique login ID
+
++ Model (application/json)
+    + Body
+
+            {
+                "id": "679SysoqGvjszAaEzfAEL0",
+                "name": "Display Name of A Check",
+                "description": "Long form description of a check",
+                "group_type": "sg",
+                "group_id": "sg-8a63bdef",
+                "check_type": "http",
+                "check_request": "GET /health_check",
+                "check_interval": 60,
+                "port": 8080,
+                "create_at" : "2015-02-18T02:15:15Z",
+                "updated_at" : "2015-02-18T02:15:15Z"
+            }
+
+### Retrieve a single check [GET]
++ Request
+    + Headers
+
+            Authorization: HMAC 1--2jmj7l5rSw0yVb_vlWAYkK_YBwk=
+
++ Response 200 (application/json)
+    + Body
+
+            [Check][]
