@@ -234,4 +234,10 @@
       <column name="name" type="varchar(255)" />
     </addColumn>
   </changeSet>
+  <changeSet id="14" author="cliff">
+    <createTable tableName="teams">
+      <column name="id" type="varchar(255)"><constraints nullable="false" primaryKey="true"/></column>
+      <column name="name" type="varchar(255)"></column>
+    </createTable>
+  </changeSet>
 </databaseChangeLog>

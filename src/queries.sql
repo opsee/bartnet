@@ -138,3 +138,11 @@ select * from activations where used=false;
 update activations set used=true where id=:id;
 
 -----------------------------------------------------------------------------
+
+-- name: insert-into-teams!
+-- Inserts a new record into the teams table
+insert into teams (id,name) values (:id,:name);
+
+-- name: get-team-by-id
+-- Retrieves a team by its ID
+select * from teams where id=:id;

@@ -117,9 +117,9 @@
   (:env ctx))
 
 (defn get-new-login [ctx]
-  (if-let [duplicate-email (:duplicate ctx)]
-    (ring-response {:status 409
-                    :body (generate-string {:error (str "Email " duplicate-email " already exists.")})
+  (if-let [error (:error ctx)]
+    (ring-response {:status (:status error)
+                    :body (generate-string {:error (:message error)})
                     :headers {"Content-Type" "application/json"}})
     (dissoc (or (:new-login ctx) (:old-login ctx)) :password_hash)))
 
@@ -281,18 +281,25 @@
 (defn activate-activation! [db]
   (fn [ctx]
     (let [activation (:activation ctx)]
-      (if-let [existing-login (first (sql/get-active-login-by-email db (:email activation)))]
-        ;this is a verification of an existing login's email change
-        (if (sql/update-login! db (merge existing-login {:verified true}))
-          (use-activation! db existing-login activation))
-        ;this is the activation of a new account
-        (if-let [login-details (json-body ctx)]
-          (let [hashed-pw (auth/hash-password (:password login-details))
-                login (assoc login-details :password_hash hashed-pw
-                                           :email (:email activation)
-                                           :name (:name activation))]
-            (if (sql/insert-into-logins! db login)
-              (use-activation! db login activation))))))))
+      (if-not activation
+        {:error {:status 409
+                 :message "invalid activation"}}
+        (if-let [existing-login (first (sql/get-active-login-by-email db (:email activation)))]
+          ;this is a verification of an existing login's email change
+          (if (sql/update-login! db (merge existing-login {:verified true}))
+            (use-activation! db existing-login activation))
+          ;this is the activation of a new account
+          (if-let [login-details (json-body ctx)]
+            (let [hashed-pw (auth/hash-password (:password login-details))
+                  login (assoc login-details :password_hash hashed-pw
+                                             :email (:email activation)
+                                             :name (:name activation))]
+              (if (first (sql/get-team-by-id db (:customer_id login-details)))
+                {:error {:status 409
+                         :message "team name taken"}}
+                (if (and (sql/insert-into-logins! db login)
+                         (sql/insert-into-teams! db {:id (:customer_id login-details)}))
+                  (use-activation! db login activation))))))))))
 
 (defn get-activation [ctx]
   (:activation ctx))
@@ -331,7 +338,8 @@
                      true)]
       (if (and (not verified)
                (not (empty? (sql/get-any-login-by-email db (:email new-login)))))
-        {:duplicate (:email new-login)}
+        {:error {:status 409
+                 :message (str "Email " (:email new-login) " already exists.")}}
         (if (do-update! db old-login new-login verified)
           (if-let [saved-login (first (sql/get-active-login-by-id db id))]
             (do

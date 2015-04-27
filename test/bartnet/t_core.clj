@@ -192,7 +192,8 @@
                            signup-fixtures
                            admin-fixtures
                            unverified-fixtures
-                           activation-fixtures))]
+                           activation-fixtures
+                           team-fixtures))]
          (fact "activation endpoint turns into a login"
                (let [response ((app) (-> (mock/request :post "/activations/abc123/activate" (generate-string
                                                                                               {:password "cliff"
@@ -203,7 +204,19 @@
                (let [response ((app) (-> (mock/request :post "/activations/existing/activate")))]
                  (:status response) => 201
                  (:body response) => (is-json (contains {:id 2}))
-                 (sql/get-active-login-by-id @db 2) => (just (contains {:verified true}))))))
+                 (sql/get-active-login-by-id @db 2) => (just (contains {:verified true}))))
+         (fact "activations already used will result in a 409 conflict"
+               (let [response ((app) (-> (mock/request :post "/activations/badid/activate" (generate-string
+                                                                                             {:password "cliff"
+                                                                                              :customer_id "herk"}))))]
+                 (:status response) => 409
+                 (:body response) => (is-json (contains {:error #"invalid activation"}))))
+         (fact "teams that already exist will cause a 409 conflict"
+               (let [response ((app) (-> (mock/request :post "/activations/abc123/activate" (generate-string
+                                                                                              {:password "cliff"
+                                                                                               :customer_id "existing"}))))]
+                 (:status response) => 409
+                 (:body response) => (is-json (contains {:error #"team name taken"}))))))
 (facts "login endpoint works"
        (with-state-changes
          [(before :facts (doto

@@ -66,6 +66,11 @@
     (sql/insert-into-activations! db {:id "badid"
                                       :email "cliff+badsignup@leaninto.it"
                                       :name "derp"})
+    (sql/update-activations-set-used! db "badid")
     (sql/insert-into-activations! db {:id "existing"
                                       :email "cliff+notsuper@leaninto.it"
                                       :name ""})))
+
+(defn team-fixtures [db]
+  (do
+    (sql/insert-into-teams! db {:id "existing"})))
