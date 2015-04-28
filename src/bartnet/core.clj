@@ -73,7 +73,8 @@
           id (str (:id login))
           hmac (str id "--" (.encodeToString (Base64/getUrlEncoder) (auth/generate-hmac-signature id secret)))]
       (ring-response {:headers {"X-Auth-HMAC" hmac}
-                      :body (generate-string {:token (str "HMAC " hmac)})}))))
+                      :body (generate-string (merge (dissoc login :password_hash)
+                                                    {:token (str "HMAC " hmac)}))}))))
 
 (defn user-authorized?
   [db secret ctx]
