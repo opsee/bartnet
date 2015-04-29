@@ -2,6 +2,7 @@
   (:gen-class)
   (:require [liberator.core :refer [resource defresource]]
             [liberator.dev :refer [wrap-trace]]
+            [amazonica.aws.ec2 :refer [describe-vpcs]]
             [ring.middleware.params :refer [wrap-params]]
             [compojure.core :refer :all]
             [cheshire.core :refer :all]
@@ -351,6 +352,13 @@
   (fn [ctx]
     (sql/deactivate-login! db id)))
 
+(defn scan-vpcs [ctx]
+  (let [creds (json-body ctx)]
+    (describe-vpcs creds)))
+
+(defn get-vpcs [ctx]
+  (:vpcs ctx))
+
 (defresource signups-resource [db secret]
              :available-media-types ["application/json"]
              :allowed-methods [:post :get]
@@ -457,6 +465,12 @@
              :handle-created get-check
              :handle-ok (list-checks pubsub db))
 
+(defresource scan-vpc-resource []
+             :available-media-types ["application/json"]
+             :allowed-methods [:post]
+             :post! scan-vpcs
+             :handle-created get-vpcs)
+
 (defn wrap-options [handler]
   (fn [request]
     (log/info request)
@@ -484,6 +498,7 @@
       (ANY "/environments/:id" [id] (environment-resource db secret id))
       ;(ANY "/logins" [] (logins-resource db secret))
       (ANY "/logins/:id" [id] (login-resource db config secret (param->int id)))
+      (ANY "/scan-vpc" [] (scan-vpc-resource))
       (ANY "/bastions" [] (bastions-resource pubsub db secret))
       (ANY "/bastions/:id" [id] (bastion-resource pubsub db secret id))
       (ANY "/discovery" [] (discovery-resource pubsub db secret))
