@@ -208,6 +208,47 @@ in subsequent API calls.
             
             {"token": "HMAC 1--2jmj7l5rSw0yVb_vlWAYkK_YBwk="}
 
+# Group VPC
+Scans the specified EC2 Regions for VPC instances.  Will return a list of VPC's, organized
+by region, as well as an entry for EC2-Classic if it's supported for the account & region.
+This operation happens entirely in memory and the supplied AWS keys are never stored.
+
+## Scan [/scan-vpc]
+### Perform the scan [POST]
++ Request (application/json)
+    + Body
+
+            {
+                "access-key": "ASDASDSADSDADS",
+                "secret-key": "sfsdfTSDTSDTDSDT/ASASDDDSDSSDSD++QWERXf",
+                "regions": [
+                    "us-west-1"
+                ]
+            }
+
++ Response 200 (application/json)
+    + Body
+
+            {
+                "us-west-1":
+                {
+                    "ec2-classic": "true"
+                    "vpcs":
+                    [
+                        {
+                            "state": "available",
+                            "vpc-id": "vpc-79b1491c",
+                            "dhcp-options-id": "dopt-9dc9d5ff",
+                            "tags": [],
+                            "cidr-block": "172.31.0.0/16",
+                            "instance-tenancy": "default",
+                            "is-default": "true"
+                        }
+                    ]
+                }
+            }
+
+
 # Group Checks
 Check resources provide the means for creating and pushing down health checks to a customer's
 bastion hosts. Once created, health checks will be sent down to any bastions connected under
