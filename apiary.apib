@@ -229,9 +229,9 @@ This operation happens entirely in memory and the supplied AWS keys are never st
 + Response 200 (application/json)
     + Body
 
-            {
-                "us-west-1":
+            [
                 {
+                    "region": "us-west-1",
                     "ec2-classic": "true"
                     "vpcs":
                     [
@@ -246,7 +246,7 @@ This operation happens entirely in memory and the supplied AWS keys are never st
                         }
                     ]
                 }
-            }
+            ]
 
 
 # Group Checks
