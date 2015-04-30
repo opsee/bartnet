@@ -2,7 +2,7 @@
   (:gen-class)
   (:require [liberator.core :refer [resource defresource]]
             [liberator.dev :refer [wrap-trace]]
-            [amazonica.aws.ec2 :refer [describe-vpcs]]
+            [amazonica.aws.ec2 :refer [describe-vpcs describe-account-attributes]]
             [ring.middleware.params :refer [wrap-params]]
             [compojure.core :refer :all]
             [cheshire.core :refer :all]
@@ -352,12 +352,28 @@
   (fn [ctx]
     (sql/deactivate-login! db id)))
 
+(defn ec2-classic? [attrs]
+  (let [ttr (:account-attributes attrs)
+        supported (first (filter
+                           #(= "supported-platforms" (:attribute-name %))
+                           ttr))]
+    (not (empty? (filter
+              #(or (.equalsIgnoreCase "EC2-Classic" (:attribute-value %))
+                   (.equalsIgnoreCase "EC2" (:attribute-value %)))
+              (:attribute-values supported))))))
+
 (defn scan-vpcs [ctx]
   (let [creds (json-body ctx)]
-    (describe-vpcs creds)))
+    {:regions (for [region (:regions creds)]
+                (let [cd (assoc creds :region region)
+                      vpcs (describe-vpcs cd)
+                      attrs (describe-account-attributes cd)]
+                  {:region region
+                   :ec2-classic (ec2-classic? attrs)
+                   :vpcs (:vpcs vpcs)}))}))
 
 (defn get-vpcs [ctx]
-  (:vpcs ctx))
+  (:regions ctx))
 
 (defresource signups-resource [db secret]
              :available-media-types ["application/json"]
@@ -496,9 +512,9 @@
       (ANY "/authenticate/password" [] (authenticate-resource db secret))
       (ANY "/environments" [] (environments-resource db secret))
       (ANY "/environments/:id" [id] (environment-resource db secret id))
-      ;(ANY "/logins" [] (logins-resource db secret))
       (ANY "/logins/:id" [id] (login-resource db config secret (param->int id)))
-      (ANY "/scan-vpc" [] (scan-vpc-resource))
+      (ANY "/scan-vpcs" [] (scan-vpc-resource))
+      ;(ANY "/teams/:id" [] (team-resource db secret))
       (ANY "/bastions" [] (bastions-resource pubsub db secret))
       (ANY "/bastions/:id" [id] (bastion-resource pubsub db secret id))
       (ANY "/discovery" [] (discovery-resource pubsub db secret))

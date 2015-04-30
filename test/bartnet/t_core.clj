@@ -320,6 +320,65 @@
                                          (mock/header "Authorization" auth-header)))]
                  (:status response) => 201
                  @(s/take! stream) => (contains {:body (contains {:name "My Dope Fuckin Check"})})))))
+(facts "VPC scanning without EC2-Classic"
+       (with-redefs [amazonica.aws.ec2/describe-account-attributes (fn [creds]
+                                                                     (case (:region creds)
+                                                                       "us-west-1" {:account-attributes
+                                                                                    [{:attribute-name "vpc-max-security-groups-per-interface",
+                                                                                      :attribute-values [{:attribute-value "5"}]}
+                                                                                     {:attribute-name "max-instances",
+                                                                                      :attribute-values [{:attribute-value "20"}]}
+                                                                                     {:attribute-name "supported-platforms",
+                                                                                      :attribute-values [{:attribute-value "VPC"}]}
+                                                                                     {:attribute-name "default-vpc",
+                                                                                      :attribute-values [{:attribute-value "vpc-79b1491c"}]}
+                                                                                     {:attribute-name "max-elastic-ips",
+                                                                                      :attribute-values [{:attribute-value "5"}]}
+                                                                                     {:attribute-name "vpc-max-elastic-ips",
+                                                                                      :attribute-values [{:attribute-value "5"}]}]}
+                                                                       "us-west-2" {:account-attributes
+                                                                                    [{:attribute-name "vpc-max-security-groups-per-interface",
+                                                                                      :attribute-values [{:attribute-value "5"}]}
+                                                                                     {:attribute-name "max-instances",
+                                                                                      :attribute-values [{:attribute-value "20"}]}
+                                                                                     {:attribute-name "supported-platforms",
+                                                                                      :attribute-values [{:attribute-value "VPC"} {:attribute-value "EC2"}]}
+                                                                                     {:attribute-name "default-vpc",
+                                                                                      :attribute-values [{:attribute-value "vpc-82828282"}]}
+                                                                                     {:attribute-name "max-elastic-ips",
+                                                                                      :attribute-values [{:attribute-value "5"}]}
+                                                                                     {:attribute-name "vpc-max-elastic-ips",
+                                                                                      :attribute-values [{:attribute-value "5"}]}]}))
+                     amazonica.aws.ec2/describe-vpcs (fn [creds]
+                                                       (case (:region creds)
+                                                         "us-west-1" {:vpcs
+                                                                      [{:state "available",
+                                                                        :tags [],
+                                                                        :cidr-block "172.31.0.0/16",
+                                                                        :vpc-id "vpc-79b1491c",
+                                                                        :dhcp-options-id "dopt-9dc9d5ff",
+                                                                        :instance-tenancy "default",
+                                                                        :is-default true}]}
+                                                         "us-west-2" {:vpcs
+                                                                      [{:state "available",
+                                                                        :tags [],
+                                                                        :cidr-block "172.31.0.0/16",
+                                                                        :vpc-id "vpc-82828282",
+                                                                        :dhcp-options-id "dopt-9dc9d5ff",
+                                                                        :instance-tenancy "default",
+                                                                        :is-default true}]}))]
+         (fact "aws api's get called for every region"
+               (let [response ((app) (-> (mock/request :post "/scan-vpcs" (generate-string {:access-key "SDFSDFDSF"
+                                                                                            :secret-key "sdfsdf+sasdasdasdsdfsdf"
+                                                                                            :regions ["us-west-1"
+                                                                                                      "us-west-2"]}))))]
+                 (:status response) => 201
+                 (:body response) => (is-json (just [(contains {:region "us-west-1"
+                                                                :ec2-classic false
+                                                                :vpcs (just [(contains {:vpc-id "vpc-79b1491c"})])})
+                                                     (contains {:region "us-west-2"
+                                                                :ec2-classic true
+                                                                :vpcs (just [(contains {:vpc-id "vpc-82828282"})])})]))))))
 (facts "Websocket handling works"
        (with-state-changes
          [(before :facts (do
