@@ -1,0 +1,11 @@
+dependencies:
+  pre:
+    - createdb bartnet_test
+machine:
+  java:
+    version: oraclejdk8
+  environment:
+    
+notify:
+  webhooks:
+    - url: https://hooks.slack.com/services/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
