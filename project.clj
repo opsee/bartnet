@@ -10,8 +10,8 @@
                    :plugins [[lein-midje "3.0.0"]]}}
   :plugins [[s3-wagon-private "1.1.2"]]
   :repositories [["snapshots" {:url "s3p://opsee-maven-snapshots/snapshot"
-                               :username [:gpg :env/ACCESS_KEY_ID]
-                               :passphrase [:gpg :env/SECRET_KEY]}]]
+                               :username :env
+                               :passphrase :env}]]
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [liberator "0.12.2"]
                  [compojure "1.3.1"]
