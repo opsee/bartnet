@@ -2,14 +2,23 @@
   (:require [manifold.deferred :as d]
             [manifold.stream :as s]
             [clojure.tools.logging :as log]
-            [manifold.bus :as b])
+            [manifold.bus :as b]
+            [amazonica.aws.sns :as sns])
   (:import [org.cliffc.high_scale_lib NonBlockingHashMap]))
+
 
 (defn- bastion-topic [id]
   (str id "-bastion"))
 
 (defn- command-topic [id]
   (str id "-commands"))
+
+(def ^{:private true} sns-bastion-topic-arn (atom nil))
+
+(defn- sns-bastion-topic []
+  (let [arn @sns-bastion-topic-arn]
+    (if-not arn (reset! sns-bastion-topic-arn (sns/create-topic "bastions")))
+    arn))
 
 (defprotocol Subscription
   (add-stream [this stream])
@@ -35,6 +44,7 @@
           stream (b/subscribe bus (command-topic id))]
       (log/info connection)
       (.put bastions (:id connection) {:connection connection, :stream stream, :registration msg})
+      (sns/publish {:topic-arn (sns-bastion-topic) :subject id :message msg})
       (b/publish! bus (bastion-topic id) msg)
       stream))
   (register-ws-client [_ connection]

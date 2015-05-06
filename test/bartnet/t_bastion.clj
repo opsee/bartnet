@@ -9,7 +9,8 @@
             [cheshire.core :refer :all]
             [gloss.io :as io]
             [clojure.tools.logging :as log]
-            [aleph.tcp :as tcp]))
+            [aleph.tcp :as tcp]
+            [amazonica.aws.sns :as sns]))
 
 
 (def pubsub (atom nil))
@@ -49,6 +50,8 @@
   (.close @server))
 
 (facts "Bastion channel listens"
+  (with-redefs [sns/create-topic (fn [topic] topic)
+                sns/publish (fn [_] true)]
        (with-state-changes
          [(before :facts (setup-server 4080 {"echo" echo}))
           (after :facts (teardown-server))]
@@ -82,4 +85,4 @@
                  msg => (contains {:id 1, :message {:msg "hello"}, :version 1})
                  @(s/put! client {:id 2, :in_reply_to 1, :message {:msg "hey"}, :version 1, :sent 0})
                  @defer => (contains {:in_reply_to 1})
-                 (.close client)))))
+                 (.close client))))))
