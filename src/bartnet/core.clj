@@ -602,21 +602,48 @@
                      (s/close! (:server-client client)))))
    :on-error   (fn [ws e])})
 
-(defn server-cmd [args]
+(def ^{:private true} bastion-server (atom nil))
+
+(def ^{:private true} ws-server (atom nil))
+
+(defn- start-bastion-server [db pubsub handlers options]
+  (if-not @bastion-server (reset! bastion-server (bastion/bastion-server db pubsub handlers options))))
+
+(defn- start-ws-server [db pubsub config clients]
+  (if-not @ws-server
+    (reset! ws-server
+            (run-jetty
+              (handler pubsub db config)
+              (assoc (:server config)
+                :websockets {"/stream" (ws-handler pubsub clients db (:secret config))})))))
+
+(defn stop-server []
+  (do
+    (if @bastion-server (do
+                          (.close @bastion-server)
+                          (reset! bastion-server (atom nil))))
+    (if @ws-server (do
+                     (.stop @ws-server)
+                     (reset! ws-server (atom nil))))))
+
+(defn start-server [args]
   (let [config (parse-string (slurp (first args)) true)
         db (sql/pool (:db-spec config))
         pubsub (create-pubsub)
         clients (NonBlockingHashMap.)]
-    (bastion/bastion-server db pubsub bastion-handlers (:bastion-server config))
-    (run-jetty
-      (handler pubsub db config)
-      (assoc (:server config)
-        :websockets {"/stream" (ws-handler pubsub clients db (:secret config))}))))
+    (start-bastion-server db pubsub bastion-handlers (:bastion-server config))
+    (start-ws-server db pubsub config clients)))
+
+(.addShutdownHook
+  (Runtime/getRuntime)
+  (Thread. (fn []
+             (println "Shutting down...")
+             (stop-server))))
 
 (defn -main [& args]
   (let [cmd (first args)
         subargs (rest args)]
     (case cmd
-      "server" (server-cmd subargs)
+      "server" (start-server subargs)
       "db" (db-cmd/db-cmd subargs))))
 
