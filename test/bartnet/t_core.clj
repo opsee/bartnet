@@ -13,7 +13,8 @@
             [clojure.tools.logging :as log]
             [cheshire.core :refer :all]
             [ring.adapter.jetty9 :refer [run-jetty]]
-            [bartnet.auth :as auth])
+            [bartnet.auth :as auth]
+            [clojure.java.io :as io])
   (:import [org.cliffc.high_scale_lib NonBlockingHashMap]))
 
 (def clients (atom nil))
@@ -410,3 +411,11 @@
                  @(s/take! client) => (is-json (contains {:command "discovery"}))
                  (.close client)))
          ))
+
+(facts "about bartnet server" :integration
+  (with-state-changes
+    [(before :facts (do
+                      (core/start-server [(.getPath (io/resource "test-config.json"))])
+                     ))
+     (after :facts (do
+                     (core/stop-server)))]))
