@@ -237,7 +237,15 @@
   <changeSet id="14" author="cliff">
     <createTable tableName="teams">
       <column name="id" type="varchar(255)"><constraints nullable="false" primaryKey="true"/></column>
-      <column name="name" type="varchar(255)"></column>
+      <column name="name" type="varchar(255)"/>
+    </createTable>
+  </changeSet>
+  <changeSet id="15" author="greg">
+    <createTable tableName="orgs">
+      <column name="id" type="INTEGER" autoIncrement="true"><constraints primaryKey="true" nullable="false" /></column>
+      <column name="name" type="varchar(255)"><constraints nullable="false"/></column>
+      <!-- No need to create index, because unique -->
+      <column name="subdomain" type="varchar(64)"><constraints nullable="false" unique="true"/></column>
     </createTable>
   </changeSet>
 </databaseChangeLog>

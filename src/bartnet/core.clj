@@ -375,6 +375,9 @@
 (defn get-vpcs [ctx]
   (:regions ctx))
 
+(defn subdomain-exists? [db subdomain]
+  (empty? (sql/get-org-by-subdomain db subdomain)))
+
 (defresource signups-resource [db secret]
              :available-media-types ["application/json"]
              :allowed-methods [:post :get]
@@ -487,6 +490,11 @@
              :post! scan-vpcs
              :handle-created get-vpcs)
 
+(defresource subdomain-resource [db secret subdomain]
+  :available-media-types ["application/json"]
+  :allowed-methods [:get]
+  :handle-ok (fn [_] {:available (subdomain-exists? db subdomain)}))
+
 (defn wrap-options [handler]
   (fn [request]
     (log/info request)
@@ -514,6 +522,9 @@
       (ANY "/environments/:id" [id] (environment-resource db secret id))
       (ANY "/logins/:id" [id] (login-resource db config secret (param->int id)))
       (ANY "/scan-vpcs" [] (scan-vpc-resource))
+      ;(ANY "/orgs" [] (orgs-resource db secret))
+      ;(ANY "/orgs/:subdomain" [id] (orgs-resource db secret id))
+      (GET "/orgs/subdomain/:subdomain" [subdomain] (subdomain-resource db secret subdomain))
       ;(ANY "/teams/:id" [] (team-resource db secret))
       (ANY "/bastions" [] (bastions-resource pubsub db secret))
       (ANY "/bastions/:id" [id] (bastion-resource pubsub db secret id))

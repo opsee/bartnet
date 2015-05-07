@@ -74,3 +74,7 @@
 (defn team-fixtures [db]
   (do
     (sql/insert-into-teams! db {:id "existing"})))
+
+(defn org-fixtures [db]
+  (do
+    (sql/insert-into-orgs! db {:name "greg", :subdomain "bananas"})))
