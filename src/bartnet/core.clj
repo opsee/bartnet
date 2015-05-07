@@ -619,8 +619,12 @@
 
 (defn stop-server []
   (do
-    (if @bastion-server (.close @bastion-server))
-    (if @ws-server (.stop @ws-server))))
+    (if @bastion-server (do
+                          (.close @bastion-server)
+                          (reset! bastion-server (atom nil))))
+    (if @ws-server (do
+                     (.stop @ws-server)
+                     (reset! ws-server (atom nil))))))
 
 (defn start-server [args]
   (let [config (parse-string (slurp (first args)) true)
