@@ -111,6 +111,24 @@ along with the newly modified login object.
 
             [Login][]
 
+# Group Organizations
+
+Organizations allow for a top-level logical grouping of users that share resources.
+
+## Subdomain [/orgs/subdomain/{subdomain}]
+### Confirm a Subdomain is available [GET]
+
+Determine if a subdomain is available with a GET request to this end-point. This allows
+users to rapidly test the availability of a subdomain during sign-up. It will return true
+if the subdomain is currently available.
+
++ Response 200 (application/json)
+    + Body
+
+        {
+            "available": true
+        }
+
 # Group Logins
 The login resource provides retrieval and editing capabilities for some of the fields
 in a user's login, as well as means to deactivate a login.

@@ -218,6 +218,21 @@
                                                                                                :customer_id "existing"}))))]
                  (:status response) => 409
                  (:body response) => (is-json (contains {:error #"team name taken"}))))))
+(facts "orgs endpoint works"
+  (with-state-changes
+    [(before :facts (doto
+                      (do-setup)
+                      org-fixtures))]
+    (facts "about /orgs/subdomain/:subdomain"
+      (fact "GET returns availability for a subdomain"
+        (let [response ((app) (-> (mock/request :get "/orgs/subdomain/bananas")
+                                  (mock/header "Authorization" auth-header)))]
+          (:status response) => 200
+          (:body response) => (is-json (contains {:available false})))
+        (let [response ((app) (-> (mock/request :get "/orgs/subdomain/apples")
+                                (mock/header "Authorization" auth-header)))]
+          (:status response) => 200
+          (:body response) => (is-json (contains {:available true})))))))
 (facts "login endpoint works"
        (with-state-changes
          [(before :facts (doto
