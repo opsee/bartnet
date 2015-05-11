@@ -632,10 +632,10 @@
   (do
     (if @bastion-server (do
                           (.close @bastion-server)
-                          (reset! bastion-server (atom nil))))
+                          (reset! bastion-server nil)))
     (if @ws-server (do
                      (.stop @ws-server)
-                     (reset! ws-server (atom nil))))))
+                     (reset! ws-server nil)))))
 
 (defn start-server [args]
   (let [config (parse-string (slurp (first args)) true)
