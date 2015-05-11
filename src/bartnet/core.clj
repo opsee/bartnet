@@ -296,12 +296,8 @@
                   login (assoc login-details :password_hash hashed-pw
                                              :email (:email activation)
                                              :name (:name activation))]
-              (if (first (sql/get-team-by-id db (:customer_id login-details)))
-                {:error {:status 409
-                         :message "team name taken"}}
-                (if (and (sql/insert-into-logins! db login)
-                         (sql/insert-into-teams! db {:id (:customer_id login-details)}))
-                  (use-activation! db login activation))))))))))
+              (if (sql/insert-into-logins! db login)
+                (use-activation! db login activation)))))))))
 
 (defn get-activation [ctx]
   (:activation ctx))
@@ -493,6 +489,7 @@
 (defresource subdomain-resource [db secret subdomain]
   :available-media-types ["application/json"]
   :allowed-methods [:get]
+  :authorized? (authorized? db secret)
   :handle-ok (fn [_] {:available (subdomain-exists? db subdomain)}))
 
 (defn wrap-options [handler]
