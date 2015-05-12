@@ -375,6 +375,9 @@
 (defn get-vpcs [ctx]
   (:regions ctx))
 
+(defn subdomain-exists? [db subdomain]
+  (empty? (sql/get-org-by-subdomain db subdomain)))
+
 (defresource signups-resource [db secret]
              :available-media-types ["application/json"]
              :allowed-methods [:post :get]
@@ -487,6 +490,11 @@
              :post! scan-vpcs
              :handle-created get-vpcs)
 
+(defresource subdomain-resource [db secret subdomain]
+  :available-media-types ["application/json"]
+  :allowed-methods [:get]
+  :handle-ok (fn [_] {:available (subdomain-exists? db subdomain)}))
+
 (defn wrap-options [handler]
   (fn [request]
     (log/info request)
@@ -514,6 +522,9 @@
       (ANY "/environments/:id" [id] (environment-resource db secret id))
       (ANY "/logins/:id" [id] (login-resource db config secret (param->int id)))
       (ANY "/scan-vpcs" [] (scan-vpc-resource))
+      ;(ANY "/orgs" [] (orgs-resource db secret))
+      ;(ANY "/orgs/:subdomain" [id] (orgs-resource db secret id))
+      (GET "/orgs/subdomain/:subdomain" [subdomain] (subdomain-resource db secret subdomain))
       ;(ANY "/teams/:id" [] (team-resource db secret))
       (ANY "/bastions" [] (bastions-resource pubsub db secret))
       (ANY "/bastions/:id" [id] (bastion-resource pubsub db secret id))
@@ -602,21 +613,48 @@
                      (s/close! (:server-client client)))))
    :on-error   (fn [ws e])})
 
-(defn server-cmd [args]
+(def ^{:private true} bastion-server (atom nil))
+
+(def ^{:private true} ws-server (atom nil))
+
+(defn- start-bastion-server [db pubsub handlers options]
+  (if-not @bastion-server (reset! bastion-server (bastion/bastion-server db pubsub handlers options))))
+
+(defn- start-ws-server [db pubsub config clients]
+  (if-not @ws-server
+    (reset! ws-server
+            (run-jetty
+              (handler pubsub db config)
+              (assoc (:server config)
+                :websockets {"/stream" (ws-handler pubsub clients db (:secret config))})))))
+
+(defn stop-server []
+  (do
+    (if @bastion-server (do
+                          (.close @bastion-server)
+                          (reset! bastion-server nil)))
+    (if @ws-server (do
+                     (.stop @ws-server)
+                     (reset! ws-server nil)))))
+
+(defn start-server [args]
   (let [config (parse-string (slurp (first args)) true)
         db (sql/pool (:db-spec config))
         pubsub (create-pubsub)
         clients (NonBlockingHashMap.)]
-    (bastion/bastion-server db pubsub bastion-handlers (:bastion-server config))
-    (run-jetty
-      (handler pubsub db config)
-      (assoc (:server config)
-        :websockets {"/stream" (ws-handler pubsub clients db (:secret config))}))))
+    (start-bastion-server db pubsub bastion-handlers (:bastion-server config))
+    (start-ws-server db pubsub config clients)))
+
+(.addShutdownHook
+  (Runtime/getRuntime)
+  (Thread. (fn []
+             (println "Shutting down...")
+             (stop-server))))
 
 (defn -main [& args]
   (let [cmd (first args)
         subargs (rest args)]
     (case cmd
-      "server" (server-cmd subargs)
+      "server" (start-server subargs)
       "db" (db-cmd/db-cmd subargs))))
 

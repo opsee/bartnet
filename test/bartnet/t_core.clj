@@ -13,7 +13,8 @@
             [clojure.tools.logging :as log]
             [cheshire.core :refer :all]
             [ring.adapter.jetty9 :refer [run-jetty]]
-            [bartnet.auth :as auth])
+            [bartnet.auth :as auth]
+            [clojure.java.io :as io])
   (:import [org.cliffc.high_scale_lib NonBlockingHashMap]))
 
 (def clients (atom nil))
@@ -217,6 +218,21 @@
                                                                                                :customer_id "existing"}))))]
                  (:status response) => 409
                  (:body response) => (is-json (contains {:error #"team name taken"}))))))
+(facts "orgs endpoint works"
+  (with-state-changes
+    [(before :facts (doto
+                      (do-setup)
+                      org-fixtures))]
+    (facts "about /orgs/subdomain/:subdomain"
+      (fact "GET returns availability for a subdomain"
+        (let [response ((app) (-> (mock/request :get "/orgs/subdomain/bananas")
+                                  (mock/header "Authorization" auth-header)))]
+          (:status response) => 200
+          (:body response) => (is-json (contains {:available false})))
+        (let [response ((app) (-> (mock/request :get "/orgs/subdomain/apples")
+                                (mock/header "Authorization" auth-header)))]
+          (:status response) => 200
+          (:body response) => (is-json (contains {:available true})))))))
 (facts "login endpoint works"
        (with-state-changes
          [(before :facts (doto
@@ -410,3 +426,12 @@
                  @(s/take! client) => (is-json (contains {:command "discovery"}))
                  (.close client)))
          ))
+
+(facts "about bartnet server" :integration
+  (with-state-changes
+    [(before :facts (do
+                      (core/start-server [(.getPath (io/resource "test-config.json"))])
+                     ))
+     (after :facts (do
+                     (core/stop-server)))]))
+

@@ -3,8 +3,8 @@
     {
         "classname":"org.postgresql.Driver",
         "subprotocol":"postgresql",
-        "subname":"bartnet_test",
-        "user":"postgres",
+        "subname":"auth_test",
+        "user":"cliff",
         "password":"",
         "max-conns":6,
         "min-conns":1,
@@ -13,11 +13,14 @@
     "secret":"abc123",
     "server":
     {
-        "port":8080,
-        "join?":false
+        "port":8080
     },
     "bastion-server":
     {
         "port":4080
+    },
+    "mailgun":{
+        "api_key":"key-d45f90c5a3e2ac33a26cd4c30715b71b",
+        "url":"https://api.mailgun.net/v3/mg.opsee.co"
     }
 }
