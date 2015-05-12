@@ -1,12 +1,26 @@
 dependencies:
   pre:
     - createdb bartnet_test
+  override:
+    - docker info
+    - lein docker
 machine:
   java:
     version: oraclejdk8
+  services:
+    - docker
 notify:
   webhooks:
     - url: https://hooks.slack.com/services/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
 test:
   override:
     - "lein trampoline midje :filter -integration"
+    - docker run -d -p 8080:8080 opsee/bartnet; sleep 20
+    - curl --retry 10 --retry-delay 5 -v http://localhost:8080/health_check
+deployment:
+  hub:
+    branch: master
+    owner: opsee
+    commands:
+      - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
+      - docker push opsee/bartnet

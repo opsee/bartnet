@@ -10,6 +10,6 @@
   (uberjar project)
   (let [jar-path (get-jar-filename project :standalone)]
     (sh "cp" jar-path "docker/lib/bartnet.jar")
-    (let [docker (sh "docker" "build" "-t" "bartnet" ".")]
+    (let [docker (sh "docker" "build" "-t" "opsee/bartnet" ".")]
       (println (:out docker))
       (if-not (blank? (:err docker)) (println "Build error: " (:err docker))))))
