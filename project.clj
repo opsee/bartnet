@@ -40,4 +40,6 @@
                                                potemkin]]
                  [aleph "0.4.0-beta3"]
                  [de.ubercode.clostache/clostache "1.4.0"]
+                 [instaparse "1.3.4"]
+                 [org.clojure/core.match "0.3.0-alpha4"]
                  [manifold "0.1.0-beta11"]])
