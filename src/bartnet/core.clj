@@ -25,7 +25,8 @@
             [ring.adapter.jetty9 :refer :all])
   (:import [java.util Base64]
            [org.cliffc.high_scale_lib NonBlockingHashMap]
-           [java.util.concurrent CopyOnWriteArraySet]
+           [java.util.concurrent CopyOnWriteArraySet ExecutorService]
+           [io.aleph.dirigiste Executors]
            (java.sql BatchUpdateException)
            (java.io IOException)
            (org.eclipse.jetty.server HttpInputOverHTTP)))
@@ -618,26 +619,27 @@
       (when (subscribed? client cmd)
         (send! ws (generate-string msg))))))
 
-(defn process-authorized-command [client ws pubsub msg]
+(defn process-authorized-command [client ws pubsub ^ExecutorService executor msg]
     (case (:cmd msg)
       "subscribe" (do
                     (subscribe! client (:topic msg))
                     (send! ws (generate-string {:reply "ok"})))
+      "launch" (.submit executor (launch/launch-bastions msg))
       "echo" (send! ws (generate-string msg))))
 
-(defn ws-handler [pubsub clients db secret]
+(defn ws-handler [executor pubsub clients db secret]
   {:on-connect (fn [_])
    :on-text    (fn [ws msg]
                  (let [parsed-msg (parse-string msg true)
                        client (.get clients ws)]
                    (log/info "ws msg", parsed-msg)
                    (if client
-                     (process-authorized-command client ws pubsub parsed-msg)
+                     (process-authorized-command client ws pubsub executor parsed-msg)
                      (if-and-let [hmac (:hmac parsed-msg)
                                   client (register-ws-connection clients db hmac secret ws)]
                                  (let [stream (register-ws-client pubsub client)]
                                    (s/consume (consume-bastion ws client) stream)
-                                   (process-authorized-command client ws pubsub parsed-msg))
+                                   (process-authorized-command client ws pubsub executor parsed-msg))
                                  (send! ws (generate-string {:error "unauthorized"}))))))
    :on-closed  (fn [ws status-code reason]
                  (if-let [client (.remove clients ws)]
@@ -653,13 +655,13 @@
 (defn- start-bastion-server [db pubsub handlers options]
   (if-not @bastion-server (reset! bastion-server (bastion/bastion-server db pubsub handlers options))))
 
-(defn- start-ws-server [db pubsub config clients]
+(defn- start-ws-server [executor db pubsub config clients]
   (if-not @ws-server
     (reset! ws-server
             (run-jetty
               (handler pubsub db config)
               (assoc (:server config)
-                :websockets {"/stream" (ws-handler pubsub clients db (:secret config))})))))
+                :websockets {"/stream" (ws-handler executor pubsub clients db (:secret config))})))))
 
 (defn stop-server []
   (do
@@ -674,9 +676,10 @@
   (let [config (parse-string (slurp (first args)) true)
         db (sql/pool (:db-spec config))
         pubsub (create-pubsub)
+        executor (Executors/utilizationExecutor (:thread-util config) (:max-threads config))
         clients (NonBlockingHashMap.)]
     (start-bastion-server db pubsub bastion-handlers (:bastion-server config))
-    (start-ws-server db pubsub config clients)))
+    (start-ws-server executor db pubsub config clients)))
 
 (.addShutdownHook
   (Runtime/getRuntime)
