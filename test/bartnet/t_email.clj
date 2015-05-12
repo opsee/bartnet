@@ -11,4 +11,4 @@
                                                                     :name naame
                                                                     :email email})]
         (:subject rendered) => #"himynameis"
-        (:body rendered) => #"abc123"))
+        (:html rendered) => #"abc123"))
