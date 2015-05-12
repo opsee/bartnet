@@ -193,8 +193,7 @@
                            signup-fixtures
                            admin-fixtures
                            unverified-fixtures
-                           activation-fixtures
-                           team-fixtures))]
+                           activation-fixtures))]
          (fact "activation endpoint turns into a login"
                (let [response ((app) (-> (mock/request :post "/activations/abc123/activate" (generate-string
                                                                                               {:password "cliff"
@@ -211,17 +210,13 @@
                                                                                              {:password "cliff"
                                                                                               :customer_id "herk"}))))]
                  (:status response) => 409
-                 (:body response) => (is-json (contains {:error #"invalid activation"}))))
-         (fact "teams that already exist will cause a 409 conflict"
-               (let [response ((app) (-> (mock/request :post "/activations/abc123/activate" (generate-string
-                                                                                              {:password "cliff"
-                                                                                               :customer_id "existing"}))))]
-                 (:status response) => 409
-                 (:body response) => (is-json (contains {:error #"team name taken"}))))))
+                 (:body response) => (is-json (contains {:error #"invalid activation"}))))))
 (facts "orgs endpoint works"
   (with-state-changes
     [(before :facts (doto
                       (do-setup)
+                      login-fixtures
+                      signup-fixtures
                       org-fixtures))]
     (facts "about /orgs/subdomain/:subdomain"
       (fact "GET returns availability for a subdomain"
