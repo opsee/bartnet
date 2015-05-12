@@ -82,7 +82,7 @@
   (with-open [conn (new JdbcConnection (get-connection pool))]
     (let [liquibase (new Liquibase "migrations.xml" (new ClassLoaderResourceAccessor) conn)]
       (if-let [tag (:tag options)]
-        (.rollback liquibase (:tag options) "")
+        (.rollback liquibase tag "")
         (.rollback liquibase (:revision options) "")))))
 
 (defn migrate-cmd [args cmd options-summary usage-cmd]
