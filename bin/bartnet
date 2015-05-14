@@ -7,6 +7,30 @@ OPTS="-cp /bartnet/lib/bartnet.jar"
 NAMESPACE="bartnet.core"
 AGGRESSIVE_OPTS="-server -XX:+UseConcMarkSweepGC -XX:+UseParNewGC -XX:+CMSParallelRemarkEnabled -XX:+AggressiveOpts -XX:+UseFastAccessorMethods -XX:+UseCompressedOops -XX:+CMSClassUnloadingEnabled"
 
+gen_config()
+{
+  local config=$1
+  cat > $config << EOF
+{"db-spec":{
+    "classname":"org.postgresql.Driver",
+    "subprotocol":"postgresql",
+    "host":"${DB_1_PORT_5432_TCP_ADDR:-${DB_HOST}}",
+    "port":"5432",
+    "subname":"${DB_NAME}",
+    "user":"${DB_USER}",
+    "password":"${DB_PASS}",
+    "max-conns":6,
+    "min-conns":1,
+    "init-conns":1
+},
+"secret":"abc123",
+"server":{ "port": 8080 },
+"mailgun":{"api_key":"key-d45f90c5a3e2ac33a26cd4c30715b71b",
+           "url":"https://api.mailgun.net/v3/mg.opsee.co"},
+"bastion-server":{ "port": 4080 }}
+EOF
+}
+
 usage()
 {
   cat << EOF
@@ -26,6 +50,7 @@ COMMANDS:
 EOF
 }
 
+GEN_CONFIG=1
 for arg in "$@"; do
   case $arg in
     "-a")
@@ -43,8 +68,13 @@ for arg in "$@"; do
       ;;
     *)
       CONFIG="$arg"
+      unset GEN_CONFIG
      ;;
   esac
 done
+
+if [ -n "$GEN_CONFIG" ]; then
+  gen_config $CONFIG
+fi
 
 exec java $OPTS "$NAMESPACE" "$COMMAND" "$CONFIG"
