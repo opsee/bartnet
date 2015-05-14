@@ -16,8 +16,10 @@
             [bartnet.auth :as auth]
             [bartnet.identifiers :as identifiers]
             [bartnet.bastion :as bastion]
+            [bartnet.launch :as launch]
             [bartnet.email :refer [send-activation! send-verification!]]
             [bartnet.db-cmd :as db-cmd]
+            [bartnet.upload-cmd :as upload-cmd]
             [bartnet.pubsub :refer :all]
             [bartnet.util :refer [if-and-let]]
             [manifold.stream :as s]
@@ -29,7 +31,8 @@
            [io.aleph.dirigiste Executors]
            (java.sql BatchUpdateException)
            (java.io IOException)
-           (org.eclipse.jetty.server HttpInputOverHTTP)))
+           (org.eclipse.jetty.server HttpInputOverHTTP)
+           (java.sql BatchUpdateException)))
 
 (defn param->int [n]
   (Integer/parseInt n))
@@ -373,7 +376,7 @@
 (defn scan-vpcs [ctx]
   (let [creds (json-body ctx)]
     {:regions (for [region (:regions creds)]
-                (let [cd (assoc creds :region region)
+                (let [cd (assoc creds :endpoint region)
                       vpcs (describe-vpcs cd)
                       attrs (describe-account-attributes cd)]
                   {:region region
@@ -624,7 +627,7 @@
       "subscribe" (do
                     (subscribe! client (:topic msg))
                     (send! ws (generate-string {:reply "ok"})))
-      "launch" (.submit executor (launch/launch-bastions msg))
+      "launch" (launch/launch-bastions executor (:customer-id client) msg nil)
       "echo" (send! ws (generate-string msg))))
 
 (defn ws-handler [executor pubsub clients db secret]
@@ -692,5 +695,6 @@
         subargs (rest args)]
     (case cmd
       "server" (start-server subargs)
-      "db" (db-cmd/db-cmd subargs))))
+      "db" (db-cmd/db-cmd subargs)
+      "upload" (upload-cmd/upload subargs))))
 

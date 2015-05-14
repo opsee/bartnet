@@ -16,13 +16,29 @@
         "UserData" : {
             "Description" : "Metadata to set for the instance",
             "Type": "String"
+        },
+        "VpcId" : {
+            "Description" : "The VPC in which to deploy the instance",
+            "Type": "String",
+            "ConstraintDescription" : "Must be a valid VPC ID"
         }
     },
     "Resources" : {
         "BastionSecurityGroup": {
             "Type": "AWS::EC2::SecurityGroup",
             "Properties": {
-                "GroupDescription": "Bastion SecurityGroup"
+                "GroupDescription": "Bastion SecurityGroup",
+                "Tags" : [{"Key":"Name",
+                           "Value": "Opsee Bastion Security Group"},
+                          {"Key":"type",
+                           "Value":"opsee"}],
+                "SecurityGroupEgress": [{
+                    "CidrIp": "0.0.0.0/0",
+                    "FromPort": -1,
+                    "IpProtocol": -1,
+                    "ToPort": -1
+                }],
+                "VpcId" : {"Ref":"VpcId"}
             }
         },
         "BastionRole": {
@@ -126,7 +142,7 @@
                 "ImageId": {"Ref":"ImageId"},
                 "IamInstanceProfile": {"Ref":"BastionInstanceProfile"},
                 "InstanceType": {"Ref":"InstanceType"},
-                "SecurityGroups": [{"Ref": "BastionSecurityGroup"}],
+                "SecurityGroupIds": [{"Ref": "BastionSecurityGroup"}],
                 "UserData": {"Ref":"UserData"}
             }
         }

@@ -28,7 +28,7 @@
 (def drop-all-options [])
 
 (defn usage [cmd options-summary]
-  (->> ["This is the db rollback command for bartnet."
+  (->> ["This is the db command for bartnet."
         ""
         (str "usage bartnet db " cmd " [options] <config file>")
         ""
