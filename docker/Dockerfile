@@ -6,8 +6,8 @@ EXPOSE 8080
 
 RUN mkdir /bartnet /bartnet/bin /bartnet/etc /bartnet/lib
 
+COPY lib/* /bartnet/lib/
 COPY bin/* /bartnet/bin/
-COPY target/bartnet*standalone.jar /bartnet/lib/bartnet.jar
 COPY etc/* /bartnet/etc/
 
 ENV DB_NAME="postgres"
