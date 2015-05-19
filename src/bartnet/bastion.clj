@@ -56,8 +56,9 @@
     (catch Exception e (log/error e))))
 
 (defn register-connection [db pubsub counter replies client-stream msg]
+  (log/info "received message: " msg)
   (let [id (:id msg)
-        customer-id (:customer-id msg)
+        customer-id (:customer_id msg)
         connection (Connection. id customer-id counter client-stream replies)
         command-stream (register-bastion  pubsub connection msg)]
     (s/consume (consume-commands connection) command-stream)
