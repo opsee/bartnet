@@ -57,7 +57,7 @@
 
 (defn register-connection [db pubsub counter replies client-stream msg]
   (log/info "received message: " msg)
-  (let [id (:id msg)
+  (let [id (:instance_id msg)
         customer-id (:customer_id msg)
         connection (Connection. id customer-id counter client-stream replies)
         command-stream (register-bastion  pubsub connection msg)]

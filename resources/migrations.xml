@@ -248,4 +248,14 @@
       <column name="subdomain" type="varchar(64)"><constraints nullable="false" unique="true"/></column>
     </createTable>
   </changeSet>
+  <changeSet id="16" author="greg">
+    <sql>
+      insert into orgs (name, subdomain) (select customer_id, customer_id from logins l left outer join orgs o on l.customer_id = o.subdomain where o.subdomain is null);
+    </sql>
+    <dropUniqueConstraint tableName="logins" uniqueColumns="customer_id" constraintName="logins_customer-id_key"/>
+    <dropColumn tableName="orgs" columnName="id"/>
+    <modifyDataType tableName="logins" columnName="customer_id" newDataType="varchar(64)"/>
+    <addForeignKeyConstraint baseTableName="logins" baseColumnNames="customer_id" constraintName="fk_logins_orgs" referencedTableName="orgs"
+                             referencedColumnNames="subdomain"/>
+  </changeSet>
 </databaseChangeLog>

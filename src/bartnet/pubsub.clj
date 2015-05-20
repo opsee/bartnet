@@ -13,10 +13,14 @@
 (defn- command-topic [id]
   (str id "-commands"))
 
-(def ^{:private true} sns-bastion-topic
-  (let [topic (bastion-topic (System/getenv "ENVIRONMENT"))
-        region (System/getenv "AWS_REGION")]
-    (:topic-arn (sns/create-topic {:endpoint region} :name topic))))
+(def ^{:private true} sns-bastion-topic-ptr (atom nil))
+
+(defn- sns-bastion-topic []
+  (if-not @sns-bastion-topic-ptr
+    (let [topic (bastion-topic (System/getenv "ENVIRONMENT"))
+          region (System/getenv "AWS_REGION")]
+      (reset! sns-bastion-topic-ptr (:topic-arn (sns/create-topic {:endpoint region} :name topic)))))
+  @sns-bastion-topic-ptr)
 
 (defprotocol Subscription
   (add-stream [this stream])
@@ -39,11 +43,12 @@
   PubSub
   (register-bastion [_ connection msg]
     (let [id (:customer-id connection)
-          stream (b/subscribe bus (command-topic id))]
+          stream (b/subscribe bus (command-topic id))
+          sns-topic-arn (sns-bastion-topic)]
       (log/info connection)
       (.put bastions (:id connection) {:connection connection, :stream stream, :registration msg})
-      (log/info "Publishing bastion registration to SNS: " sns-bastion-topic)
-      (sns/publish {:topic-arn sns-bastion-topic, :subject id, :message msg})
+      (log/info "Publishing bastion registration to SNS: " sns-topic-arn)
+      (sns/publish {:topic-arn sns-topic-arn, :subject id, :message msg})
       (b/publish! bus (bastion-topic id) msg)
       stream))
   (register-ws-client [_ connection]

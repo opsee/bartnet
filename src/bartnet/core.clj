@@ -26,7 +26,9 @@
   (:import [java.util Base64]
            [org.cliffc.high_scale_lib NonBlockingHashMap]
            [java.util.concurrent CopyOnWriteArraySet]
-           (java.sql BatchUpdateException)))
+           (java.sql BatchUpdateException)
+           (java.io IOException)
+           (org.eclipse.jetty.server HttpInputOverHTTP)))
 
 (defn param->int [n]
   (Integer/parseInt n))
@@ -54,7 +56,10 @@
 
 (defn json-body [ctx]
   (if-let [body (get-in ctx [:request :body])]
-      (parse-stream (io/reader body) true)))
+    (with-open [rdr (io/reader body)]
+      (let [parsed-body (parse-stream rdr true)]
+        (.reset body)
+        parsed-body))))
 
 (defn respond-with-entity? [ctx]
   (not= (get-in ctx [:request :request-method]) :delete))
@@ -295,7 +300,8 @@
             (let [hashed-pw (auth/hash-password (:password login-details))
                   login (assoc login-details :password_hash hashed-pw
                                              :email (:email activation)
-                                             :name (:name activation))]
+                                             :name (:name activation)
+                                             :customer_id (:customer_id login-details))]
               (if (sql/insert-into-logins! db login)
                 (use-activation! db login activation)))))))))
 
@@ -373,6 +379,15 @@
 
 (defn subdomain-exists? [db subdomain]
   (empty? (sql/get-org-by-subdomain db subdomain)))
+
+(defn create-org! [db]
+  (fn [ctx]
+    (let [org (json-body ctx)]
+      (sql/insert-into-orgs! db org)
+      {:org org})))
+
+(defn get-org [ctx]
+    (:org ctx))
 
 (defresource signups-resource [db secret]
              :available-media-types ["application/json"]
@@ -492,9 +507,36 @@
   :authorized? (authorized? db secret)
   :handle-ok (fn [_] {:available (subdomain-exists? db subdomain)}))
 
+(defresource orgs-resource [db secret]
+  :available-media-types ["application/json"]
+  :allowed-methods [:post]
+  :authorized? (authorized? db secret)
+  :exists? (fn [ctx]
+             (let [subdomain (:subdomain (json-body ctx))]
+               (subdomain-exists? db subdomain)))
+  :post! (create-org! db)
+  :handle-created get-org)
+
+(defresource org-resource [db secret subdomain]
+  :available-media-types ["application/json"]
+  :allowed-methods [:get]
+  :authorized? (authorized? db secret)
+  :exists? (fn [_] ((if (subdomain-exists? db subdomain) [true {:org (get-org db subdomain)}] false)))
+  :handle-ok get-org)
+
+(defn- read-and-reset-body [request]
+  (if-let [body (:body request)]
+    (let [str-body (with-open [rdr (clojure.java.io/reader body)]
+                 (clojure.string/join " " (line-seq rdr)))]
+      (try
+        (.reset body)
+        (catch IOException e
+          (if-not (= HttpInputOverHTTP (type body)) (log/error "Failed to rewind body: " (.getStackTrace e)))))
+      str-body)))
+
 (defn wrap-options [handler]
   (fn [request]
-    (log/info request)
+    (log/info (merge request {:body (read-and-reset-body request)}))
     (if (= :options (:request-method request))
       {:status 200
        :body ""
@@ -519,10 +561,9 @@
       (ANY "/environments/:id" [id] (environment-resource db secret id))
       (ANY "/logins/:id" [id] (login-resource db config secret (param->int id)))
       (ANY "/scan-vpcs" [] (scan-vpc-resource))
-      ;(ANY "/orgs" [] (orgs-resource db secret))
-      ;(ANY "/orgs/:subdomain" [id] (orgs-resource db secret id))
+      (POST "/orgs" [] (orgs-resource db secret))
+      (ANY "/orgs/:subdomain" [subdomain] (org-resource db secret subdomain))
       (GET "/orgs/subdomain/:subdomain" [subdomain] (subdomain-resource db secret subdomain))
-      ;(ANY "/teams/:id" [] (team-resource db secret))
       (ANY "/bastions" [] (bastions-resource pubsub db secret))
       (ANY "/bastions/:id" [id] (bastion-resource pubsub db secret id))
       (ANY "/discovery" [] (discovery-resource pubsub db secret))

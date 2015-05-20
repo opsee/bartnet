@@ -84,7 +84,6 @@ newly created login.
         {
             "password" : "a password",
             "customer_id" : "a-dns-safe-string"
-            "team_name" : "Team Display Name"
         }
 
 + Response 201 (application/json)
@@ -114,6 +113,38 @@ along with the newly modified login object.
 # Group Organizations
 
 Organizations allow for a top-level logical grouping of users that share resources.
+
+## Organization [/orgs]
+
+### Create an Organization [POST]
+
+Creates an organiation.
+
++ Request (application/json)
+    + Body
+        
+        {
+            "name": "Organization Name",
+            "subdomain": "subdomain"
+        }
+
++ Response 201
+    + Body
+
+        {
+            "name": "Organization Name",
+            "subdomain": "subdomain"
+        }
+
+### Retrieve an Organization [GET] [/orgs/{subdomain}]
+
++ Response 200
+    + Body
+
+        {
+            "name": "Organization Name",
+            "subdomain": "subdomain"
+        }
 
 ## Subdomain [/orgs/subdomain/{subdomain}]
 ### Confirm a Subdomain is available [GET]

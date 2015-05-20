@@ -197,7 +197,7 @@
          (fact "activation endpoint turns into a login"
                (let [response ((app) (-> (mock/request :post "/activations/abc123/activate" (generate-string
                                                                                               {:password "cliff"
-                                                                                               :customer_id "custie"}))))]
+                                                                                               :customer_id "cliff"}))))]
                  (:status response) => 201
                  (:body response) => (is-json (contains {:email "cliff+signup@leaninto.it"}))))
          (fact "activation records for existing logins will result in the login being set to verified"
@@ -208,7 +208,7 @@
          (fact "activations already used will result in a 409 conflict"
                (let [response ((app) (-> (mock/request :post "/activations/badid/activate" (generate-string
                                                                                              {:password "cliff"
-                                                                                              :customer_id "herk"}))))]
+                                                                                              :customer_id "cliff2"}))))]
                  (:status response) => 409
                  (:body response) => (is-json (contains {:error #"invalid activation"}))))))
 (facts "orgs endpoint works"
@@ -216,11 +216,19 @@
     [(before :facts (doto
                       (do-setup)
                       login-fixtures
-                      signup-fixtures
-                      org-fixtures))]
+                      signup-fixtures))]
+    (facts "about /orgs"
+      (fact "POST creates a new org"
+        (let [response ((app) (-> (mock/request :post "/orgs" (generate-string
+                                                                 {:name "test org"
+                                                                  :subdomain "foo"}))
+                                  (mock/header "Authorization" auth-header)))]
+          (:status response) => 201
+          (:body response) => (is-json (contains {:name "test org"}))
+        )))
     (facts "about /orgs/subdomain/:subdomain"
       (fact "GET returns availability for a subdomain"
-        (let [response ((app) (-> (mock/request :get "/orgs/subdomain/bananas")
+        (let [response ((app) (-> (mock/request :get "/orgs/subdomain/cliff")
                                   (mock/header "Authorization" auth-header)))]
           (:status response) => 200
           (:body response) => (is-json (contains {:available false})))
