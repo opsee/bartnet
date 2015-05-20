@@ -6,14 +6,18 @@ EXPOSE 8080
 
 RUN mkdir /bartnet /bartnet/bin /bartnet/etc /bartnet/lib
 
+COPY lib/* /bartnet/lib/
 COPY bin/* /bartnet/bin/
-COPY target/bartnet*standalone.jar /bartnet/lib/bartnet.jar
 COPY etc/* /bartnet/etc/
 
 ENV DB_NAME="postgres"
 ENV DB_HOST="postgres"
 ENV DB_USER="postgres"
 ENV DB_PASS=""
+ENV AWS_ACCESS_KEY_ID=""
+ENV AWS_SECRET_ACCESS_KEY=""
+ENV AWS_REGION="us-west-1"
+ENV ENVIRONMENT="dev"
 
 ENTRYPOINT ["/bartnet/bin/bartnet"]
 CMD ["start"]
