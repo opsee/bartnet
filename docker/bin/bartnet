@@ -77,4 +77,6 @@ if [ -n "$GEN_CONFIG" ]; then
   gen_config $CONFIG
 fi
 
+eval "$(/bartnet/bin/ec2-env)"
+
 exec java $OPTS "$NAMESPACE" "$COMMAND" "$CONFIG"
