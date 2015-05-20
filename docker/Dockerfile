@@ -16,6 +16,7 @@ ENV DB_USER="postgres"
 ENV DB_PASS=""
 ENV AWS_ACCESS_KEY_ID=""
 ENV AWS_SECRET_ACCESS_KEY=""
+ENV AWS_REGION="us-west-1"
 ENV ENVIRONMENT="dev"
 
 ENTRYPOINT ["/bartnet/bin/bartnet"]

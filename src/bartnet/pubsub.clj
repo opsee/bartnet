@@ -13,12 +13,10 @@
 (defn- command-topic [id]
   (str id "-commands"))
 
-(def ^{:private true} sns-bastion-topic-arn (atom nil))
-
-(defn- sns-bastion-topic []
-  (let [arn @sns-bastion-topic-arn]
-    (if-not arn (reset! sns-bastion-topic-arn (sns/create-topic "bastions")))
-    arn))
+(def ^{:private true} sns-bastion-topic
+  (let [topic (bastion-topic (System/getenv "ENVIRONMENT"))
+        region (System/getenv "AWS_REGION")]
+    (:topic-arn (sns/create-topic {:endpoint region} :name topic))))
 
 (defprotocol Subscription
   (add-stream [this stream])
@@ -44,7 +42,8 @@
           stream (b/subscribe bus (command-topic id))]
       (log/info connection)
       (.put bastions (:id connection) {:connection connection, :stream stream, :registration msg})
-      (sns/publish {:topic-arn (sns-bastion-topic) :subject id :message msg})
+      (log/info "Publishing bastion registration to SNS: " sns-bastion-topic)
+      (sns/publish {:topic-arn sns-bastion-topic, :subject id, :message msg})
       (b/publish! bus (bastion-topic id) msg)
       stream))
   (register-ws-client [_ connection]
