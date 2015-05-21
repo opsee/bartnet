@@ -16,6 +16,11 @@
   @db)
 
 (defn login-fixtures [db]
+  ; A shitty side-effect of using ysql in testing is that if you rename
+  ; a column, you have to keep the original column name in your fixtures.
+  ; :(
+  (sql/insert-into-orgs! db {:name "greg", :subdomain "cliff"})
+  (sql/insert-into-orgs! db {:name "greg", :subdomain "cliff2"})
   (sql/insert-into-logins! db {:email         "cliff@leaninto.it"
                                :password_hash (auth/hash-password "cliff")
                                :customer_id   "cliff"})
@@ -74,7 +79,3 @@
 (defn team-fixtures [db]
   (do
     (sql/insert-into-teams! db {:id "existing"})))
-
-(defn org-fixtures [db]
-  (do
-    (sql/insert-into-orgs! db {:name "greg", :subdomain "bananas"})))
