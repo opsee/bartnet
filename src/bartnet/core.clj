@@ -52,11 +52,15 @@
       (catch BatchUpdateException ex (log-and-error (.getNextException ex)))
       (catch Exception ex (log-and-error ex)))))
 
-
-
 (defn json-body [ctx]
   (if-let [body (get-in ctx [:request :body])]
-    (parse-stream (io/reader body) true)))
+    (with-open [rdr (io/reader body)]
+      (let [parsed-body (parse-stream rdr true)]
+        (try
+          (.reset body)
+          (catch IOException e
+            (if-not (= HttpInputOverHTTP (type body)) (log/error "Failed to rewind body: " (.getStackTrace e)))))
+        parsed-body))))
 
 (defn respond-with-entity? [ctx]
   (not= (get-in ctx [:request :request-method]) :delete))
