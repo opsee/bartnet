@@ -56,10 +56,7 @@
 
 (defn json-body [ctx]
   (if-let [body (get-in ctx [:request :body])]
-    (with-open [rdr (io/reader body)]
-      (let [parsed-body (parse-stream rdr true)]
-        (.reset body)
-        parsed-body))))
+    (parse-stream (io/reader body) true)))
 
 (defn respond-with-entity? [ctx]
   (not= (get-in ctx [:request :request-method]) :delete))
