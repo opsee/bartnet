@@ -41,10 +41,13 @@
 
 (defn log-request [handler]
   (fn [request]
-    (let [body (slurp (:body request))
-          req1 (assoc request :body body)]
-      (log/info req1)
-      (handler req1))))
+    (if-let [body-rdr (:body request)]
+      (let [body (slurp body-rdr)
+            req1 (assoc request :body body)]
+        (log/info req1)
+        (handler req1))
+      (do (log/info request)
+          (handler request)))))
 
 (defn log-and-error [ex]
   (log/error ex "problem encountered")
