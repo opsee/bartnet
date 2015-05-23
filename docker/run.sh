@@ -24,7 +24,7 @@ EOF
 DOCKER_OPTS="--rm --name bartnet -p 4080:4080 -p 8080:8080"
 
 if [ -n "$PG_CONTAINER_NAME" ]; then
-  DOCKER_OPTS="--link $PG_CONTAINER_NAME:$PG_CONTAINER_NAME $DOCKER_OPTS" 
+  DOCKER_OPTS="--link $PG_CONTAINER_NAME:db -e DB_NAME=$DB_NAME $DOCKER_OPTS"
 fi 
 
 if [ -n "$AWS_ACCESS_KEY_ID" ]; then

@@ -14,7 +14,7 @@ gen_config()
 {"db-spec":{
     "classname":"org.postgresql.Driver",
     "subprotocol":"postgresql",
-    "host":"${DB_1_PORT_5432_TCP_ADDR:-${DB_HOST}}",
+    "host":"${DB_PORT_5432_TCP_ADDR:-${DB_HOST}}",
     "port":"5432",
     "subname":"${DB_NAME}",
     "user":"${DB_USER}",
