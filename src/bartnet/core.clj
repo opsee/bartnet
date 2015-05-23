@@ -39,6 +39,13 @@
 (defmethod liberator.representation/render-seq-generic "application/json" [data _]
   (generate-string data))
 
+(defn log-request [handler]
+  (fn [request]
+    (let [body (slurp (:body request))
+          req1 (assoc request :body body)]
+      (log/info req1)
+      (handler req1))))
+
 (defn log-and-error [ex]
   (log/error ex "problem encountered")
   {:status 500
@@ -54,13 +61,7 @@
 
 (defn json-body [ctx]
   (if-let [body (get-in ctx [:request :body])]
-    (with-open [rdr (io/reader body)]
-      (let [parsed-body (parse-stream rdr true)]
-        (try
-          (.reset body)
-          (catch IOException e
-            (if-not (= HttpInputOverHTTP (type body)) (log/error "Failed to rewind body: " (.getStackTrace e)))))
-        parsed-body))))
+    (parse-string body true)))
 
 (defn respond-with-entity? [ctx]
   (not= (get-in ctx [:request :request-method]) :delete))
@@ -522,22 +523,11 @@
   :available-media-types ["application/json"]
   :allowed-methods [:get]
   :authorized? (authorized? db secret)
-  :exists? (fn [_] ((if (subdomain-exists? db subdomain) [true {:org (get-org db subdomain)}] false)))
+  :exists? (fn [_] ((if (subdomain-exists? db subdomain) [true {:org (first (sql/get-org-by-subdomain db subdomain))}] false)))
   :handle-ok get-org)
-
-(defn- read-and-reset-body [request]
-  (if-let [body (:body request)]
-    (let [str-body (with-open [rdr (clojure.java.io/reader body)]
-                 (clojure.string/join " " (line-seq rdr)))]
-      (try
-        (.reset body)
-        (catch IOException e
-          (if-not (= HttpInputOverHTTP (type body)) (log/error "Failed to rewind body: " (.getStackTrace e)))))
-      str-body)))
 
 (defn wrap-options [handler]
   (fn [request]
-    (log/info (merge request {:body (read-and-reset-body request)}))
     (if (= :options (:request-method request))
       {:status 200
        :body ""
@@ -573,6 +563,7 @@
 
 (defn handler [pubsub db config]
   (-> (app pubsub db config)
+      (log-request)
       (robustify)
       (wrap-cors :access-control-allow-origin [#".*"]
                  :access-control-allow-methods [:get :put :post :patch :delete]
