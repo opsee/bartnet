@@ -24,6 +24,8 @@ gen_config()
     "init-conns":1
 },
 "secret":"abc123",
+"thread-util":0.9,
+"max-threads":64,
 "server":{ "port": 8080 },
 "mailgun":{"api_key":"key-d45f90c5a3e2ac33a26cd4c30715b71b",
            "url":"https://api.mailgun.net/v3/mg.opsee.co"},
