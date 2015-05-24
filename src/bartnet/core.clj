@@ -627,7 +627,13 @@
       "subscribe" (do
                     (subscribe! client (:topic msg))
                     (send! ws (generate-string {:reply "ok"})))
-      "launch" (launch/launch-bastions executor (:customer-id client) msg nil)
+      "launch" (let [stream (launch/launch-bastions executor (:customer-id client) msg {:owner-id "933693344490" :tag "stable"})]
+                 (log/info "launched")
+                 (loop [event @(s/take! stream)]
+                   (if-not (= event :exit)
+                     (do
+                       (send! ws (generate-string event))
+                       (recur @(s/take! stream))))))
       "echo" (send! ws (generate-string msg))))
 
 (defn ws-handler [executor pubsub clients db secret]
@@ -641,6 +647,7 @@
                      (if-and-let [hmac (:hmac parsed-msg)
                                   client (register-ws-connection clients db hmac secret ws)]
                                  (let [stream (register-ws-client pubsub client)]
+                                   (log/info "authorized ws client")
                                    (s/consume (consume-bastion ws client) stream)
                                    (process-authorized-command client ws pubsub executor parsed-msg))
                                  (send! ws (generate-string {:error "unauthorized"}))))))

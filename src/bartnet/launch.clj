@@ -93,6 +93,7 @@
                     (contains? #{"CREATE_COMPLETE" "CREATE_FAILED"} (get-in msg [:Message :ResourceStatus]))))))
             (recur (sqs/receive-message epp {:queue-url queue-url}))))
         (log/info "exiting" id)
+        (s/put! stream :exit)
         (sqs/delete-queue epp queue-url)
         (sns/delete-topic epp topic-arn))
       (catch Exception ex (log/error ex "Exception in thread")))))
@@ -104,21 +105,22 @@
         instance-size (:instance-size msg)
         owner-id (:owner-id options)
         tag (:tag options)
-        streams (flatten
-                  (for [region-obj regions]
-                    (let [creds {:access-key access-key
-                                 :secret-key secret-key
-                                 :endpoint (:region region-obj)}
-                          {image-id :image-id} (get-latest-stable-image creds owner-id tag)]
-                      (for [vpc (:vpcs region-obj)]
-                        (do (log/info vpc)
-                          (let [id (identifiers/generate)
-                                vpc-id (:id vpc)
-                                stream (s/stream)]
-                             (.submit
-                               executor
-                               (launcher creds id stream image-id instance-size vpc-id beta-map {:customer-id customer-id}))
-                             {:id id :stream stream}))))))]
-    streams))
+        stream (s/stream)]
+    (log/info regions)
+    (dorun
+      (for [region-obj regions]
+        (let [creds {:access-key access-key
+                     :secret-key secret-key
+                     :endpoint (:region region-obj)}
+              {image-id :image-id} (get-latest-stable-image creds owner-id tag)]
+          (dorun (for [vpc (:vpcs region-obj)]
+            (do (log/info vpc)
+              (let [id (identifiers/generate)
+                    vpc-id (:id vpc)]
+                 (.submit
+                   executor
+                   (launcher creds id stream image-id instance-size vpc-id beta-map {:customer-id customer-id}))
+                 {:id id :stream stream})))))))
+    stream))
 
 
