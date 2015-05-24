@@ -15,7 +15,8 @@
             [ring.adapter.jetty9 :refer [run-jetty]]
             [bartnet.auth :as auth]
             [clojure.java.io :as io])
-  (:import [org.cliffc.high_scale_lib NonBlockingHashMap]))
+  (:import [org.cliffc.high_scale_lib NonBlockingHashMap]
+           [io.aleph.dirigiste Executors]))
 
 (def clients (atom nil))
 
@@ -23,7 +24,7 @@
 (def auth-header2 "HMAC 2--kJXpzFOo0ZfI_PG069j0iNDAc-o=")
 
 (def pubsub (atom nil))
-
+(def executor (Executors/utilizationExecutor 0.9 10))
 (def ws-server (atom nil))
 
 (defn do-setup []
@@ -41,7 +42,7 @@
     (reset! ws-server (run-jetty
                         (core/handler @pubsub @db test-config)
                         (assoc (:server test-config)
-                          :websockets {"/stream" (core/ws-handler @pubsub @clients @db (:secret test-config))})))
+                          :websockets {"/stream" (core/ws-handler executor @pubsub @clients @db (:secret test-config))})))
     (log/info "server started")))
 
 (defn stop-ws-server []
@@ -341,7 +342,7 @@
                  @(s/take! stream) => (contains {:body (contains {:name "My Dope Fuckin Check"})})))))
 (facts "VPC scanning without EC2-Classic"
        (with-redefs [amazonica.aws.ec2/describe-account-attributes (fn [creds]
-                                                                     (case (:region creds)
+                                                                     (case (:endpoint creds)
                                                                        "us-west-1" {:account-attributes
                                                                                     [{:attribute-name "vpc-max-security-groups-per-interface",
                                                                                       :attribute-values [{:attribute-value "5"}]}
@@ -369,7 +370,7 @@
                                                                                      {:attribute-name "vpc-max-elastic-ips",
                                                                                       :attribute-values [{:attribute-value "5"}]}]}))
                      amazonica.aws.ec2/describe-vpcs (fn [creds]
-                                                       (case (:region creds)
+                                                       (case (:endpoint creds)
                                                          "us-west-1" {:vpcs
                                                                       [{:state "available",
                                                                         :tags [],
