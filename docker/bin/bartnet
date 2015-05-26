@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
 top="$(dirname "$0")/.."
 
+AWS=$(curl -X OPTIONS -f --connect-timeout 2 http://169.254.169.254/latest/ 2>/dev/null; echo $?)
 CONFIG="$top/etc/config.json"
 COMMAND="server"
 OPTS="-cp /bartnet/lib/bartnet.jar"
 NAMESPACE="bartnet.core"
 AGGRESSIVE_OPTS="-server -XX:+UseConcMarkSweepGC -XX:+UseParNewGC -XX:+CMSParallelRemarkEnabled -XX:+AggressiveOpts -XX:+UseFastAccessorMethods -XX:+UseCompressedOops -XX:+CMSClassUnloadingEnabled"
+
+if [[ $AWS == 0 ]]; then eval "$(/opt/bin/ec2-env)"; fi
 
 gen_config()
 {
