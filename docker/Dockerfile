@@ -1,10 +1,11 @@
 FROM develar/java:8u45
 
-RUN apk add --update bash
+RUN apk add --update bash curl
 
 RUN mkdir /bartnet /bartnet/bin /bartnet/etc /bartnet/lib
 RUN mkdir -p /opt/bin
 RUN curl -o /opt/bin/ec2-env https://s3-us-west-2.amazonaws.com/opsee-releases/go/ec2-env/ec2-env-linux-amd64
+RUN apk del curl
 
 COPY lib/* /bartnet/lib/
 COPY bin/* /bartnet/bin/
