@@ -17,7 +17,7 @@ test:
   override:
     - "lein trampoline midje :filter -integration"
     - docker run -d -p 8080:8080 opsee/bartnet; sleep 20
-    - [[ $(curl -s --retry 10 --retry-delay 5 http://localhost:8080/health_check) == "A ok" ]]
+    - test "$(curl -s --retry 10 --retry-delay 5 http://localhost:8080/health_check)" = "A ok"
 deployment:
   hub:
     branch: master
