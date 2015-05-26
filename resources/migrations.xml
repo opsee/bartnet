@@ -258,4 +258,7 @@
     <addForeignKeyConstraint baseTableName="logins" baseColumnNames="customer_id" constraintName="fk_logins_orgs" referencedTableName="orgs"
                              referencedColumnNames="subdomain"/>
   </changeSet>
+  <changeSet id="17" author="greg">
+    <dropNotNullConstraint tableName="logins" columnName="customer_id"/>
+  </changeSet>
 </databaseChangeLog>

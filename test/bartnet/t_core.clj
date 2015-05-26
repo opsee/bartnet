@@ -197,8 +197,7 @@
                            activation-fixtures))]
          (fact "activation endpoint turns into a login"
                (let [response ((app) (-> (mock/request :post "/activations/abc123/activate" (generate-string
-                                                                                              {:password "cliff"
-                                                                                               :customer_id "cliff"}))))]
+                                                                                              {:password "cliff"}))))]
                  (:status response) => 201
                  (:body response) => (is-json (contains {:email "cliff+signup@leaninto.it"}))))
          (fact "activation records for existing logins will result in the login being set to verified"
@@ -208,8 +207,7 @@
                  (sql/get-active-login-by-id @db 2) => (just (contains {:verified true}))))
          (fact "activations already used will result in a 409 conflict"
                (let [response ((app) (-> (mock/request :post "/activations/badid/activate" (generate-string
-                                                                                             {:password "cliff"
-                                                                                              :customer_id "cliff2"}))))]
+                                                                                             {:password "cliff"}))))]
                  (:status response) => 409
                  (:body response) => (is-json (contains {:error #"invalid activation"}))))))
 (facts "orgs endpoint works"

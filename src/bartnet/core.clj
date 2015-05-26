@@ -309,8 +309,7 @@
             (let [hashed-pw (auth/hash-password (:password login-details))
                   login (assoc login-details :password_hash hashed-pw
                                              :email (:email activation)
-                                             :name (:name activation)
-                                             :customer_id (:customer_id login-details))]
+                                             :name (:name activation))]
               (if (sql/insert-into-logins! db login)
                 (use-activation! db login activation)))))))))
 
