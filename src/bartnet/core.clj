@@ -397,6 +397,15 @@
 (defn get-org [ctx]
     (:org ctx))
 
+(defn instance-exists? [id]
+  (fn [_]
+    (if-let [instance (sql/get-instance-by-id db id)]
+      [true, {:instance instance}])
+    false))
+
+(defn get-instance [ctx]
+  (:instance ctx))
+
 (defresource signups-resource [db secret]
              :available-media-types ["application/json"]
              :allowed-methods [:post :get]
@@ -467,6 +476,13 @@
              :respond-with-entity? respond-with-entity?
              :handle-ok get-new-login)
 
+(defresource instance-resource [db secret id]
+             :available-media-types ["application/json"]
+             :allowed-methods [:get]
+             :authorized? (authorized? db secret)
+             :exists? (instance-exists? db id)
+             :handle-ok get-instance)
+
 (defresource bastion-resource [pubsub db secret id]
              :available-media-types ["application/json"]
              :allowed-methods [:post]
@@ -510,27 +526,27 @@
              :handle-created get-vpcs)
 
 (defresource subdomain-resource [db secret subdomain]
-  :available-media-types ["application/json"]
-  :allowed-methods [:get]
-  :authorized? (authorized? db secret)
-  :handle-ok (fn [_] {:available (subdomain-exists? db subdomain)}))
+             :available-media-types ["application/json"]
+             :allowed-methods [:get]
+             :authorized? (authorized? db secret)
+             :handle-ok (fn [_] {:available (subdomain-exists? db subdomain)}))
 
 (defresource orgs-resource [db secret]
-  :available-media-types ["application/json"]
-  :allowed-methods [:post]
-  :authorized? (authorized? db secret)
-  :exists? (fn [ctx]
-             (let [subdomain (:subdomain (json-body ctx))]
-               (subdomain-exists? db subdomain)))
-  :post! (create-org! db)
-  :handle-created get-org)
+             :available-media-types ["application/json"]
+             :allowed-methods [:post]
+             :authorized? (authorized? db secret)
+             :exists? (fn [ctx]
+                        (let [subdomain (:subdomain (json-body ctx))]
+                          (subdomain-exists? db subdomain)))
+             :post! (create-org! db)
+             :handle-created get-org)
 
 (defresource org-resource [db secret subdomain]
-  :available-media-types ["application/json"]
-  :allowed-methods [:get]
-  :authorized? (authorized? db secret)
-  :exists? (fn [_] ((if (subdomain-exists? db subdomain) [true {:org (first (sql/get-org-by-subdomain db subdomain))}] false)))
-  :handle-ok get-org)
+             :available-media-types ["application/json"]
+             :allowed-methods [:get]
+             :authorized? (authorized? db secret)
+             :exists? (fn [_] ((if (subdomain-exists? db subdomain) [true {:org (first (sql/get-org-by-subdomain db subdomain))}] false)))
+             :handle-ok get-org)
 
 (defn wrap-options [handler]
   (fn [request]
@@ -565,7 +581,8 @@
       (ANY "/bastions/:id" [id] (bastion-resource pubsub db secret id))
       (ANY "/discovery" [] (discovery-resource pubsub db secret))
       (ANY "/checks" [] (checks-resource pubsub db secret))
-      (ANY "/checks/:id" [id] (check-resource pubsub db secret id)))))
+      (ANY "/checks/:id" [id] (check-resource pubsub db secret id))
+      (GET "/instance/:id" [id] (instance-resource db secret id)))))
 
 (defn handler [pubsub db config]
   (-> (app pubsub db config)
