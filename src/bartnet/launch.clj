@@ -57,15 +57,14 @@
 (defn launcher [creds id stream image-id instance-type vpc-id url-map user-data]
   (fn []
     (try
-      (let [epp {:endpoint (:endpoint creds)}
-            {topic-arn :topic-arn} (sns/create-topic creds {:name (str "opsee-bastion-build-sns-" id)})
+      (let [{topic-arn :topic-arn} (sns/create-topic creds {:name (str "opsee-bastion-build-sns-" id)})
             {queue-url :queue-url} (sqs/create-queue creds {:queue-name (str "opsee-bastion-build-sqs-" id)})
-            {queue-arn :QueueArn} (sqs/get-queue-attributes queue-url)
+            {queue-arn :QueueArn} (sqs/get-queue-attributes creds {:queue-url queue-url :attribute-names ["All"]})
             policy (render-resource "templates/sqs_policy.mustache" {:policy-id id :queue-arn queue-arn :topic-arn topic-arn})
             endpoint (keyword (:endpoint creds))
             template-url (endpoint url-map)
             _ (sqs/set-queue-attributes queue-url {"Policy" policy})
-            {subscription-arn :SubscriptionArn} (sns/subscribe epp topic-arn "sqs" queue-arn)]
+            {subscription-arn :SubscriptionArn} (sns/subscribe creds topic-arn "sqs" queue-arn)]
         (log/info queue-url endpoint template-url)
         (log/info "subscribe" topic-arn "sqs" queue-arn)
         (log/info "launching stack with " image-id vpc-id user-data)
@@ -78,24 +77,25 @@
                                    {:parameter-key "UserData" :parameter-value (encode-user-data user-data)}
                                    {:parameter-key "VpcId" :parameter-value vpc-id}]
                       :notification-arns [topic-arn])
-        (loop [{messages :messages} (sqs/receive-message epp {:queue-url queue-url})]
+        (loop [{messages :messages} (sqs/receive-message creds {:queue-url queue-url})]
           (if
             (not-any? #(true? %)
               (for [message messages
                     :let [msg-body (:body message)
                           msg (parse-cloudformation-msg (parse-string msg-body true))]]
                 (do
-                  (sqs/delete-message epp (assoc message :queue-url queue-url))
+                  (sqs/delete-message creds (assoc message :queue-url queue-url))
                   (s/put! stream msg)
                   (log/info (get-in msg [:Message :ResourceType]) (get-in msg [:Message :ResourceStatus]))
                   (and
                     (= "AWS::CloudFormation::Stack" (get-in msg [:Message :ResourceType]))
                     (contains? #{"CREATE_COMPLETE" "CREATE_FAILED"} (get-in msg [:Message :ResourceStatus]))))))
-            (recur (sqs/receive-message epp {:queue-url queue-url}))))
+            (recur (sqs/receive-message creds {:queue-url queue-url
+                                             :wait-time-seconds 20}))))
         (log/info "exiting" id)
         (s/put! stream :exit)
-        (sqs/delete-queue epp queue-url)
-        (sns/delete-topic epp topic-arn))
+        (sqs/delete-queue creds queue-url)
+        (sns/delete-topic creds topic-arn))
       (catch Exception ex (log/error ex "Exception in thread")))))
 
 (defn launch-bastions [^ExecutorService executor customer-id msg options]
