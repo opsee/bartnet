@@ -63,7 +63,7 @@
             policy (render-resource "templates/sqs_policy.mustache" {:policy-id id :queue-arn queue-arn :topic-arn topic-arn})
             endpoint (keyword (:endpoint creds))
             template-url (endpoint url-map)
-            _ (sqs/set-queue-attributes queue-url {"Policy" policy})
+            _ (sqs/set-queue-attributes creds queue-url {"Policy" policy})
             {subscription-arn :SubscriptionArn} (sns/subscribe creds topic-arn "sqs" queue-arn)]
         (log/info queue-url endpoint template-url)
         (log/info "subscribe" topic-arn "sqs" queue-arn)
