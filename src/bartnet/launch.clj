@@ -24,7 +24,7 @@
     "message = line+
      line = key <'='> value <'\\n'>
      key = #'[a-zA-Z]+'
-     value = <'\\''> (#'.')* <'\\''>"))
+     value = <'\\''> (#'(?s).')* <'\\''>"))
 
 (defn encode-user-data [data]
   (let [encoder (Base64/getMimeEncoder)
