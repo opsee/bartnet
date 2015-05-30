@@ -16,6 +16,7 @@
             [bartnet.auth :as auth]
             [bartnet.identifiers :as identifiers]
             [bartnet.bastion :as bastion]
+            [bartnet.instance :as instance]
             [bartnet.launch :as launch]
             [bartnet.email :refer [send-activation! send-verification!]]
             [bartnet.db-cmd :as db-cmd]
@@ -397,12 +398,6 @@
 (defn get-org [ctx]
     (:org ctx))
 
-(defn instance-exists? [id]
-  (fn [_]
-    (if-let [instance (sql/get-instance-by-id db id)]
-      [true, {:instance instance}])
-    false))
-
 (defn get-instance [ctx]
   (:instance ctx))
 
@@ -480,7 +475,8 @@
              :available-media-types ["application/json"]
              :allowed-methods [:get]
              :authorized? (authorized? db secret)
-             :exists? (instance-exists? db id)
+             :exists? (fn [ctx] (if-let [instance (instance/get-instance! id)]
+                                  {:instance instance}))
              :handle-ok get-instance)
 
 (defresource bastion-resource [pubsub db secret id]
@@ -705,7 +701,8 @@
         executor (Executors/utilizationExecutor (:thread-util config) (:max-threads config))
         clients (NonBlockingHashMap.)]
     (start-bastion-server db pubsub bastion-handlers (:bastion-server config))
-    (start-ws-server executor db pubsub config clients)))
+    (start-ws-server executor db pubsub config clients)
+    (instance/connect! (:redis config))))
 
 (.addShutdownHook
   (Runtime/getRuntime)

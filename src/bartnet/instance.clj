@@ -4,64 +4,79 @@
 
 (defprotocol InstanceStoreProtocol
   "Exteranl storage for AWS instance data"
-  (connect! [this] "Connect to the datastore with the provided configuration")
   (get! [this id] "Get an instance by instance ID")
   (save! [this instance] [store instance ttl] "Save an instance to the instance store w/ optional TTL"))
 
 ; TODO: Make redis connection information configurable
 (def ^{:private true} redis-conn (atom nil))
 
-(defmacro ^{:private true} with-redis [& body] `(car/wcar @redis-conn ~@body))
+ ;The redis datastore looks roughly like so:
+ ;`type:id`
+ ;types:
+ ;  - instance
 
-; The redis datastore looks roughly like so:
-; `type:id`
-; types:
-;   - instance
+(defn- instance-key [id]
+  (str "instance:" id))
 
-(defn- map-to-redis-hash [m]
-  )
+(defn carmine-connection-details []
+  {:pool {} :spec @redis-conn})
 
-(defn- instance-key [instance]
-  (str "instance:" (:id instance)))
+(defmacro ^{:private true} with-redis [& body]
+  `(try
+     (car/wcar (carmine-connection-details) ~@body)
+     (catch Exception e#
+       (log/info "Error communicating with redis: " e# (.printStackTrace e#)))))
 
-(defrecord RedisInstanceStore [connection]
+; MemoryInstanceStore is horribly unsafe and is used only for testing.
+(deftype MemoryInstanceStore [^{:volatile-mutable true} map]
   InstanceStoreProtocol
   (get! [_ id]
-    (with-redis (car/get id)))
+    (get map id))
+  (save! [_ instance]
+    (set! map (assoc map "id" instance)))
+  (save! [this instance ttl]
+    (set! map (assoc map "id" instance))))
+
+(defrecord RedisInstanceStore []
+  InstanceStoreProtocol
+  (get! [_ id]
+    (with-redis
+      (car/get (instance-key id))))
   (save! [_ instance]                                 ; persistent
     (with-redis
-      (car/set (instance-key instance) (map-to-redis-hash instance))))
-  (save! [this instance ttl]
-    (try
-      (save! this instance)
-      (with-redis
-        (car/expire (instance-key (:id instance)) 60000))
-      (catch Exception e (log/info "Error communicating with redis: " e)))))
+      (car/set (instance-key (:id instance)) instance))
+    instance)
+  (save! [_ instance ttl]
+    (with-redis
+      (car/set (instance-key (:id instance)) instance)
+      (car/expire (instance-key (:id instance)) (or 60000 ttl)))
+    instance))
 
 (def instance-store (atom nil))
 
-(defn connect! [{:keys [host port db],
-                 :or {
-                      :host "127.0.0.1",
-                      :port 6379,
-                      :db 1
-                      }
-                 :as connection-details}]
-  "Given a map of connection information, return an instance store"
-  :pre (and (string? host) (number? port) (number? db))
-  (do
-    (reset! redis-conn connection-details)
-    (reset! instance-store (RedisInstanceStore. connection-details))))
+; TODO: Only let this be called once?
+(defn connect!
+  ([{:keys [host port db],
+      :or   {
+             :host "127.0.0.1",
+             :port 6379,
+             :db   1
+             }
+      :as   connection-details}]
+    "Given a map of connection information, return an instance store"
+    :pre (and (string? host) (number? port) (number? db))
+    (do
+      (reset! redis-conn connection-details)
+      (reset! instance-store (RedisInstanceStore.)))))
 
-
-(defn get-instance [id]
-  (get! instance-store id))
+(defn get-instance! [id]
+  (get! @instance-store id))
 
 (def default-instance-ttl 60000)
 
-(defn save-instance
+(defn save-instance!
   ([instance ttl]
-    (save! instance-store instance ttl))
+    (save! @instance-store instance ttl))
   ([instance]
-   (save! instance-store instance default-instance-ttl)))
+   (save! @instance-store instance default-instance-ttl)))
 
