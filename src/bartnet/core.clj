@@ -2,6 +2,7 @@
   (:gen-class)
   (:require [liberator.core :refer [resource defresource]]
             [liberator.dev :refer [wrap-trace]]
+            [amazonica.aws.ec2 :refer [describe-vpcs describe-account-attributes]]
             [ring.middleware.params :refer [wrap-params]]
             [compojure.core :refer :all]
             [cheshire.core :refer :all]
@@ -15,8 +16,11 @@
             [bartnet.auth :as auth]
             [bartnet.identifiers :as identifiers]
             [bartnet.bastion :as bastion]
+            [bartnet.instance :as instance]
+            [bartnet.launch :as launch]
             [bartnet.email :refer [send-activation! send-verification!]]
             [bartnet.db-cmd :as db-cmd]
+            [bartnet.upload-cmd :as upload-cmd]
             [bartnet.pubsub :refer :all]
             [bartnet.util :refer [if-and-let]]
             [manifold.stream :as s]
@@ -24,7 +28,11 @@
             [ring.adapter.jetty9 :refer :all])
   (:import [java.util Base64]
            [org.cliffc.high_scale_lib NonBlockingHashMap]
-           [java.util.concurrent CopyOnWriteArraySet]
+           [java.util.concurrent CopyOnWriteArraySet ExecutorService]
+           [io.aleph.dirigiste Executors]
+           (java.sql BatchUpdateException)
+           (java.io IOException)
+           (org.eclipse.jetty.server HttpInputOverHTTP)
            (java.sql BatchUpdateException)))
 
 (defn param->int [n]
@@ -35,6 +43,16 @@
 
 (defmethod liberator.representation/render-seq-generic "application/json" [data _]
   (generate-string data))
+
+(defn log-request [handler]
+  (fn [request]
+    (if-let [body-rdr (:body request)]
+      (let [body (slurp body-rdr)
+            req1 (assoc request :body body)]
+        (log/info req1)
+        (handler req1))
+      (do (log/info request)
+          (handler request)))))
 
 (defn log-and-error [ex]
   (log/error ex "problem encountered")
@@ -49,11 +67,9 @@
       (catch BatchUpdateException ex (log-and-error (.getNextException ex)))
       (catch Exception ex (log-and-error ex)))))
 
-
-
 (defn json-body [ctx]
   (if-let [body (get-in ctx [:request :body])]
-      (parse-stream (io/reader body) true)))
+    (parse-string body true)))
 
 (defn respond-with-entity? [ctx]
   (not= (get-in ctx [:request :request-method]) :delete))
@@ -73,7 +89,8 @@
           id (str (:id login))
           hmac (str id "--" (.encodeToString (Base64/getUrlEncoder) (auth/generate-hmac-signature id secret)))]
       (ring-response {:headers {"X-Auth-HMAC" hmac}
-                      :body (generate-string {:token (str "HMAC " hmac)})}))))
+                      :body (generate-string (merge (dissoc login :password_hash)
+                                                    {:token (str "HMAC " hmac)}))}))))
 
 (defn user-authorized?
   [db secret ctx]
@@ -117,9 +134,9 @@
   (:env ctx))
 
 (defn get-new-login [ctx]
-  (if-let [duplicate-email (:duplicate ctx)]
-    (ring-response {:status 409
-                    :body (generate-string {:error (str "Email " duplicate-email " already exists.")})
+  (if-let [error (:error ctx)]
+    (ring-response {:status (:status error)
+                    :body (generate-string {:error (:message error)})
                     :headers {"Content-Type" "application/json"}})
     (dissoc (or (:new-login ctx) (:old-login ctx)) :password_hash)))
 
@@ -281,18 +298,21 @@
 (defn activate-activation! [db]
   (fn [ctx]
     (let [activation (:activation ctx)]
-      (if-let [existing-login (first (sql/get-active-login-by-email db (:email activation)))]
-        ;this is a verification of an existing login's email change
-        (if (sql/update-login! db (merge existing-login {:verified true}))
-          (use-activation! db existing-login activation))
-        ;this is the activation of a new account
-        (if-let [login-details (json-body ctx)]
-          (let [hashed-pw (auth/hash-password (:password login-details))
-                login (assoc login-details :password_hash hashed-pw
-                                           :email (:email activation)
-                                           :name (:name activation))]
-            (if (sql/insert-into-logins! db login)
-              (use-activation! db login activation))))))))
+      (if-not activation
+        {:error {:status 409
+                 :message "invalid activation"}}
+        (if-let [existing-login (first (sql/get-active-login-by-email db (:email activation)))]
+          ;this is a verification of an existing login's email change
+          (if (sql/update-login! db (merge existing-login {:verified true}))
+            (use-activation! db existing-login activation))
+          ;this is the activation of a new account
+          (if-let [login-details (json-body ctx)]
+            (let [hashed-pw (auth/hash-password (:password login-details))
+                  login (assoc login-details :password_hash hashed-pw
+                                             :email (:email activation)
+                                             :name (:name activation))]
+              (if (sql/insert-into-logins! db login)
+                (use-activation! db login activation)))))))))
 
 (defn get-activation [ctx]
   (:activation ctx))
@@ -331,7 +351,8 @@
                      true)]
       (if (and (not verified)
                (not (empty? (sql/get-any-login-by-email db (:email new-login)))))
-        {:duplicate (:email new-login)}
+        {:error {:status 409
+                 :message (str "Email " (:email new-login) " already exists.")}}
         (if (do-update! db old-login new-login verified)
           (if-let [saved-login (first (sql/get-active-login-by-id db id))]
             (do
@@ -341,6 +362,44 @@
 (defn delete-login! [db id]
   (fn [ctx]
     (sql/deactivate-login! db id)))
+
+(defn ec2-classic? [attrs]
+  (let [ttr (:account-attributes attrs)
+        supported (first (filter
+                           #(= "supported-platforms" (:attribute-name %))
+                           ttr))]
+    (not (empty? (filter
+              #(or (.equalsIgnoreCase "EC2-Classic" (:attribute-value %))
+                   (.equalsIgnoreCase "EC2" (:attribute-value %)))
+              (:attribute-values supported))))))
+
+(defn scan-vpcs [ctx]
+  (let [creds (json-body ctx)]
+    {:regions (for [region (:regions creds)]
+                (let [cd (assoc creds :endpoint region)
+                      vpcs (describe-vpcs cd)
+                      attrs (describe-account-attributes cd)]
+                  {:region region
+                   :ec2-classic (ec2-classic? attrs)
+                   :vpcs (:vpcs vpcs)}))}))
+
+(defn get-vpcs [ctx]
+  (:regions ctx))
+
+(defn subdomain-exists? [db subdomain]
+  (empty? (sql/get-org-by-subdomain db subdomain)))
+
+(defn create-org! [db]
+  (fn [ctx]
+    (let [org (json-body ctx)]
+      (sql/insert-into-orgs! db org)
+      {:org org})))
+
+(defn get-org [ctx]
+    (:org ctx))
+
+(defn get-instance [ctx]
+  (:instance ctx))
 
 (defresource signups-resource [db secret]
              :available-media-types ["application/json"]
@@ -412,6 +471,14 @@
              :respond-with-entity? respond-with-entity?
              :handle-ok get-new-login)
 
+(defresource instance-resource [db secret id]
+             :available-media-types ["application/json"]
+             :allowed-methods [:get]
+             :authorized? (authorized? db secret)
+             :exists? (fn [ctx] (if-let [instance (instance/get-instance! id)]
+                                  {:instance instance}))
+             :handle-ok get-instance)
+
 (defresource bastion-resource [pubsub db secret id]
              :available-media-types ["application/json"]
              :allowed-methods [:post]
@@ -448,9 +515,37 @@
              :handle-created get-check
              :handle-ok (list-checks pubsub db))
 
+(defresource scan-vpc-resource []
+             :available-media-types ["application/json"]
+             :allowed-methods [:post]
+             :post! scan-vpcs
+             :handle-created get-vpcs)
+
+(defresource subdomain-resource [db secret subdomain]
+             :available-media-types ["application/json"]
+             :allowed-methods [:get]
+             :authorized? (authorized? db secret)
+             :handle-ok (fn [_] {:available (subdomain-exists? db subdomain)}))
+
+(defresource orgs-resource [db secret]
+             :available-media-types ["application/json"]
+             :allowed-methods [:post]
+             :authorized? (authorized? db secret)
+             :exists? (fn [ctx]
+                        (let [subdomain (:subdomain (json-body ctx))]
+                          (subdomain-exists? db subdomain)))
+             :post! (create-org! db)
+             :handle-created get-org)
+
+(defresource org-resource [db secret subdomain]
+             :available-media-types ["application/json"]
+             :allowed-methods [:get]
+             :authorized? (authorized? db secret)
+             :exists? (fn [_] ((if (subdomain-exists? db subdomain) [true {:org (first (sql/get-org-by-subdomain db subdomain))}] false)))
+             :handle-ok get-org)
+
 (defn wrap-options [handler]
   (fn [request]
-    (log/info request)
     (if (= :options (:request-method request))
       {:status 200
        :body ""
@@ -473,16 +568,21 @@
       (ANY "/authenticate/password" [] (authenticate-resource db secret))
       (ANY "/environments" [] (environments-resource db secret))
       (ANY "/environments/:id" [id] (environment-resource db secret id))
-      ;(ANY "/logins" [] (logins-resource db secret))
       (ANY "/logins/:id" [id] (login-resource db config secret (param->int id)))
+      (ANY "/scan-vpcs" [] (scan-vpc-resource))
+      (POST "/orgs" [] (orgs-resource db secret))
+      (ANY "/orgs/:subdomain" [subdomain] (org-resource db secret subdomain))
+      (GET "/orgs/subdomain/:subdomain" [subdomain] (subdomain-resource db secret subdomain))
       (ANY "/bastions" [] (bastions-resource pubsub db secret))
       (ANY "/bastions/:id" [id] (bastion-resource pubsub db secret id))
       (ANY "/discovery" [] (discovery-resource pubsub db secret))
       (ANY "/checks" [] (checks-resource pubsub db secret))
-      (ANY "/checks/:id" [id] (check-resource pubsub db secret id)))))
+      (ANY "/checks/:id" [id] (check-resource pubsub db secret id))
+      (GET "/instance/:id" [id] (instance-resource db secret id)))))
 
 (defn handler [pubsub db config]
   (-> (app pubsub db config)
+      (log-request)
       (robustify)
       (wrap-cors :access-control-allow-origin [#".*"]
                  :access-control-allow-methods [:get :put :post :patch :delete]
@@ -534,26 +634,34 @@
       (when (subscribed? client cmd)
         (send! ws (generate-string msg))))))
 
-(defn process-authorized-command [client ws pubsub msg]
+(defn process-authorized-command [client ws pubsub ^ExecutorService executor msg]
     (case (:cmd msg)
       "subscribe" (do
                     (subscribe! client (:topic msg))
                     (send! ws (generate-string {:reply "ok"})))
+      "launch" (let [stream (launch/launch-bastions executor (:customer-id client) msg {:owner-id "933693344490" :tag "stable"})]
+                 (log/info "launched")
+                 (loop [event @(s/take! stream)]
+                   (if-not (= event :exit)
+                     (do
+                       (send! ws (generate-string event))
+                       (recur @(s/take! stream))))))
       "echo" (send! ws (generate-string msg))))
 
-(defn ws-handler [pubsub clients db secret]
+(defn ws-handler [executor pubsub clients db secret]
   {:on-connect (fn [_])
    :on-text    (fn [ws msg]
                  (let [parsed-msg (parse-string msg true)
                        client (.get clients ws)]
                    (log/info "ws msg", parsed-msg)
                    (if client
-                     (process-authorized-command client ws pubsub parsed-msg)
+                     (process-authorized-command client ws pubsub executor parsed-msg)
                      (if-and-let [hmac (:hmac parsed-msg)
                                   client (register-ws-connection clients db hmac secret ws)]
                                  (let [stream (register-ws-client pubsub client)]
+                                   (log/info "authorized ws client")
                                    (s/consume (consume-bastion ws client) stream)
-                                   (process-authorized-command client ws pubsub parsed-msg))
+                                   (process-authorized-command client ws pubsub executor parsed-msg))
                                  (send! ws (generate-string {:error "unauthorized"}))))))
    :on-closed  (fn [ws status-code reason]
                  (if-let [client (.remove clients ws)]
@@ -562,21 +670,51 @@
                      (s/close! (:server-client client)))))
    :on-error   (fn [ws e])})
 
-(defn server-cmd [args]
+(def ^{:private true} bastion-server (atom nil))
+
+(def ^{:private true} ws-server (atom nil))
+
+(defn- start-bastion-server [db pubsub handlers options]
+  (if-not @bastion-server (reset! bastion-server (bastion/bastion-server db pubsub handlers options))))
+
+(defn- start-ws-server [executor db pubsub config clients]
+  (if-not @ws-server
+    (reset! ws-server
+            (run-jetty
+              (handler pubsub db config)
+              (assoc (:server config)
+                :websockets {"/stream" (ws-handler executor pubsub clients db (:secret config))})))))
+
+(defn stop-server []
+  (do
+    (if @bastion-server (do
+                          (.close @bastion-server)
+                          (reset! bastion-server nil)))
+    (if @ws-server (do
+                     (.stop @ws-server)
+                     (reset! ws-server nil)))))
+
+(defn start-server [args]
   (let [config (parse-string (slurp (first args)) true)
         db (sql/pool (:db-spec config))
         pubsub (create-pubsub)
+        executor (Executors/utilizationExecutor (:thread-util config) (:max-threads config))
         clients (NonBlockingHashMap.)]
-    (bastion/bastion-server db pubsub bastion-handlers (:bastion-server config))
-    (run-jetty
-      (handler pubsub db config)
-      (assoc (:server config)
-        :websockets {"/stream" (ws-handler pubsub clients db (:secret config))}))))
+    (start-bastion-server db pubsub bastion-handlers (:bastion-server config))
+    (start-ws-server executor db pubsub config clients)
+    (instance/connect! (:redis config))))
+
+(.addShutdownHook
+  (Runtime/getRuntime)
+  (Thread. (fn []
+             (println "Shutting down...")
+             (stop-server))))
 
 (defn -main [& args]
   (let [cmd (first args)
         subargs (rest args)]
     (case cmd
-      "server" (server-cmd subargs)
-      "db" (db-cmd/db-cmd subargs))))
+      "server" (start-server subargs)
+      "db" (db-cmd/db-cmd subargs)
+      "upload" (upload-cmd/upload subargs))))
 

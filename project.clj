@@ -10,8 +10,8 @@
                    :plugins [[lein-midje "3.0.0"]]}}
   :plugins [[s3-wagon-private "1.1.2"]]
   :repositories [["snapshots" {:url "s3p://opsee-maven-snapshots/snapshot"
-                               :username [:gpg :env/ACCESS_KEY_ID]
-                               :passphrase [:gpg :env/SECRET_KEY]}]]
+                               :username :env
+                               :passphrase :env}]]
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [liberator "0.12.2"]
                  [compojure "1.3.1"]
@@ -35,8 +35,12 @@
                                                     com.sun.jmx/jmxri]]
                  [org.liquibase/liquibase-core "3.1.1"]
                  [com.novemberain/validateur "2.4.2"]
+                 [amazonica "0.3.21"]
                  [riemann "0.2.9" :exclusions [joda-time
                                                potemkin]]
                  [aleph "0.4.0-beta3"]
                  [de.ubercode.clostache/clostache "1.4.0"]
-                 [manifold "0.1.0-beta11"]])
+                 [instaparse "1.3.4"]
+                 [org.clojure/core.match "0.3.0-alpha4"]
+                 [manifold "0.1.0-beta11"]
+                 [com.taoensso/carmine "2.10.0"]])

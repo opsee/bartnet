@@ -13,8 +13,11 @@
             [clojure.tools.logging :as log]
             [cheshire.core :refer :all]
             [ring.adapter.jetty9 :refer [run-jetty]]
-            [bartnet.auth :as auth])
-  (:import [org.cliffc.high_scale_lib NonBlockingHashMap]))
+            [bartnet.auth :as auth]
+            [clojure.java.io :as io]
+            [bartnet.instance :as instance])
+  (:import [org.cliffc.high_scale_lib NonBlockingHashMap]
+           [io.aleph.dirigiste Executors]))
 
 (def clients (atom nil))
 
@@ -22,7 +25,7 @@
 (def auth-header2 "HMAC 2--kJXpzFOo0ZfI_PG069j0iNDAc-o=")
 
 (def pubsub (atom nil))
-
+(def executor (Executors/utilizationExecutor 0.9 10))
 (def ws-server (atom nil))
 
 (defn do-setup []
@@ -40,7 +43,7 @@
     (reset! ws-server (run-jetty
                         (core/handler @pubsub @db test-config)
                         (assoc (:server test-config)
-                          :websockets {"/stream" (core/ws-handler @pubsub @clients @db (:secret test-config))})))
+                          :websockets {"/stream" (core/ws-handler executor @pubsub @clients @db (:secret test-config))})))
     (log/info "server started")))
 
 (defn stop-ws-server []
@@ -195,15 +198,44 @@
                            activation-fixtures))]
          (fact "activation endpoint turns into a login"
                (let [response ((app) (-> (mock/request :post "/activations/abc123/activate" (generate-string
-                                                                                              {:password "cliff"
-                                                                                               :customer_id "custie"}))))]
+                                                                                              {:password "cliff"}))))]
                  (:status response) => 201
                  (:body response) => (is-json (contains {:email "cliff+signup@leaninto.it"}))))
          (fact "activation records for existing logins will result in the login being set to verified"
                (let [response ((app) (-> (mock/request :post "/activations/existing/activate")))]
                  (:status response) => 201
                  (:body response) => (is-json (contains {:id 2}))
-                 (sql/get-active-login-by-id @db 2) => (just (contains {:verified true}))))))
+                 (sql/get-active-login-by-id @db 2) => (just (contains {:verified true}))))
+         (fact "activations already used will result in a 409 conflict"
+               (let [response ((app) (-> (mock/request :post "/activations/badid/activate" (generate-string
+                                                                                             {:password "cliff"}))))]
+                 (:status response) => 409
+                 (:body response) => (is-json (contains {:error #"invalid activation"}))))))
+(facts "orgs endpoint works"
+  (with-state-changes
+    [(before :facts (doto
+                      (do-setup)
+                      login-fixtures
+                      signup-fixtures))]
+    (facts "about /orgs"
+      (fact "POST creates a new org"
+        (let [response ((app) (-> (mock/request :post "/orgs" (generate-string
+                                                                 {:name "test org"
+                                                                  :subdomain "foo"}))
+                                  (mock/header "Authorization" auth-header)))]
+          (:status response) => 201
+          (:body response) => (is-json (contains {:name "test org"}))
+        )))
+    (facts "about /orgs/subdomain/:subdomain"
+      (fact "GET returns availability for a subdomain"
+        (let [response ((app) (-> (mock/request :get "/orgs/subdomain/cliff")
+                                  (mock/header "Authorization" auth-header)))]
+          (:status response) => 200
+          (:body response) => (is-json (contains {:available false})))
+        (let [response ((app) (-> (mock/request :get "/orgs/subdomain/apples")
+                                (mock/header "Authorization" auth-header)))]
+          (:status response) => 200
+          (:body response) => (is-json (contains {:available true})))))))
 (facts "login endpoint works"
        (with-state-changes
          [(before :facts (doto
@@ -307,6 +339,83 @@
                                          (mock/header "Authorization" auth-header)))]
                  (:status response) => 201
                  @(s/take! stream) => (contains {:body (contains {:name "My Dope Fuckin Check"})})))))
+(facts "about /instance/:id"
+  (let [my-instance {:id "id" :name "my instance"}]
+
+    (with-state-changes
+      [(before :facts (do
+                        (reset! instance/instance-store (instance/->MemoryInstanceStore {"id" my-instance}))))]
+      (fact "GET existing instance returns the instance"
+        (let [response ((app) (-> (mock/request :get "/instance/id")
+                                (mock/header "Authorization" auth-header)))]
+          (:status response) => 200
+          (:body (contains my-instance))))
+      (fact "GET unknown instance returns 404"
+        (let [response ((app) (-> (mock/request :get "/instance/foo")
+                                (mock/header "Authorization" auth-header)))]
+          (:status response) => 404))
+      (fact "GET requires authentication"
+        (let [response ((app) (-> (mock/request :get "/instance/id")))]
+          (:status response) => 401)))))
+(facts "VPC scanning without EC2-Classic"
+       (with-redefs [amazonica.aws.ec2/describe-account-attributes (fn [creds]
+                                                                     (case (:endpoint creds)
+                                                                       "us-west-1" {:account-attributes
+                                                                                    [{:attribute-name "vpc-max-security-groups-per-interface",
+                                                                                      :attribute-values [{:attribute-value "5"}]}
+                                                                                     {:attribute-name "max-instances",
+                                                                                      :attribute-values [{:attribute-value "20"}]}
+                                                                                     {:attribute-name "supported-platforms",
+                                                                                      :attribute-values [{:attribute-value "VPC"}]}
+                                                                                     {:attribute-name "default-vpc",
+                                                                                      :attribute-values [{:attribute-value "vpc-79b1491c"}]}
+                                                                                     {:attribute-name "max-elastic-ips",
+                                                                                      :attribute-values [{:attribute-value "5"}]}
+                                                                                     {:attribute-name "vpc-max-elastic-ips",
+                                                                                      :attribute-values [{:attribute-value "5"}]}]}
+                                                                       "us-west-2" {:account-attributes
+                                                                                    [{:attribute-name "vpc-max-security-groups-per-interface",
+                                                                                      :attribute-values [{:attribute-value "5"}]}
+                                                                                     {:attribute-name "max-instances",
+                                                                                      :attribute-values [{:attribute-value "20"}]}
+                                                                                     {:attribute-name "supported-platforms",
+                                                                                      :attribute-values [{:attribute-value "VPC"} {:attribute-value "EC2"}]}
+                                                                                     {:attribute-name "default-vpc",
+                                                                                      :attribute-values [{:attribute-value "vpc-82828282"}]}
+                                                                                     {:attribute-name "max-elastic-ips",
+                                                                                      :attribute-values [{:attribute-value "5"}]}
+                                                                                     {:attribute-name "vpc-max-elastic-ips",
+                                                                                      :attribute-values [{:attribute-value "5"}]}]}))
+                     amazonica.aws.ec2/describe-vpcs (fn [creds]
+                                                       (case (:endpoint creds)
+                                                         "us-west-1" {:vpcs
+                                                                      [{:state "available",
+                                                                        :tags [],
+                                                                        :cidr-block "172.31.0.0/16",
+                                                                        :vpc-id "vpc-79b1491c",
+                                                                        :dhcp-options-id "dopt-9dc9d5ff",
+                                                                        :instance-tenancy "default",
+                                                                        :is-default true}]}
+                                                         "us-west-2" {:vpcs
+                                                                      [{:state "available",
+                                                                        :tags [],
+                                                                        :cidr-block "172.31.0.0/16",
+                                                                        :vpc-id "vpc-82828282",
+                                                                        :dhcp-options-id "dopt-9dc9d5ff",
+                                                                        :instance-tenancy "default",
+                                                                        :is-default true}]}))]
+         (fact "aws api's get called for every region"
+               (let [response ((app) (-> (mock/request :post "/scan-vpcs" (generate-string {:access-key "SDFSDFDSF"
+                                                                                            :secret-key "sdfsdf+sasdasdasdsdfsdf"
+                                                                                            :regions ["us-west-1"
+                                                                                                      "us-west-2"]}))))]
+                 (:status response) => 201
+                 (:body response) => (is-json (just [(contains {:region "us-west-1"
+                                                                :ec2-classic false
+                                                                :vpcs (just [(contains {:vpc-id "vpc-79b1491c"})])})
+                                                     (contains {:region "us-west-2"
+                                                                :ec2-classic true
+                                                                :vpcs (just [(contains {:vpc-id "vpc-82828282"})])})]))))))
 (facts "Websocket handling works"
        (with-state-changes
          [(before :facts (do
@@ -338,3 +447,11 @@
                  @(s/take! client) => (is-json (contains {:command "discovery"}))
                  (.close client)))
          ))
+
+(facts "about bartnet server" :integration
+  (with-state-changes
+    [(before :facts (do
+                      (core/start-server [(.getPath (io/resource "test-config.json"))])
+                     ))
+     (after :facts (do
+                     (core/stop-server)))]))

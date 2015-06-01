@@ -65,7 +65,7 @@ activation exists and has not yet been used.
                 "email" : "email@domain.com",
                 "name" : "Users Name",
                 "used" : false,
-                "create_at" : "2015-02-18T02:15:15Z",
+                "created_at" : "2015-02-18T02:15:15Z",
                 "updated_at" : "2015-02-18T02:15:15Z"
             }
 
@@ -81,7 +81,9 @@ newly created login.
 
 + Request (application/json)
 
-        {"password" : "a password", "customer_id" : "a-dns-safe-string"}
+        {
+            "password" : "a password"
+        }
 
 + Response 201 (application/json)
     + Body
@@ -106,6 +108,56 @@ along with the newly modified login object.
     + Body
 
             [Login][]
+
+# Group Organizations
+
+Organizations allow for a top-level logical grouping of users that share resources.
+
+## Organization [/orgs]
+
+### Create an Organization [POST]
+
+Creates an organiation.
+
++ Request (application/json)
+    + Body
+        
+        {
+            "name": "Organization Name",
+            "subdomain": "subdomain"
+        }
+
++ Response 201
+    + Body
+
+        {
+            "name": "Organization Name",
+            "subdomain": "subdomain"
+        }
+
+### Retrieve an Organization [GET] [/orgs/{subdomain}]
+
++ Response 200
+    + Body
+
+        {
+            "name": "Organization Name",
+            "subdomain": "subdomain"
+        }
+
+## Subdomain [/orgs/subdomain/{subdomain}]
+### Confirm a Subdomain is available [GET]
+
+Determine if a subdomain is available with a GET request to this end-point. This allows
+users to rapidly test the availability of a subdomain during sign-up. It will return true
+if the subdomain is currently available.
+
++ Response 200 (application/json)
+    + Body
+
+        {
+            "available": true
+        }
 
 # Group Logins
 The login resource provides retrieval and editing capabilities for some of the fields
@@ -204,9 +256,83 @@ in subsequent API calls.
             
             {"token": "HMAC 1--2jmj7l5rSw0yVb_vlWAYkK_YBwk="}
 
+# Group VPC
+Scans the specified EC2 Regions for VPC instances.  Will return a list of VPC's, organized
+by region, as well as an entry for EC2-Classic if it's supported for the account & region.
+This operation happens entirely in memory and the supplied AWS keys are never stored.
+
+## Scan [/scan-vpcs]
+### Perform the scan [POST]
++ Request (application/json)
+    + Body
+
+            {
+                "access-key": "ASDASDSADSDADS",
+                "secret-key": "sfsdfTSDTSDTDSDT/ASASDDDSDSSDSD++QWERXf",
+                "regions": [
+                    "us-west-1"
+                ]
+            }
+
++ Response 200 (application/json)
+    + Body
+
+            [
+                {
+                    "region": "us-west-1",
+                    "ec2-classic": "true"
+                    "vpcs":
+                    [
+                        {
+                            "state": "available",
+                            "vpc-id": "vpc-79b1491c",
+                            "dhcp-options-id": "dopt-9dc9d5ff",
+                            "tags": [],
+                            "cidr-block": "172.31.0.0/16",
+                            "instance-tenancy": "default",
+                            "is-default": "true"
+                        }
+                    ]
+                }
+            ]
+
+
 # Group Checks
 Check resources provide the means for creating and pushing down health checks to a customer's
 bastion hosts. Once created, health checks will be sent down to any bastions connected under
 that particular customer's ID, and resent every time a bastion connection initiates. The bastion
 itself is responsible for determining whether a particular check is relevant to its current
-VPC or subnet. As such, there are a number of
+VPC or subnet.
+
+## Check [/checks/{id}]
+
++ Parameters
+    + id (required, string) ... Unique login ID
+
++ Model (application/json)
+    + Body
+
+            {
+                "id": "679SysoqGvjszAaEzfAEL0",
+                "name": "Display Name of A Check",
+                "description": "Long form description of a check",
+                "group_type": "sg",
+                "group_id": "sg-8a63bdef",
+                "check_type": "http",
+                "check_request": "GET /health_check",
+                "check_interval": 60,
+                "port": 8080,
+                "create_at" : "2015-02-18T02:15:15Z",
+                "updated_at" : "2015-02-18T02:15:15Z"
+            }
+
+### Retrieve a single check [GET]
++ Request
+    + Headers
+
+            Authorization: HMAC 1--2jmj7l5rSw0yVb_vlWAYkK_YBwk=
+
++ Response 200 (application/json)
+    + Body
+
+            [Check][]

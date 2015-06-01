@@ -11,9 +11,15 @@
         "init-conns":1
     },
     "secret":"abc123",
+    "thread-util":0.9,
+    "max-threads":64,
     "server":
     {
         "port":8080,
         "join?":false
+    },
+    "bastion-server":
+    {
+        "port":4080
     }
 }

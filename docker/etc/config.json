@@ -3,9 +3,11 @@
     {
         "classname":"org.postgresql.Driver",
         "subprotocol":"postgresql",
-        "subname":"auth_test",
+        "subname":"postgres",
         "user":"cliff",
         "password":"",
+        "host":"postgres",
+        "port":5432,
         "max-conns":6,
         "min-conns":1,
         "init-conns":1
