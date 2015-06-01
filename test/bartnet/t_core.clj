@@ -14,7 +14,8 @@
             [cheshire.core :refer :all]
             [ring.adapter.jetty9 :refer [run-jetty]]
             [bartnet.auth :as auth]
-            [clojure.java.io :as io])
+            [clojure.java.io :as io]
+            [bartnet.instance :as instance])
   (:import [org.cliffc.high_scale_lib NonBlockingHashMap]
            [io.aleph.dirigiste Executors]))
 
@@ -338,6 +339,24 @@
                                          (mock/header "Authorization" auth-header)))]
                  (:status response) => 201
                  @(s/take! stream) => (contains {:body (contains {:name "My Dope Fuckin Check"})})))))
+(facts "about /instance/:id"
+  (let [my-instance {:id "id" :name "my instance"}]
+
+    (with-state-changes
+      [(before :facts (do
+                        (reset! instance/instance-store (instance/->MemoryInstanceStore {"id" my-instance}))))]
+      (fact "GET existing instance returns the instance"
+        (let [response ((app) (-> (mock/request :get "/instance/id")
+                                (mock/header "Authorization" auth-header)))]
+          (:status response) => 200
+          (:body (contains my-instance))))
+      (fact "GET unknown instance returns 404"
+        (let [response ((app) (-> (mock/request :get "/instance/foo")
+                                (mock/header "Authorization" auth-header)))]
+          (:status response) => 404))
+      (fact "GET requires authentication"
+        (let [response ((app) (-> (mock/request :get "/instance/id")))]
+          (:status response) => 401)))))
 (facts "VPC scanning without EC2-Classic"
        (with-redefs [amazonica.aws.ec2/describe-account-attributes (fn [creds]
                                                                      (case (:endpoint creds)
@@ -436,4 +455,3 @@
                      ))
      (after :facts (do
                      (core/stop-server)))]))
-
