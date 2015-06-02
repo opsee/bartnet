@@ -15,6 +15,7 @@
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [liberator "0.12.2"]
                  [compojure "1.3.4"]
+                 [metosin/compojure-api "0.21.0"]
                  [clj-http "1.1.0"]
                  [ring/ring-core "1.3.2"]
                  [info.sunng/ring-jetty9-adapter "0.8.1"]
