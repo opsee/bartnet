@@ -13,8 +13,9 @@
                                :username :env
                                :passphrase :env}]]
   :dependencies [[org.clojure/clojure "1.6.0"]
-                 [liberator "0.12.2"]
-                 [compojure "1.3.1"]
+                 [liberator "0.13"]
+                 [compojure "1.3.4"]
+                 [metosin/compojure-api "0.21.0" :exclusions [org.clojure/java.classpath hiccup clj-time joda-time]]
                  [clj-http "1.1.0"]
                  [ring/ring-core "1.3.2"]
                  [info.sunng/ring-jetty9-adapter "0.8.1"]
@@ -23,12 +24,12 @@
                  [cheshire "5.4.0"]
                  [com.boundary/high-scale-lib "1.0.6"]
                  [ring-cors "0.1.6"]
-                 [gloss "0.2.4"]
+                 [gloss "0.2.5"]
                  [org.mindrot/jbcrypt "0.3m"]
                  [org.postgresql/postgresql "9.3-1102-jdbc41"]
                  [c3p0/c3p0 "0.9.1.2"]
                  [org.clojure/tools.logging "0.3.1"]
-                 [org.slf4j/slf4j-log4j12 "1.7.7"]
+                 [org.slf4j/slf4j-log4j12 "1.7.10"]
                  [log4j/log4j "1.2.17" :exclusions [javax.mail/mail
                                                     javax.jms/jms
                                                     com.sun.jmdk/jmxtools
@@ -36,11 +37,9 @@
                  [org.liquibase/liquibase-core "3.1.1"]
                  [com.novemberain/validateur "2.4.2"]
                  [amazonica "0.3.21"]
-                 [riemann "0.2.9" :exclusions [joda-time
-                                               potemkin]]
-                 [aleph "0.4.0-beta3"]
+                 [aleph "0.4.0"]
                  [de.ubercode.clostache/clostache "1.4.0"]
-                 [instaparse "1.3.4"]
+                 [instaparse "1.4.0"]
                  [org.clojure/core.match "0.3.0-alpha4"]
-                 [manifold "0.1.0-beta11"]
+                 [manifold "0.1.0"]
                  [com.taoensso/carmine "2.10.0"]])
