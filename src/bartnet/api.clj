@@ -374,6 +374,14 @@
 (defn get-org [ctx]
   (:org ctx))
 
+(defn find-instance [id]
+  (fn [ctx]
+    (let [login       (:login ctx)
+          customer_id (:customer_id login)
+          instance    (instance/get-instance! customer_id id)]
+      (when instance
+        {:instance instance}))))
+
 (defn get-instance [ctx]
   (:instance ctx))
 
@@ -451,8 +459,7 @@
   :available-media-types ["application/json"]
   :allowed-methods [:get]
   :authorized? (authorized?)
-  :exists? (fn [ctx] (if-let [instance (instance/get-instance! id)]
-                       {:instance instance}))
+  :exists? (find-instance id)
   :handle-ok get-instance)
 
 (defresource bastion-resource [id]
