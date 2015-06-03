@@ -1,6 +1,7 @@
-(ns bartnet.t-core
+(ns bartnet.t-api
   (:use midje.sweet)
-  (:require [bartnet.core :as core]
+  (:require [bartnet.api :as api]
+            [bartnet.core :as core]
             [bartnet.pubsub :as pubsub]
             [bartnet.fixtures :refer :all]
             [yesql.util :refer [slurp-from-classpath]]
@@ -19,6 +20,8 @@
   (:import [org.cliffc.high_scale_lib NonBlockingHashMap]
            [io.aleph.dirigiste Executors]))
 
+(log/info "Testing!")
+
 (def clients (atom nil))
 
 (def auth-header "HMAC 1--iFplvAUtzi_veq_dMKPfnjtg_SQ=")
@@ -35,13 +38,13 @@
     (start-connection)))
 
 (defn app []
-  (do (core/handler @pubsub @db test-config)))
+  (do (api/handler @pubsub @db test-config)))
 
 (defn start-ws-server []
   (do
     (log/info "start server")
     (reset! ws-server (run-jetty
-                        (core/handler @pubsub @db test-config)
+                        (api/handler @pubsub @db test-config)
                         (assoc (:server test-config)
                           :websockets {"/stream" (core/ws-handler executor @pubsub @clients @db (:secret test-config))})))
     (log/info "server started")))
