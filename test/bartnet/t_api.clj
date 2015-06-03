@@ -342,12 +342,22 @@
                                          (mock/header "Authorization" auth-header)))]
                  (:status response) => 201
                  @(s/take! stream) => (contains {:body (contains {:name "My Dope Fuckin Check"})})))))
+
+(defn primed-map [coll]
+  (let [new-map (NonBlockingHashMap.)]
+    (doseq [instance (seq coll)]
+      (.put new-map (str (:customer_id instance) ":" (:id instance)) instance))
+    new-map))
+
 (facts "about /instance/:id"
-  (let [my-instance {:id "id" :name "my instance"}]
+  (let [my-instance {:customer_id "cliff" :id "id" :name "my instance"}]
 
     (with-state-changes
-      [(before :facts (do
-                        (reset! instance/instance-store (instance/->MemoryInstanceStore {"id" my-instance}))))]
+      [(before :facts
+         (do
+           (instance/create-memory-store (primed-map [my-instance]))
+           (doto (do-setup)
+                  login-fixtures)))]
       (fact "GET existing instance returns the instance"
         (let [response ((app) (-> (mock/request :get "/instance/id")
                                 (mock/header "Authorization" auth-header)))]
