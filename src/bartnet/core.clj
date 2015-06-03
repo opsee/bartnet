@@ -18,7 +18,8 @@
             [cheshire.core :refer :all])
   (:import [org.cliffc.high_scale_lib NonBlockingHashMap]
            [java.util.concurrent CopyOnWriteArraySet ExecutorService]
-           [io.aleph.dirigiste Executors]))
+           [io.aleph.dirigiste Executors]
+           (bartnet.instance MemoryInstanceStore)))
 
 (defn discovery-handler [msg]
   (do
@@ -131,7 +132,7 @@
         clients (NonBlockingHashMap.)]
     (start-bastion-server db pubsub bastion-handlers (:bastion-server config))
     (start-ws-server executor db pubsub config clients)
-    (instance/connect! (:redis config))))
+    (instance/create-memory-store)))
 
 (.addShutdownHook
   (Runtime/getRuntime)
