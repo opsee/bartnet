@@ -12,7 +12,7 @@
             [liberator.dev :refer [wrap-trace]]
             [amazonica.aws.ec2 :refer [describe-vpcs describe-account-attributes]]
             [ring.middleware.params :refer [wrap-params]]
-            [compojure.core :refer :all]
+            [compojure.api.sweet :refer :all]
             [cheshire.core :refer :all]
             [clojure.string :as str]
             [bartnet.identifiers :as identifiers])
@@ -541,40 +541,34 @@
   (-> handler
     (wrap-trace :header :ui)))
 
-(def bartnet-api
-  (routes
-    (GET "/health_check", [], "A ok")
-    (ANY "/signups" [] (signups-resource))
-    (ANY "/signups/send-activation" [] (signup-resource))
-    (GET "/activations/:id", [id] (activation-resource id))
-    (POST "/activations/:id/activate", [id] (activation-resource id))
-    (POST "/verifications/:id/activate", [id] (activation-resource id))
-    (ANY "/authenticate/password" [] (authenticate-resource))
-    (ANY "/environments" [] (environments-resource))
-    (ANY "/environments/:id" [id] (environment-resource id))
-    (ANY "/logins/:id" [id] (login-resource (param->int id)))
-    (ANY "/scan-vpcs" [] (scan-vpc-resource))
-    (POST "/orgs" [] (orgs-resource))
-    (ANY "/orgs/:subdomain" [subdomain] (org-resource subdomain))
-    (GET "/orgs/subdomain/:subdomain" [subdomain] (subdomain-resource subdomain))
-    (ANY "/bastions" [] (bastions-resource))
-    (ANY "/bastions/:id" [id] (bastion-resource id))
-    (ANY "/discovery" [] (discovery-resource))
-    (ANY "/checks" [] (checks-resource))
-    (ANY "/checks/:id" [id] (check-resource id))
-    (GET "/instance/:id" [id] (instance-resource id))))
+(defapi bartnet-api
+  (middlewares [log-request robustify api-wrap-cors wrap-options wrap-params api-wrap-trace]
+    (swagger-docs "/api/swagger.json")
+    (swagger-ui "/api/swagger" :swagger-docs "/api/swagger.json")
+    (GET* "/health_check", [], "A ok")
+    (ANY* "/signups" [] (signups-resource))
+    (ANY* "/signups/send-activation" [] (signup-resource))
+    (GET* "/activations/:id", [id] (activation-resource id))
+    (POST* "/activations/:id/activate", [id] (activation-resource id))
+    (POST* "/verifications/:id/activate", [id] (activation-resource id))
+    (ANY* "/authenticate/password" [] (authenticate-resource))
+    (ANY* "/environments" [] (environments-resource))
+    (ANY* "/environments/:id" [id] (environment-resource id))
+    (ANY* "/logins/:id" [id] (login-resource (param->int id)))
+    (ANY* "/scan-vpcs" [] (scan-vpc-resource))
+    (POST* "/orgs" [] (orgs-resource))
+    (ANY* "/orgs/:subdomain" [subdomain] (org-resource subdomain))
+    (GET* "/orgs/subdomain/:subdomain" [subdomain] (subdomain-resource subdomain))
+    (ANY* "/bastions" [] (bastions-resource))
+    (ANY* "/bastions/:id" [id] (bastion-resource id))
+    (ANY* "/discovery" [] (discovery-resource))
+    (ANY* "/checks" [] (checks-resource))
+    (ANY* "/checks/:id" [id] (check-resource id))
+    (GET* "/instance/:id" [id] (instance-resource id))))
 
 (defn handler [message-bus database conf]
   (reset! pubsub message-bus)
   (reset! db database)
   (reset! config conf)
   (reset! secret (:secret conf))
-  (-> bartnet-api
-    (log-request)
-    (robustify)
-    (wrap-cors :access-control-allow-origin [#".*"]
-      :access-control-allow-methods [:get :put :post :patch :delete]
-      :access-control-allow-headers ["X-Auth-HMAC"])
-    (wrap-options)
-    (wrap-params)
-    (wrap-trace :header :ui)))
+  bartnet-api)
