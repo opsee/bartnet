@@ -38,7 +38,7 @@
   (fn [request]
     (if-let [body-rdr (:body request)]
       (let [body (slurp body-rdr)
-            req1 (assoc request :body body)]
+            req1 (assoc request :strbody body)]
         (log/info req1)
         (handler req1))
       (do (log/info request)
@@ -58,7 +58,7 @@
       (catch Exception ex (log-and-error ex)))))
 
 (defn json-body [ctx]
-  (if-let [body (get-in ctx [:request :body])]
+  (if-let [body (get-in ctx [:request :strbody])]
     (parse-string body true)))
 
 (defn respond-with-entity? [ctx]
