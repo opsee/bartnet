@@ -2,7 +2,7 @@
   (:use midje.sweet)
   (:require [bartnet.api :as api]
             [bartnet.core :as core]
-            [bartnet.pubsub :as pubsub]
+            [bartnet.autobus :as msg]
             [bartnet.fixtures :refer :all]
             [yesql.util :refer [slurp-from-classpath]]
             [clojure.test :refer :all]
@@ -16,37 +16,34 @@
             [ring.adapter.jetty9 :refer [run-jetty]]
             [bartnet.auth :as auth]
             [clojure.java.io :as io]
-            [bartnet.instance :as instance])
+            [bartnet.instance :as instance]
+            [clojure.string :as str])
   (:import [org.cliffc.high_scale_lib NonBlockingHashMap]
            [io.aleph.dirigiste Executors]))
 
 (log/info "Testing!")
 
-(def clients (atom nil))
-
 (def auth-header "HMAC 1--iFplvAUtzi_veq_dMKPfnjtg_SQ=")
 (def auth-header2 "HMAC 2--kJXpzFOo0ZfI_PG069j0iNDAc-o=")
 
-(def pubsub (atom nil))
+(def bus (msg/message-bus))
 (def executor (Executors/utilizationExecutor 0.9 10))
 (def ws-server (atom nil))
 
 (defn do-setup []
   (do
-    (reset! pubsub (pubsub/create-pubsub))
-    (reset! clients (NonBlockingHashMap.))
     (start-connection)))
 
 (defn app []
-  (do (api/handler @pubsub @db test-config)))
+  (do (api/handler executor bus @db test-config)))
 
 (defn start-ws-server []
   (do
     (log/info "start server")
     (reset! ws-server (run-jetty
-                        (api/handler @pubsub @db test-config)
+                        (api/handler executor bus @db test-config)
                         (assoc (:server test-config)
-                          :websockets {"/stream" (core/ws-handler executor @pubsub @clients @db (:secret test-config))})))
+                          :websockets {"/stream" (core/ws-handler bus @db (:secret test-config))})))
     (log/info "server started")))
 
 (defn stop-ws-server []
@@ -55,6 +52,19 @@
 (defn is-json [checker]
   (fn [actual]
     (checker (parse-string actual true))))
+
+(defn publisher [customer-id]
+  (let [client (msg/register bus (msg/publishing-client) customer-id)]
+    (fn [msg]
+      (msg/publish bus client msg))))
+
+(defn test-stream [customer-id topics]
+  (let [client (msg/testing-client)
+        stream (:stream client)
+        client-adapter (msg/register bus client customer-id)]
+    (log/info "subscribing to" topics)
+    (msg/subscribe bus client-adapter topics)
+    stream))
 
 (facts "Auth endpoint works"
        (fact "bounces bad logins"
@@ -312,24 +322,26 @@
                  (:status response) => 200
                  (:body response) => (is-json (contains {:name "A Nice Check" :id "checkid123"}))))
          (fact "checks get deleted"
-               (let [stream (pubsub/subscribe-command @pubsub "cliff")
+               (let [stream (test-stream "cliff" "cliff.healthcheck")
                      response ((app) (-> (mock/request :delete "/checks/checkid123")
                                          (mock/header "Authorization" auth-header)))]
                  (:status response) => 204
                  (sql/get-check-by-id @db "checkid123") => empty?
-                 @(s/take! stream) => (contains {:cmd "delete"
-                                                 :body (contains {:checks (just "checkid123")})})))
+                 (log/info "sdfsfdasdfadsf")
+                 @(s/take! stream) => (contains {:command "healthcheck"
+                                                 :attributes (contains {:checks "checkid123"})})
+                 (log/info "gotsdfsdfsdf")))
          (fact "checks get updated"
-               (let [stream (pubsub/subscribe-command @pubsub "cliff")
+               (let [stream (test-stream "cliff" "cliff.healthcheck")
                      response ((app) (-> (mock/request :put "/checks/checkid123" (generate-string {:check_interval 100
                                                                                                    :port 443}))
                                          (mock/header "Authorization" auth-header)))]
                  (:status response) => 200
                  (:body response) => (is-json (contains {:port 443 :check_interval 100}))
                  (sql/get-check-by-id @db "checkid123") => (just (contains {:port 443 :check_interval 100}))
-                 @(s/take! stream) => (contains {:body (contains {:port 443 :check_interval 100})})))
+                 @(s/take! stream) => (contains {:attributes (contains {:port 443 :check_interval 100})})))
          (fact "new checks get saved"
-               (let [stream (pubsub/subscribe-command @pubsub "cliff")
+               (let [stream (test-stream "cliff" "cliff.healthcheck")
                      response ((app) (-> (mock/request :post "/checks" (generate-string {:environment_id "abc123"
                                                                                          :name "My Dope Fuckin Check"
                                                                                          :description "yo"
@@ -341,7 +353,7 @@
                                                                                          :port 5432}))
                                          (mock/header "Authorization" auth-header)))]
                  (:status response) => 201
-                 @(s/take! stream) => (contains {:body (contains {:name "My Dope Fuckin Check"})})))))
+                 @(s/take! stream) => (contains {:attributes (contains {:name "My Dope Fuckin Check"})})))))
 
 (defn primed-map [coll]
   (let [new-map (NonBlockingHashMap.)]
@@ -438,25 +450,32 @@
           (after :facts (stop-ws-server))]
          (fact "registers a websocket client"
                (let [client @(websocket-client "ws://localhost:8080/stream/")]
-                 @(s/put! client (generate-string {:cmd "echo", :hmac "1--iFplvAUtzi_veq_dMKPfnjtg_SQ="})) => true
-                 @(s/take! client) => (is-json (contains {:cmd "echo"}))
+                 (log/info "gothere")
+                 @(s/put! client (generate-string {:command "authenticate"
+                                                   :attributes {:hmac "1--iFplvAUtzi_veq_dMKPfnjtg_SQ="}})) => true
+                 @(s/take! client) => (is-json (contains {:command "authenticate"
+                                                          :state "ok"}))
                  (.close client)))
          (fact "rejects commands from an unauthorized client"
                (let [client @(websocket-client "ws://localhost:8080/stream/")]
-                 @(s/put! client (generate-string {:cmd "echo"})) => true
-                 @(s/take! client) => (is-json (contains {:error "unauthorized"}))
+                 @(s/put! client (generate-string {:command "echo"})) => true
+                 @(s/take! client) => (is-json (contains {:state "unauthenticated"}))
                  (.close client)))
          (fact "subscribes to bastion discovery messages"
-               (let [client @(websocket-client "ws://localhost:8080/stream/")]
-                 @(s/put! client (generate-string {:cmd "subscribe" :topic "discovery" :hmac "1--iFplvAUtzi_veq_dMKPfnjtg_SQ="})) => true
-                 @(s/take! client) => (is-json (contains {:reply "ok"}))
-                 @(pubsub/publish-bastion @pubsub "cliff" {:command "discovery"
-                                                           :id 1
-                                                           :sent 0
-                                                           :message {:group_name "group 1"
-                                                                     :port 3884
-                                                                     :protocol "sql"
-                                                                     :request "select 1;"}}) => true
+               (let [client @(websocket-client "ws://localhost:8080/stream/")
+                     publisher (publisher "cliff")]
+                 @(s/put! client (generate-string {:command "authenticate"
+                                                   :attributes {:hmac "1--iFplvAUtzi_veq_dMKPfnjtg_SQ="}})) => true
+                 @(s/take! client) => (is-json (contains {:state "ok"}))
+                 @(s/put! client (generate-string {:command "subscribe"
+                                                   :attributes {:subscribe_to "cliff.discovery"}})) => true
+                 @(s/take! client) => (is-json (contains {:state "ok"}))
+                 (publisher (msg/map->Message {:command "discovery"
+                                               :customer_id "cliff"
+                                               :attributes {:group_name "group 1"
+                                                            :port 3884
+                                                            :protocol "sql"
+                                                            :request "select 1;"}}))
                  @(s/take! client) => (is-json (contains {:command "discovery"}))
                  (.close client)))
          ))

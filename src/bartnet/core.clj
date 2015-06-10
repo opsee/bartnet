@@ -10,110 +10,79 @@
             [bartnet.launch :as launch]
             [bartnet.db-cmd :as db-cmd]
             [bartnet.upload-cmd :as upload-cmd]
-            [bartnet.pubsub :refer :all]
+            [bartnet.autobus :as msg]
             [bartnet.sql :as sql]
-            [bartnet.util :refer [if-and-let]]
+            [bartnet.util :refer :all]
             [manifold.stream :as s]
             [ring.adapter.jetty9 :refer :all]
             [cheshire.core :refer :all])
   (:import [org.cliffc.high_scale_lib NonBlockingHashMap]
            [java.util.concurrent CopyOnWriteArraySet ExecutorService]
            [io.aleph.dirigiste Executors]
-           (bartnet.instance MemoryInstanceStore)))
+           (bartnet.instance MemoryInstanceStore)
+           (bartnet.autobus MessageClient)))
 
-(defn discovery-handler [msg]
-  (do
-    (log/info "discovery " msg)
-    (assoc msg :reply "ok")))
+(defn ws-message-client [ws]
+  (reify
+    MessageClient
+    (deliver-to [_ msg]
+      (try
+        (send! ws (generate-string msg))
+        (catch Exception e nil)))))
 
-(def bastion-handlers
-  {
-   "discovery" discovery-handler
-   })
+(defn register-ws-connection [db msg secret bus ws]
+  (if-and-let [hmac (get-in msg [:attributes :hmac])
+                 auth-resp (auth/do-hmac-auth db hmac secret)
+                 [authorized {login :login}] auth-resp]
+              (if authorized
+                (let [client (msg/register bus (ws-message-client ws) (:customer_id login))]
+                  (log/info "authorizing client")
+                  (send! ws (generate-string
+                              (msg/map->Message {:command "authenticate"
+                                                 :state "ok"
+                                                 :attributes login})))
+                  (log/info "sent msg")
+                  client)
+                (send! ws (generate-string
+                            (msg/map->Message {:command "authenticate"
+                                               :state "unauthenticated"}))))))
 
-(defprotocol Subscriptor
-  (subscribe! [this topic])
-  (unsubscribe! [this topic])
-  (subscribed? [this topic]))
+(def client-adapters (NonBlockingHashMap.))
 
-(defrecord ClientConnector [id customer-id login ^CopyOnWriteArraySet topics]
-  Subscriptor
-  (subscribe! [_ topic]
-    (.add topics topic))
-  (unsubscribe! [_ topic]
-    (.remove topics topic))
-  (subscribed? [_ topic]
-    (.contains topics topic)))
-
-(defn create-connector [login]
-  (ClientConnector. (identifiers/generate) (:customer_id login) login (CopyOnWriteArraySet.)))
-
-(defn register-ws-connection [clients db hmac secret ws]
-  (if-and-let [auth-resp (auth/do-hmac-auth db hmac secret)
-               [authorized {login :login}] auth-resp
-               client (create-connector login)]
-      (when authorized
-        (do
-          (.put clients ws client)
-          client))))
-
-(defn consume-bastion [ws client]
-  (fn [msg]
-    (log/info "publish" msg)
-    (let [cmd (:command msg)]
-      (when (subscribed? client cmd)
-        (send! ws (generate-string msg))))))
-
-(defn process-authorized-command [client ws pubsub ^ExecutorService executor msg]
-    (case (:cmd msg)
-      "subscribe" (do
-                    (subscribe! client (:topic msg))
-                    (send! ws (generate-string {:reply "ok"})))
-      "launch" (let [stream (launch/launch-bastions executor (:customer-id client) msg {:owner-id "933693344490" :tag "stable"})]
-                 (log/info "launched")
-                 (loop [event @(s/take! stream)]
-                   (if-not (= event :exit)
-                     (do
-                       (send! ws (generate-string event))
-                       (recur @(s/take! stream))))))
-      "echo" (send! ws (generate-string msg))))
-
-(defn ws-handler [executor pubsub clients db secret]
-  {:on-connect (fn [_])
-   :on-text    (fn [ws msg]
-                 (let [parsed-msg (parse-string msg true)
-                       client (.get clients ws)]
-                   (log/info "ws msg", parsed-msg)
+(defn ws-handler [bus db secret]
+  {:on-connect (fn [ws]
+                 (log/info "new websocket connection" ws))
+   :on-text    (fn [ws raw]
+                 (let [msg (msg/map->Message (parse-string raw true))
+                       client (.get client-adapters ws)]
+                   (log/info "message" msg)
                    (if client
-                     (process-authorized-command client ws pubsub executor parsed-msg)
-                     (if-and-let [hmac (:hmac parsed-msg)
-                                  client (register-ws-connection clients db hmac secret ws)]
-                                 (let [stream (register-ws-client pubsub client)]
-                                   (log/info "authorized ws client")
-                                   (s/consume (consume-bastion ws client) stream)
-                                   (process-authorized-command client ws pubsub executor parsed-msg))
-                                 (send! ws (generate-string {:error "unauthorized"}))))))
+                     (msg/publish bus client msg)
+                     (if (= "authenticate" (:command msg))
+                       (if-let [ca (register-ws-connection db msg secret bus ws)]
+                         (.put client-adapters ws ca))
+                       (send! ws (generate-string (assoc msg :state "unauthenticated")))))))
    :on-closed  (fn [ws status-code reason]
-                 (if-let [client (.remove clients ws)]
-                   (do
-                     (s/close! (:client-server client))
-                     (s/close! (:server-client client)))))
-   :on-error   (fn [ws e])})
+                 (log/info "Websocket closing because:" reason)
+                 (when-let [client (.remove client-adapters ws)]
+                   (msg/close bus client)))
+   :on-error   (fn [ws e]
+                 (log/error e "Exception in websocket"))})
 
 (def ^{:private true} bastion-server (atom nil))
 
 (def ^{:private true} ws-server (atom nil))
 
-(defn- start-bastion-server [db pubsub handlers options]
-  (if-not @bastion-server (reset! bastion-server (bastion/bastion-server db pubsub handlers options))))
+(defn- start-bastion-server [db bus options]
+  (if-not @bastion-server (reset! bastion-server (bastion/bastion-server db bus options))))
 
-(defn- start-ws-server [executor db pubsub config clients]
+(defn- start-ws-server [executor db bus config]
   (if-not @ws-server
     (reset! ws-server
             (run-jetty
-              (api/handler pubsub db config)
+              (api/handler executor bus db config)
               (assoc (:server config)
-                :websockets {"/stream" (ws-handler executor pubsub clients db (:secret config))})))))
+                :websockets {"/stream" (ws-handler bus db (:secret config))})))))
 
 (defn stop-server []
   (do
@@ -127,11 +96,10 @@
 (defn start-server [args]
   (let [config (parse-string (slurp (first args)) true)
         db (sql/pool (:db-spec config))
-        pubsub (create-pubsub)
-        executor (Executors/utilizationExecutor (:thread-util config) (:max-threads config))
-        clients (NonBlockingHashMap.)]
-    (start-bastion-server db pubsub bastion-handlers (:bastion-server config))
-    (start-ws-server executor db pubsub config clients)
+        bus (msg/message-bus)
+        executor (Executors/utilizationExecutor (:thread-util config) (:max-threads config))]
+    (start-bastion-server db bus (:bastion-server config))
+    (start-ws-server executor db bus config)
     (instance/create-memory-store)))
 
 (.addShutdownHook

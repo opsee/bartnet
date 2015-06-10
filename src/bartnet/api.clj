@@ -2,7 +2,6 @@
   (:require [bartnet.auth :as auth]
             [bartnet.email :refer [send-activation! send-verification!]]
             [bartnet.instance :as instance]
-            [bartnet.pubsub :refer :all]
             [bartnet.sql :as sql]
             [clojure.tools.logging :as log]
             [ring.middleware.cors :refer [wrap-cors]]
@@ -15,15 +14,19 @@
             [compojure.api.sweet :refer :all]
             [cheshire.core :refer :all]
             [clojure.string :as str]
-            [bartnet.identifiers :as identifiers])
+            [bartnet.identifiers :as identifiers]
+            [bartnet.launch :as launch]
+            [bartnet.autobus :as msg])
   (:import (java.sql BatchUpdateException)
            [java.util Base64]
            (java.sql BatchUpdateException)))
 
+(def executor (atom nil))
 (def config (atom nil))
 (def db (atom nil))
 (def secret (atom nil))
-(def pubsub (atom nil))
+(def bus (atom nil))
+(def client (atom nil))
 
 (defn param->int [n]
   (Integer/parseInt n))
@@ -38,7 +41,7 @@
   (fn [request]
     (if-let [body-rdr (:body request)]
       (let [body (slurp body-rdr)
-            req1 (assoc request :body body)]
+            req1 (assoc request :strbody body)]
         (log/info req1)
         (handler req1))
       (do (log/info request)
@@ -58,7 +61,7 @@
       (catch Exception ex (log-and-error ex)))))
 
 (defn json-body [ctx]
-  (if-let [body (get-in ctx [:request :body])]
+  (if-let [body (get-in ctx [:request :strbody])]
     (parse-string body true)))
 
 (defn respond-with-entity? [ctx]
@@ -141,23 +144,21 @@
   (fn [ctx]
     (sql/toggle-environment! @db false id)))
 
-(defn ping-bastion! [id]
-  (fn [ctx]
-    (let [recv @(send-msg @pubsub id "echo" "echo")]
-      (log/info "msg " recv)
-      recv)))
+(defn get-bastions [bus customer-id] {})
 
 (defn list-bastions []
   (fn [ctx]
     (let [login (:login ctx)]
-      (for [brec (get-bastions @pubsub (:customer_id login))
+      (for [brec (get-bastions @bus (:customer_id login))
             :let [reg (:registration brec)]]
         reg))))
+
+(defn send-msg [bus id cmd body] {})
 
 (defn cmd-bastion! [id]
   (fn [ctx]
     (let [cmd (json-body ctx)
-          recv @(send-msg @pubsub id (:cmd cmd) (:body cmd))]
+          recv @(send-msg @bus id (:cmd cmd) (:body cmd))]
       {:msg recv})))
 
 (defn get-msg [ctx]
@@ -171,6 +172,9 @@
       (if (= (:id env) (:environment_id check))
         {:check check}))))
 
+(defn publish-command [msg]
+  (msg/publish @bus @client msg))
+
 (defn update-check! [id]
   (fn [ctx]
     (let [login (:login ctx)
@@ -182,8 +186,10 @@
           (log/info merged)
           (if (sql/update-check! @db merged)
             (let [final-check (first (sql/get-check-by-id @db id))]
-              (publish-command @pubsub (:customer_id login) {:cmd "healthcheck"
-                                                            :body final-check})
+              (publish-command (msg/map->Message {:customer_id (:customer_id login)
+                                                  :command "healthcheck"
+                                                  :state "update"
+                                                  :attributes final-check}))
               {:check final-check})))))))
 
 (defn delete-check! [id]
@@ -194,8 +200,11 @@
       (if (= (:id env) (:environment_id check))
         (do
           (sql/delete-check-by-id! @db id)
-          (publish-command @pubsub (:customer_id login) {:cmd "delete"
-                                                        :body {:checks [id]}}))))))
+          (publish-command (msg/map->Message {:customer_id (:customer_id login)
+                                              :command "healthcheck"
+                                              :state "delete"
+                                              :attributes {:checks id}})))
+        (log/info (:id env) (:environment_id check))))))
 
 (defn create-check! [ctx]
   (let [login (:login ctx)
@@ -204,8 +213,10 @@
         id (identifiers/generate)
         final-check (merge check {:id id, :environment_id (:id env)})]
     (sql/insert-into-checks! @db final-check)
-    (publish-command @pubsub (:customer_id login) {:cmd "healthcheck"
-                                                  :body final-check})))
+    (publish-command (msg/map->Message {:customer_id (:customer_id login)
+                                        :command "healthcheck"
+                                        :state "new"
+                                        :attributes final-check}))))
 
 (defn list-checks [ctx]
   (let [login (:login ctx)
@@ -385,6 +396,11 @@
 (defn get-instance [ctx]
   (:instance ctx))
 
+(defn launch-bastions! [ctx]
+  (let [login (:login ctx)
+        launch-cmd (json-body ctx)]
+    (launch/launch-bastions @executor @bus (:customer_id login) launch-cmd (:ami @config))))
+
 (defresource signups-resource []
   :available-media-types ["application/json"]
   :allowed-methods [:post :get]
@@ -435,14 +451,6 @@
   :delete! (delete-environment! id)
   :handle-ok get-environment)
 
-;(defresource logins-resource []
-;             :available-media-types ["application/json"]
-;             :allowed-methods [:get :post]
-;             :authorized? (authorized? :superuser)
-;             :post! create-login!
-;             :handle-ok list-logins
-;             :handle-created get-new-login)
-
 (defresource login-resource [id]
   :available-media-types ["application/json"]
   :allowed-methods [:get :patch :delete]
@@ -461,6 +469,12 @@
   :authorized? (authorized?)
   :exists? (find-instance id)
   :handle-ok get-instance)
+
+(defresource launch-bastions-resource []
+  :available-media-types ["application/json"]
+  :allowed-methods [:post]
+  :authorized? (authorized?)
+  :post! launch-bastions!)
 
 (defresource bastion-resource [id]
   :available-media-types ["application/json"]
@@ -538,44 +552,45 @@
                  "Access-Control-Max-Age" "1728000"}}
       (handler request))))
 
-(defn api-wrap-cors [handler]
-  (-> handler
-    (wrap-cors :access-control-allow-origin [#".*"]
-      :access-control-allow-methods [:get :put :post :patch :delete]
-      :access-control-allow-headers ["X-Auth-HMAC"])))
-
-(defn api-wrap-trace [handler]
-  (-> handler
-    (wrap-trace :header :ui)))
-
 (defapi bartnet-api
-  (middlewares [log-request robustify api-wrap-cors wrap-options wrap-params api-wrap-trace]
-    (swagger-docs "/api/swagger.json")
-    (swagger-ui "/api/swagger" :swagger-docs "/api/swagger.json")
-    (GET* "/health_check", [], "A ok")
-    (ANY* "/signups" [] (signups-resource))
-    (ANY* "/signups/send-activation" [] (signup-resource))
-    (GET* "/activations/:id", [id] (activation-resource id))
-    (POST* "/activations/:id/activate", [id] (activation-resource id))
-    (POST* "/verifications/:id/activate", [id] (activation-resource id))
-    (ANY* "/authenticate/password" [] (authenticate-resource))
-    (ANY* "/environments" [] (environments-resource))
-    (ANY* "/environments/:id" [id] (environment-resource id))
-    (ANY* "/logins/:id" [id] (login-resource (param->int id)))
-    (ANY* "/scan-vpcs" [] (scan-vpc-resource))
-    (POST* "/orgs" [] (orgs-resource))
-    (ANY* "/orgs/:subdomain" [subdomain] (org-resource subdomain))
-    (GET* "/orgs/subdomain/:subdomain" [subdomain] (subdomain-resource subdomain))
-    (ANY* "/bastions" [] (bastions-resource))
-    (ANY* "/bastions/:id" [id] (bastion-resource id))
-    (ANY* "/discovery" [] (discovery-resource))
-    (ANY* "/checks" [] (checks-resource))
-    (ANY* "/checks/:id" [id] (check-resource id))
-    (GET* "/instance/:id" [id] (instance-resource id))))
+  (swagger-docs "/api/swagger.json")
+  (swagger-ui "/api/swagger" :swagger-docs "/api/swagger.json")
+  (GET* "/health_check", [], "A ok")
+  (ANY* "/signups" [] (signups-resource))
+  (ANY* "/signups/send-activation" [] (signup-resource))
+  (GET* "/activations/:id", [id] (activation-resource id))
+  (POST* "/activations/:id/activate", [id] (activation-resource id))
+  (POST* "/verifications/:id/activate", [id] (activation-resource id))
+  (ANY* "/authenticate/password" [] (authenticate-resource))
+  (ANY* "/environments" [] (environments-resource))
+  (ANY* "/environments/:id" [id] (environment-resource id))
+  (ANY* "/logins/:id" [id] (login-resource (param->int id)))
+  (ANY* "/scan-vpcs" [] (scan-vpc-resource))
+  (POST* "/orgs" [] (orgs-resource))
+  (ANY* "/orgs/:subdomain" [subdomain] (org-resource subdomain))
+  (GET* "/orgs/subdomain/:subdomain" [subdomain] (subdomain-resource subdomain))
+  (ANY* "/bastions" [] (bastions-resource))
+  (ANY* "/bastions/launch" [] (launch-bastions-resource))
+  (ANY* "/bastions/:id" [id] (bastion-resource id))
+  (ANY* "/discovery" [] (discovery-resource))
+  (ANY* "/checks" [] (checks-resource))
+  (ANY* "/checks/:id" [id] (check-resource id))
+  (GET* "/instance/:id" [id] (instance-resource id)))
 
-(defn handler [message-bus database conf]
-  (reset! pubsub message-bus)
+(defn handler [exe message-bus database conf]
+  (reset! executor exe)
+  (reset! bus message-bus)
   (reset! db database)
   (reset! config conf)
   (reset! secret (:secret conf))
-  bartnet-api)
+  (reset! client (msg/register @bus (msg/publishing-client) "*"))
+  (->
+    bartnet-api
+    (log-request)
+    (robustify)
+    (wrap-cors :access-control-allow-origin [#".*"]
+      :access-control-allow-methods [:get :put :post :patch :delete]
+      :access-control-allow-headers ["X-Auth-HMAC"])
+    (wrap-options)
+    (wrap-params)
+    (wrap-trace :header :ui)))

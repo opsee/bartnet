@@ -1,7 +1,7 @@
 (ns bartnet.t-bastion
   (:use midje.sweet)
-  (:require [bartnet.pubsub :as pubsub]
-            [bartnet.bastion :as bastion]
+  (:require [bartnet.bastion :as bastion]
+            [bartnet.autobus :as msg]
             [bartnet.fixtures :refer :all]
             [manifold.deferred :as d]
             [manifold.stream :as s]
@@ -10,10 +10,11 @@
             [gloss.io :as io]
             [clojure.tools.logging :as log]
             [aleph.tcp :as tcp]
-            [amazonica.aws.sns :as sns]))
+            [amazonica.aws.sns :as sns]
+            [bartnet.autobus :as msg]))
 
 
-(def pubsub (atom nil))
+(def bus (atom nil))
 (def server (atom nil))
 
 (def registration-event
@@ -25,6 +26,11 @@
    :version 1,
    :instance_id "i25738ajfi"
    })
+
+(defn publisher [customer-id]
+  (let [client (msg/register @bus (msg/publishing-client) customer-id)]
+    (fn [msg]
+      (msg/publish @bus client msg))))
 
 (defn echo [msg]
   (assoc msg :reply "ok"))
@@ -47,8 +53,8 @@
 (defn setup-server [port cmds]
   (do
     (start-connection)
-    (reset! pubsub (pubsub/create-pubsub))
-    (reset! server (bastion/bastion-server @db @pubsub cmds {:port port}))))
+    (reset! bus (msg/message-bus))
+    (reset! server (bastion/bastion-server @db @bus {:port port}))))
 
 (defn teardown-server []
   (.close @server))
@@ -59,10 +65,6 @@
        (with-state-changes
          [(before :facts (setup-server 4080 {"echo" echo}))
           (after :facts (teardown-server))]
-         (fact "can echo the client"
-               (let [client @(client "localhost" 4080)]
-                 @(s/put! client {:command "echo", :id 1}) => true
-                 @(s/take! client) => {:command "echo", :id 1, :reply "ok", :in_reply_to 1}))
          (fact "registers the client"
                (let [client @(client "localhost" 4080)]
                  @(send-reg client) => true
@@ -79,14 +81,20 @@
                    @(s/take! client) => (contains {:in_reply_to 1})
                    (let [msg @(s/take! client)]
                      msg => (contains {:command "healthcheck"})
-                     (:message msg) => (contains {:name "A Nice Check"})))))
+                     (:attributes msg) => (contains {:name "A Nice Check"})))))
          (fact "can send commands to the client"
                (let [client @(client "localhost" 4080)
+                     publish (publisher "cliff")
                      _ @(send-reg client)
                      _ @(s/take! client)
-                     defer (pubsub/send-msg @pubsub (:instance_id registration-event) "echo1" {:msg "hello"})
+                     _ @(s/put! client (msg/map->Message {:command "subscribe"
+                                                          :customer_id "cliff"
+                                                          :attributes {:subscribe_to "cliff.echo1"}}))
+                     _ @(s/take! client)
+                     defer (publish (msg/map->Message {:command "echo1"
+                                                       :customer_id "cliff"
+                                                       :instance_id (:instance_id registration-event)
+                                                       :attributes {:msg "hello"}}))
                      msg @(s/take! client)]
-                 msg => (contains {:id 1, :message {:msg "hello"}, :version 1})
-                 @(s/put! client {:id 2, :in_reply_to 1, :message {:msg "hey"}, :version 1, :sent 0})
-                 @defer => (contains {:in_reply_to 1})
+                 msg => (contains {:id 1, :attributes {:msg "hello"}, :version 1})
                  (.close client))))))
