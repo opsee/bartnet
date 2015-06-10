@@ -4,51 +4,76 @@
 		<meta charset="utf-8"/>
 		<title>Test Launch</title>
 		<script language="javascript" type="text/javascript">
-			var wsUri = "ws://localhost:8080/stream/";
+			var host = "localhost:8080";
+			var wsUri = "ws://" + host + "/stream/";
+			var launchUri = "http://" + host + "/bastions/launch";
+			var hmac = "1--iFplvAUtzi_veq_dMKPfnjtg_SQ=";
 			var output;
+			var customer_id = null;
 
 			function init() {
 				output = document.getElementById("output");
 				startWebsocket();
 			}
 
+			function startLaunch() {
+				var req = new XMLHttpRequest();
+				req.open("POST", launchUri, true);
+				req.setRequestHeader("Content-Type", "application/json");
+				req.setRequestHeader("Authorization", "HMAC " + hmac);
+				req.send(JSON.stringify({
+					"access-key": "xxx",
+					"secret-key": "xxx",
+					"regions": [
+						{
+							"region": "us-east-1",
+							"vpcs": [
+								{"id": "vpc-31a0cc54"}
+							]
+						}
+					],
+					"instance-size": "t2.micro"
+				}));
+			}
+
 			function startWebsocket() {
 				var websocket = new WebSocket(wsUri);
 				websocket.onopen = function(evt) {
-					//the first message on the websocket must include the HMAC
-					//authenticating the entire session.
-					var msg = JSON.stringify({
-						"hmac": "1--iFplvAUtzi_veq_dMKPfnjtg_SQ=",
-						"cmd": "launch",
-						"access-key": "xxx",
-						"secret-key": "xxx",
-						"regions": [
-							{
-								"region": "us-east-1",
-								"vpcs": [
-									{"id": "vpc-31a0cc54"}
-								]
-							}
-						],
-						"instance-size": "t2.micro"
+					var auth = JSON.stringify({
+						"command": "authenticate",
+						"attributes": {"hmac" : hmac}
 					});
-					websocket.send(msg);
-				};
-
-				websocket.onclose = function(evt) {
-
+					websocket.send(auth);
 				};
 
 				websocket.onmessage = function(evt) {
-					var pre = document.createElement("p");
-					pre.style.wordWrap = "break-word";
-					var evt_data = JSON.parse(evt.data);
-					pre.innerHTML = evt_data.Message.ResourceType + " - " + evt_data.Message.ResourceStatus;
-					output.appendChild(pre);
+					var msg = JSON.parse(evt.data);
+					console.log(msg);
+					if (msg.command == "authenticate" && msg.state == "ok") {
+						customer_id = msg.attributes.customer_id;
+						var sub_msg = JSON.stringify({
+							"command":"subscribe",
+							"attributes":{"subscribe_to": customer_id + ".launch-bastion"}
+						});
+						websocket.send(sub_msg);
+					} else if (msg.command == "authenticate" && msg.state == "unauthenticated") {
+						alert("auth failed!");
+					} else if (msg.command == "subscribe" && msg.state == "ok") {
+						
+					} else {
+						var pre = document.createElement("p");
+						pre.style.wordWrap = "break-word";
+						pre.innerHTML = msg.attributes.ResourceType + " - " + msg.attributes.ResourceStatus;
+						output.appendChild(pre);
+					}
+				};
+
+				websocket.onclose = function(evt) {
+					console.log(evt);
 				};
 
 				websocket.onerror = function(evt) {
-
+					console.log(evt);
 				};
 			}
 
@@ -56,6 +81,7 @@
 		</script>
 	</head>
 	<body>
+	<button label="launch bastion" onclick="startLaunch();">launch bastion</button>
 	<div id="output">
 
 	</div>
