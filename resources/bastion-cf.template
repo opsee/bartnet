@@ -13,6 +13,10 @@
             "Type": "String",
             "ConstraintDescription" : "Must be a valid Opsee AMI."
         },
+        "KeyName" : {
+            "Description" : "An (optional) key-pair to use.",
+            "Type": "String"
+        },
         "UserData" : {
             "Description" : "Metadata to set for the instance",
             "Type": "String"
@@ -43,7 +47,7 @@
                     "FromPort": -1,
                     "IpProtocol": -1,
                     "ToPort": 22
-                }]
+                }],
                 "VpcId" : {"Ref":"VpcId"}
             }
         },
@@ -148,6 +152,7 @@
                 "ImageId": {"Ref":"ImageId"},
                 "IamInstanceProfile": {"Ref":"BastionInstanceProfile"},
                 "InstanceType": {"Ref":"InstanceType"},
+                "KeyName": {"Ref":"KeyName"},
                 "SecurityGroupIds": [{"Ref": "BastionSecurityGroup"}],
                 "UserData": {"Ref":"UserData"}
             }
