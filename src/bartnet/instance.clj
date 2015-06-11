@@ -10,10 +10,12 @@
 
 (defprotocol InstanceStoreProtocol
   "External storage for AWS instance data"
-  (get! [this customer_id id] "Get an instance by customer and instance ID")
+  (list! [this customer-id] "List instances for a customer")
+  (get! [this customer-id id] "Get an instance by customer and instance ID")
   (save! [this instance] [this instance ttl] "Save an instance to the instance store w/ optional TTL")
-  (group-get! [this customer_id id] "Get an instance group by ID")
-  (group-save! [this customer_id group] "Save group metadata"))
+  (group-list! [this customer-id] "List groups for a customer")
+  (group-get! [this customer-id id] "Get an instance group by ID")
+  (group-save! [this customer-id group] "Save group metadata"))
 
 (def ^{:private true} redis-conn (atom nil))
 (def ^{:private true} instance-store (atom nil))
@@ -33,32 +35,46 @@
 (defn- ikey [customer_id id]
   (key-for :instance customer_id id))
 
-(defn- gkey [customer_id id]
-  (key-for :group customer_id id))
+(defn- gkey [customer-id id]
+  (key-for :group customer-id id))
 
 (defn- instance->ikey [instance]
   (ikey (:customer_id instance) (:id instance)))
 
-(defn- instance->gkey [instance]
-  (let [group-id (:group_id instance)]
-    (key-for :group (:customer_id instance) group-id)))
+(defn- gmetakey [customer-id id]
+  (key-for :group-meta customer-id id))
 
-(defn- gmetakey [customer_id id]
-  (key-for :group-meta customer_id id))
+(defn- iskey [customer-id]
+  (key-for :instance-set customer-id "*"))
+
+(defn- gskey [customer-id]
+  (key-for :group-set customer-id "*"))
 
 (defrecord MemoryInstanceStore [instances]
   InstanceStoreProtocol
-  (get! [_ customer_id id]
-    (.get instances (ikey customer_id id)))
+  (list! [_ customer-id]
+    (seq (.get instances (iskey customer-id))))
+  (get! [_ customer-id id]
+    (.get instances (ikey customer-id id)))
   (save! [_ instance]
     ; Put the instance into instance storage.
     (.put instances (instance->ikey instance) instance)
-    ; Group storage
-    (let [customer_id (:customer_id instance)]
+    (let [customer-id (:customer_id instance)]
+      ; Add the instance to the customer's instance set
+      (let [instance-set-key (iskey customer-id)]
+        (when-not (.get instances instance-set-key)
+          (.put instances instance-set-key (NonBlockingHashSet.)))
+        (.add (.get instances instance-set-key) (:id instance)))
+      ; Group storage
       (doseq [group (:groups instance)]
-        (let [group_id (:group_id group)
-              gkey           (gkey customer_id group_id)
-              group-meta-key (gmetakey customer_id group_id)]
+        (let [group-id (:group_id group)
+              gkey           (gkey customer-id group-id)
+              group-set-key  (gskey customer-id)
+              group-meta-key (gmetakey customer-id group-id)]
+          ; Add the group to the customer's group set
+          (when-not (.get instances group-set-key)
+            (.put instances group-set-key (NonBlockingHashSet.)))
+          (.add (.get instances group-set-key) group-id)
           ; Prime the group's instance list key
           (when-not (.get instances gkey)
             (.put instances gkey (NonBlockingHashSet.))
@@ -68,11 +84,13 @@
   (save! [this instance _]
     (log/warn "MemoryInstanceStore does not support TTL")
     (save! this instance))
-  (group-get! [_ customer_id id]
-    (assoc (.get instances (key-for :group-meta customer_id id))
-      :instances (seq (.get instances (key-for :group customer_id id)))))
-  (group-save! [_ customer_id group]
-    (.put instances (key-for :group-meta customer_id (:group_id group)) group)))
+  (group-get! [_ customer-id id]
+    (assoc (.get instances (key-for :group-meta customer-id id))
+      :instances (seq (.get instances (key-for :group customer-id id)))))
+  (group-save! [_ customer-id group]
+    (.put instances (key-for :group-meta customer-id (:group_id group)) group))
+  (group-list! [_ customer-id]
+    (seq (.get instances (gskey customer-id)))))
 
 ;The redis datastore looks roughly like so:
 ;`type:customer_id:id`
@@ -83,16 +101,19 @@
 
 (defrecord RedisInstanceStore []
   InstanceStoreProtocol
-  (get! [_ customer_id id]
+  (list! [_ customer-id]
     (with-redis
-      (car/get (ikey customer_id id))))
+      (car/get (key-for :instance-list customer-id "*"))))
+  (get! [_ customer-id id]
+    (with-redis
+      (car/get (ikey customer-id id))))
   (save! [_ instance]
     (with-redis
       (car/set (instance->ikey instance) instance)
-      (let [customer_id (:customer_id instance)]
+      (let [customer-id (:customer_id instance)]
         (doseq [group (:groups instance)]
-          (car/sadd (gkey customer_id (:group_id group)) (:id instance))
-          (car/set (gmetakey customer_id (:group_id group)) group))))
+          (car/sadd (gkey customer-id (:group_id group)) (:id instance))
+          (car/set (gmetakey customer-id (:group_id group)) group))))
     instance)
   (save! [this instance ttl]
     (save! this instance)
@@ -101,14 +122,20 @@
       ; TODO: Expire instances from group and expire empty groups from group list.
       )
     instance)
-  (group-get! [_ customer_id id]
+  (group-get! [_ customer-id id]
     (with-redis
-      (let [group-meta (car/get (key-for :group-meta customer_id id))
-            instances (car/get (key-for :group customer_id id))]
+      (let [group-meta (car/get (key-for :group-meta customer-id id))
+            instances (car/get (key-for :group customer-id id))]
         (assoc group-meta :instances instances))))
-  (group-save! [_ customer_id group]
+  (group-save! [_ customer-id group]
     (with-redis
-      (car/set (key-for :group-meta customer_id (:id group)) group))))
+      (car/set (key-for :group-meta customer-id (:id group)) group))))
+
+(defn list-instances! [customer-id]
+  (list! @instance-store customer-id))
+
+(defn list-groups! [customer-id]
+  (group-list! @instance-store customer-id))
 
 (defn get-instance! [customer_id id]
   (get! @instance-store customer_id id))
