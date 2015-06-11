@@ -19,7 +19,8 @@
             [bartnet.instance :as instance]
             [clojure.string :as str])
   (:import [org.cliffc.high_scale_lib NonBlockingHashMap]
-           [io.aleph.dirigiste Executors]))
+           [io.aleph.dirigiste Executors]
+           (java.util.concurrent ScheduledThreadPoolExecutor)))
 
 (log/info "Testing!")
 
@@ -28,6 +29,7 @@
 
 (def bus (msg/message-bus))
 (def executor (Executors/utilizationExecutor 0.9 10))
+(def scheduler (ScheduledThreadPoolExecutor. 10))
 (def ws-server (atom nil))
 
 (defn do-setup []
@@ -43,7 +45,7 @@
     (reset! ws-server (run-jetty
                         (api/handler executor bus @db test-config)
                         (assoc (:server test-config)
-                          :websockets {"/stream" (core/ws-handler bus @db (:secret test-config))})))
+                          :websockets {"/stream" (core/ws-handler scheduler bus @db (:secret test-config))})))
     (log/info "server started")))
 
 (defn stop-ws-server []
