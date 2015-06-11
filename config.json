@@ -23,7 +23,9 @@
     },
     "ami":{
         "owner-id":"933693344490",
-        "tag":"stable"
+        "tag":"stable",
+        "keypair":"bastion-testing",
+        "template-src":{"resource":"bastion-cf.template"}
     },
     "mailgun":{
         "api_key":"key-d45f90c5a3e2ac33a26cd4c30715b71b",

@@ -399,7 +399,7 @@
 (defn launch-bastions! [ctx]
   (let [login (:login ctx)
         launch-cmd (json-body ctx)]
-    (launch/launch-bastions @executor @bus (:customer_id login) launch-cmd (:ami @config))))
+    {:regions (launch/launch-bastions @executor @bus (:customer_id login) launch-cmd (:ami @config))}))
 
 (defresource signups-resource []
   :available-media-types ["application/json"]
@@ -474,7 +474,8 @@
   :available-media-types ["application/json"]
   :allowed-methods [:post]
   :authorized? (authorized?)
-  :post! launch-bastions!)
+  :post! launch-bastions!
+  :handle-created :regions)
 
 (defresource bastion-resource [id]
   :available-media-types ["application/json"]

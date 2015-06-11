@@ -13,12 +13,12 @@
             "Type": "String",
             "ConstraintDescription" : "Must be a valid Opsee AMI."
         },
-        "KeyName" : {
-            "Description" : "An (optional) key-pair to use.",
-            "Type": "String"
-        },
         "UserData" : {
             "Description" : "Metadata to set for the instance",
+            "Type": "String"
+        },
+        "KeyName" : {
+            "Description" : "The name of a keypair to use.",
             "Type": "String"
         },
         "VpcId" : {
