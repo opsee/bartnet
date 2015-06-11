@@ -4,7 +4,7 @@
   (:import (org.cliffc.high_scale_lib NonBlockingHashMap)))
 
 (defprotocol InstanceStoreProtocol
-  "Exteranl storage for AWS instance data"
+  "External storage for AWS instance data"
   (get! [this customer_id id] "Get an instance by customer and instance ID")
   (save! [this instance] [this instance ttl] "Save an instance to the instance store w/ optional TTL"))
 
