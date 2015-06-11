@@ -193,6 +193,10 @@
 (defn get-instance [ctx]
   (:instance ctx))
 
+(defn get-instances [ctx]
+  (let [customer-id (get-in ctx [:login :customer_id])]
+    {:instances (instance/list-instances! customer-id)}))
+
 (s/defschema CompositeGroup
   (merge Group
     {
@@ -595,6 +599,10 @@
 (defn get-group [ctx]
   (:group ctx))
 
+(defn get-groups [ctx]
+  (let [customer-id (get-in ctx [:login :customer_id])]
+    {:groups (instance/list-groups! customer-id)}))
+
 (defn launch-bastions! [ctx]
   (let [login (:login ctx)
         launch-cmd (json-body ctx)]
@@ -669,12 +677,24 @@
   :exists? (find-instance id)
   :handle-ok get-instance)
 
+(defresource instances-resource []
+  :available-media-types ["application/json"]
+  :allowed-methods [:get]
+  :authorized? (authorized?)
+  :handle-ok get-instances)
+
 (defresource group-resource [id]
   :available-media-types ["application/json"]
   :allowed-methods [:get]
   :authorized? (authorized?)
   :exists? (find-group id)
   :handle-ok get-group)
+
+(defresource groups-resource []
+  :available-media-types ["application/json"]
+  :allowed-methods [:get]
+  :authorized? (authorized?)
+  :handle-ok get-groups)
 
 (defresource launch-bastions-resource []
   :available-media-types ["application/json"]
@@ -791,11 +811,17 @@
     :path-params [id :- s/Str]
     ;:return (s/maybe CompositeInstance)
     (instance-resource id))
+  (GET* "/instances" []
+    :summary "Retrieve a list of instances."
+    (instances-resource))
   (GET* "/group/:id" [id]
     :summary "Retrieve a Group by ID."
     :path-params [id :- s/Str]
     ;:return (s/maybe CompositeGroup)
-    (group-resource id)))
+    (group-resource id))
+  (GET* "/groups" []
+    :summary "Retrieve a list of groups."
+    (groups-resource)))
 
 (defn handler [exe message-bus database conf]
   (reset! executor exe)
