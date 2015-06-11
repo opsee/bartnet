@@ -357,19 +357,13 @@
                  (:status response) => 201
                  @(s/take! stream) => (contains {:attributes (contains {:name "My Dope Fuckin Check"})})))))
 
-(defn primed-map [coll]
-  (let [new-map (NonBlockingHashMap.)]
-    (doseq [instance (seq coll)]
-      (.put new-map (str (:customer_id instance) ":" (:id instance)) instance))
-    new-map))
-
 (facts "about /instance/:id"
-  (let [my-instance {:customer_id "cliff" :id "id" :name "my instance"}]
-
+  (let [my-instance {:customer_id "cliff" :id "id" :name "my instance" :group_id "sg-123456"}]
     (with-state-changes
       [(before :facts
          (do
-           (instance/create-memory-store (primed-map [my-instance]))
+           (instance/create-memory-store bus)
+           (instance/save-instance! my-instance)
            (doto (do-setup)
                   login-fixtures)))]
       (fact "GET existing instance returns the instance"

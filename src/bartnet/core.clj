@@ -100,9 +100,9 @@
         bus (msg/message-bus)
         executor (Executors/utilizationExecutor (:thread-util config) (:max-threads config))
         scheduler (ScheduledThreadPoolExecutor. 10)]
+    (instance/create-memory-store bus)
     (start-bastion-server db bus (:bastion-server config))
-    (start-ws-server executor scheduler db bus config)
-    (instance/create-memory-store)))
+    (start-ws-server executor scheduler db bus config)))
 
 (.addShutdownHook
   (Runtime/getRuntime)

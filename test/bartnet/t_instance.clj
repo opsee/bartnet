@@ -3,53 +3,50 @@
             [bartnet.instance :as instance]
             [taoensso.carmine :as car]
             [clojure.tools.logging :as log]
-            [taoensso.carmine :as car :refer [wcar]])
-  (:import (bartnet.instance RedisInstanceStore MemoryInstanceStore)
-           (org.cliffc.high_scale_lib NonBlockingHashMap)))
+            [taoensso.carmine :as car :refer [wcar]]
+            [bartnet.autobus :as msg]))
+
+; Either test via the bus or mock the bus for unit testing.
+(def bus (msg/message-bus))
 
 (def fake-instance
-  { :id "id"
-    :name "anInstance"
-    :customer_id "customer_id" })
+  {:id          "id"
+   :name        "anInstance"
+   :customer_id "customer_id"
+   :groups      [{:group_id   "sg-123456"
+                  :group_name "group"}]
+   :meta        {:created "timestamp" :instanceSize "t2.micro"}})
 
 (def connection-info
   {:host "127.0.0.1"
    :port 6379
    :db 1})
 
-(defn primed-map [coll]
-  (let [new-map (NonBlockingHashMap.)]
-    (doseq [instance (seq coll)]
-      (.put new-map (str (:customer_id instance) ":" (:id instance)) instance))
-    new-map))
-
 (defn reset-redis [conn-info]
   (car/wcar conn-info (car/flushall)))
 
-(with-redefs [
-              car/wcar (fn [_] true)
-              car/get (fn [_] fake-instance)
-              car/set (fn [_] fake-instance)
-              car/expire (fn [_] true)
-              ]
-  (facts "about connect!"
-    (fact "it returns an instace of InstanceStoreProtocol"
-      (satisfies? instance/InstanceStoreProtocol (instance/create-redis-store connection-info)) => true))
+(facts "about MemoryInstanceStore"
   (facts "about get-instance!"
-    (let [_ (instance/create-memory-store (primed-map [fake-instance]))]
+    (let [_ (instance/create-memory-store bus)]
       (fact "it returns an instance"
+        (instance/save-instance! fake-instance)
         (instance/get-instance! "customer_id" "id") => fake-instance)))
   (facts "about save!"
-    (let [_ (instance/create-memory-store (NonBlockingHashMap.))]
+    (let [_ (instance/create-memory-store bus)]
       (fact "it saves an instance"
         (instance/get-instance! "customer_id" "id") => nil
         (instance/save-instance! fake-instance)
-        (instance/get-instance! "customer_id" "id") => fake-instance))))
+        (instance/get-instance! "customer_id" "id") => fake-instance)))
+  (facts "about get-group!"
+    (let [_ (instance/create-memory-store bus)]
+      (instance/save-instance! fake-instance)
+      (fact "it gets an existing group"
+        (instance/get-group! "customer_id" "sg-123456") => {:group_name "group", :group_id "sg-123456", :instances '("id")}))))
 
 (facts :integration "about integration with redis"
   (with-state-changes
     [(before :facts (reset-redis connection-info))]
-      (let [_ (instance/create-redis-store connection-info)]
+      (let [_ (instance/create-redis-store bus connection-info)]
         (fact "getting a non-existent id returns nil"
           (instance/get-instance! "customer_id" "id") => nil)
         (fact "setting an instance"

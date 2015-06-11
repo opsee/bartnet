@@ -16,10 +16,202 @@
             [clojure.string :as str]
             [bartnet.identifiers :as identifiers]
             [bartnet.launch :as launch]
-            [bartnet.autobus :as msg])
+            [bartnet.autobus :as msg]
+            [schema.core :as s])
   (:import (java.sql BatchUpdateException)
            [java.util Base64]
-           (java.sql BatchUpdateException)))
+           (java.sql BatchUpdateException)
+           (javax.security.auth.login AccountException)
+           (org.eclipse.jetty.websocket.common.frames TextFrame)))
+
+;; Schemata
+
+(s/defschema Account
+  {
+   :email s/Str
+   :verified s/Bool
+   })
+
+(s/defschema APIObjectPointer
+  {:type s/Str :name s/Str :id s/Str})
+
+(s/defschema Organization
+  {
+   :name                   s/Str
+   :domain                 s/Str
+   :id                     s/Str
+   :users                  [APIObjectPointer]
+   (s/optional-key :teams) [APIObjectPointer]
+   })
+
+(s/defschema Team
+  {
+   :name s/Str
+   :users [APIObjectPointer]
+   })
+
+(s/defschema User
+  {
+   :id           s/Str
+   :meta         {
+                  :admin       s/Bool
+                  :active      s/Bool
+                  :created_at  s/Str
+                  :updated_at  s/Str
+                  }
+   :accounts     [Account]
+   :integrations {
+                  :slack {
+                          :access_key s/Str
+                          :user       clojure.lang.APersistentMap
+                          }
+                  }
+   (s/optional-key :bio) {
+                          :name s/Str
+                          :title s/Str
+                          }
+   (s/optional-key :organizations) [Organization]
+   })
+
+(def protocol-enum
+  (s/enum "http"))
+
+(def verb-enum
+  (s/enum "GET" "PUT" "POST" "HEAD" "OPTIONS" "DELETE" "TRACE" "CONNECT"))
+
+(def check-rel-enum
+  (s/enum "equal-to" "not-equal-to" "is-empty" "is-not-empty" "contains" "regex"))
+
+(s/defschema CheckAssertion
+  {
+   :relationship check-rel-enum
+   :value s/Str
+   :type s/Str
+   })
+
+(s/defschema SilenceAttrs
+  {
+   :startDate s/Str
+   :duration s/Int
+   :user User
+   })
+
+(s/defschema CheckStatus
+  {
+   :passing s/Bool
+   :passingChanged s/Str
+   :state s/Str
+   :silence SilenceAttrs
+   })
+
+(s/defschema CheckNotification
+  {
+   :type s/Str
+   :value s/Str
+   })
+
+(s/defschema Check
+  {
+   :name s/Str
+   :id s/Str
+   :url s/Str
+   :interval s/Int
+   :protocol protocol-enum
+   :verb verb-enum
+   :assertions [CheckAssertion]
+   :status CheckStatus
+   :notifications [CheckNotification]
+   })
+
+(def build-check [])
+
+(s/defschema Instance
+  {
+   :id s/Str
+   :name s/Str
+   :customer_id s/Str
+   :meta {
+          :state s/Str
+          :lastChecked s/Str
+          :created s/Str
+          :instanceSize s/Str
+          }
+   })
+
+(s/defschema Group
+  {
+   :id          s/Str
+   :customer_id s/Str
+   :name        (s/maybe s/Str)
+   })
+
+(s/defschema CompositeGroup
+  (merge Group { :instances [Instance] }))
+
+(s/defschema CompositeInstance
+  (merge Instance {
+                   :checks [(s/maybe Check)]
+                   :groups [(s/maybe Group)]
+                   }))
+
+(defn build-group [customer-id id]
+  (let [group (instance/get-group! customer-id id)]
+    {
+     :name (:group_name group)
+     :customer_id customer-id
+     :id (:group_id group)
+     :instances (:instances group)
+     }))
+
+(defn build-composite-group [customer-id id]
+  (let [group (build-group customer-id id)]
+    (merge group
+      (let [instances (:instances group)]
+        (assoc (dissoc group :instances)
+          :instances (map #(instance/get-instance! customer-id %) instances))))))
+
+(defn build-composite-instance [instance]
+  (let [group-hints (:groups instance)
+        instance    (dissoc instance :groups)
+        customer-id (:customer_id instance)]
+    (merge instance
+      {
+       ;:checks (map build-check (sql/get-checks-by-customer-id @db customer-id))
+       :groups (map (fn [g] (build-group customer-id (:group_id g))) group-hints)
+       })))
+
+(defn find-instance [id]
+  (fn [ctx]
+    (log/info "find-instance was called")
+    (let [login       (:login ctx)
+          customer_id (:customer_id login)
+          instance    (instance/get-instance! customer_id id)]
+      (log/info "login: " login " customer_id: " customer_id " instance: " instance)
+      (when instance
+        {:instance (build-composite-instance instance)}))))
+
+(defn get-instance [ctx]
+  (:instance ctx))
+
+(s/defschema CompositeGroup
+  (merge Group
+    {
+     :checks [Check]
+     :instances [Instance]
+     }))
+
+(s/defschema CheckTarget
+  {
+   :type s/Str
+   :id s/Str
+   })
+
+(s/defschema CompositeCheck
+  (merge Check
+    {
+     :targets [CheckTarget]
+     }))
+
 
 (def executor (atom nil))
 (def config (atom nil))
@@ -37,15 +229,22 @@
 (defmethod liberator.representation/render-seq-generic "application/json" [data _]
   (generate-string data))
 
+; TODO: Loginator for Clojure
 (defn log-request [handler]
   (fn [request]
     (if-let [body-rdr (:body request)]
-      (let [body (slurp body-rdr)
-            req1 (assoc request :strbody body)]
-        (log/info req1)
-        (handler req1))
-      (do (log/info request)
-          (handler request)))))
+                    (let [body (slurp body-rdr)
+                          req1 (assoc request :strbody body)]
+                      (log/info "request:" req1)
+                      (handler req1))
+                    (do (log/info "request:" request)
+                        (handler request)))))
+
+(defn log-response [handler]
+  (fn [request]
+    (let [response (handler request)]
+      (log/info "response:" response)
+      response)))
 
 (defn log-and-error [ex]
   (log/error ex "problem encountered")
@@ -385,16 +584,16 @@
 (defn get-org [ctx]
   (:org ctx))
 
-(defn find-instance [id]
+(defn find-group [id]
   (fn [ctx]
-    (let [login       (:login ctx)
-          customer_id (:customer_id login)
-          instance    (instance/get-instance! customer_id id)]
-      (when instance
-        {:instance instance}))))
+    (let [login (:login ctx)
+          customer-id (:customer_id login)
+          group (build-composite-group customer-id id)]
+      (when group
+        {:group group}))))
 
-(defn get-instance [ctx]
-  (:instance ctx))
+(defn get-group [ctx]
+  (:group ctx))
 
 (defn launch-bastions! [ctx]
   (let [login (:login ctx)
@@ -469,6 +668,13 @@
   :authorized? (authorized?)
   :exists? (find-instance id)
   :handle-ok get-instance)
+
+(defresource group-resource [id]
+  :available-media-types ["application/json"]
+  :allowed-methods [:get]
+  :authorized? (authorized?)
+  :exists? (find-group id)
+  :handle-ok get-group)
 
 (defresource launch-bastions-resource []
   :available-media-types ["application/json"]
@@ -554,14 +760,18 @@
       (handler request))))
 
 (defapi bartnet-api
-  (swagger-docs "/api/swagger.json")
+  (swagger-docs "/api/swagger.json"
+    {:info {
+            :title "Opsee API"
+            :description "Own your availability."
+            }})
   (swagger-ui "/api/swagger" :swagger-docs "/api/swagger.json")
-  (GET* "/health_check", [], "A ok")
+  (GET* "/health_check" [] "A ok")
   (ANY* "/signups" [] (signups-resource))
   (ANY* "/signups/send-activation" [] (signup-resource))
-  (GET* "/activations/:id", [id] (activation-resource id))
-  (POST* "/activations/:id/activate", [id] (activation-resource id))
-  (POST* "/verifications/:id/activate", [id] (activation-resource id))
+  (GET* "/activations/:id" [id] (activation-resource id))
+  (POST* "/activations/:id/activate" [id] (activation-resource id))
+  (POST* "/verifications/:id/activate" [id] (activation-resource id))
   (ANY* "/authenticate/password" [] (authenticate-resource))
   (ANY* "/environments" [] (environments-resource))
   (ANY* "/environments/:id" [id] (environment-resource id))
@@ -576,7 +786,16 @@
   (ANY* "/discovery" [] (discovery-resource))
   (ANY* "/checks" [] (checks-resource))
   (ANY* "/checks/:id" [id] (check-resource id))
-  (GET* "/instance/:id" [id] (instance-resource id)))
+  (GET* "/instance/:id" [id]
+    :summary "Retrieve instance by ID."
+    :path-params [id :- s/Str]
+    ;:return (s/maybe CompositeInstance)
+    (instance-resource id))
+  (GET* "/group/:id" [id]
+    :summary "Retrieve a Group by ID."
+    :path-params [id :- s/Str]
+    ;:return (s/maybe CompositeGroup)
+    (group-resource id)))
 
 (defn handler [exe message-bus database conf]
   (reset! executor exe)
@@ -588,6 +807,7 @@
   (->
     bartnet-api
     (log-request)
+    (log-response)
     (robustify)
     (wrap-cors :access-control-allow-origin [#".*"]
       :access-control-allow-methods [:get :put :post :patch :delete]

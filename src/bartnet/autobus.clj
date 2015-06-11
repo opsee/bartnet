@@ -130,12 +130,15 @@
                                                             :command "subscribe"
                                                             :attributes {:subscriptions subscriptions}
                                                             :state "ok"}))))
-            (let [topic (msg->topic msg)]
+            (let [topic (msg->topic msg)
+                  firehose (str "*." (:command msg))]
               (log/info "trying to publish to" topic)
               (when (has-permissions? client topic)
                 (log/info "publishing to" topic)
+                (log/info "publishing to" firehose)
                 (log/info msg)
-                (bus/publish! bus topic msg))))))
+                (bus/publish! bus topic msg)
+                (bus/publish! bus firehose msg))))))
 
       (register [_ client customer-ids]
         (client-adapter client (flatten [customer-ids])))
