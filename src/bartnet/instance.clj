@@ -64,17 +64,18 @@
       (let [instance-set-key (iskey customer-id)]
         (when-not (.get instances instance-set-key)
           (.put instances instance-set-key (NonBlockingHashSet.)))
-        (.add (.get instances instance-set-key) (:id instance)))
+        (.add (.get instances instance-set-key) {:id (:id instance) :name (:name instance)}))
       ; Group storage
       (doseq [group (:groups instance)]
         (let [group-id (:group_id group)
+              group-name (:group_name group)
               gkey           (gkey customer-id group-id)
               group-set-key  (gskey customer-id)
               group-meta-key (gmetakey customer-id group-id)]
           ; Add the group to the customer's group set
           (when-not (.get instances group-set-key)
             (.put instances group-set-key (NonBlockingHashSet.)))
-          (.add (.get instances group-set-key) group-id)
+          (.add (.get instances group-set-key) {:id group-id :name group-name})
           ; Prime the group's instance list key
           (when-not (.get instances gkey)
             (.put instances gkey (NonBlockingHashSet.))
@@ -162,7 +163,7 @@
   (let [instance-attributes (get-in msg [:attributes :instance])
         instance-id (:InstanceID instance-attributes)
         customer-id (:customer_id msg)
-        instance-name (:Value (filter #(= "Name" (:Key %)) (:Tags instance-attributes)))]
+        instance-name (:Value (first (filter #(= "Name" (:Key %)) (:Tags instance-attributes))))]
     {:name        instance-name
      :id          instance-id
      :customer_id customer-id
