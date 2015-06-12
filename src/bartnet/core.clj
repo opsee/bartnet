@@ -17,7 +17,7 @@
             [ring.adapter.jetty9 :refer :all]
             [cheshire.core :refer :all])
   (:import [org.cliffc.high_scale_lib NonBlockingHashMap]
-           [java.util.concurrent CopyOnWriteArraySet ExecutorService]
+           [java.util.concurrent CopyOnWriteArraySet ExecutorService ScheduledThreadPoolExecutor TimeUnit]
            [io.aleph.dirigiste Executors]
            (bartnet.instance MemoryInstanceStore)
            (bartnet.autobus MessageClient)))
@@ -49,25 +49,26 @@
 
 (def client-adapters (NonBlockingHashMap.))
 
-(defn ws-handler [bus db secret]
+(defn ws-handler [scheduler bus db secret]
   {:on-connect (fn [ws]
+                 (.scheduleAtFixedRate scheduler #(send! ws (generate-string {:command "heartbeat"})) 10 10 (TimeUnit/SECONDS))
                  (log/info "new websocket connection" ws))
-   :on-text    (fn [ws raw]
-                 (let [msg (msg/map->Message (parse-string raw true))
-                       client (.get client-adapters ws)]
-                   (log/info "message" msg)
-                   (if client
-                     (msg/publish bus client msg)
-                     (if (= "authenticate" (:command msg))
-                       (if-let [ca (register-ws-connection db msg secret bus ws)]
-                         (.put client-adapters ws ca))
-                       (send! ws (generate-string (assoc msg :state "unauthenticated")))))))
-   :on-closed  (fn [ws status-code reason]
-                 (log/info "Websocket closing because:" reason)
-                 (when-let [client (.remove client-adapters ws)]
-                   (msg/close bus client)))
-   :on-error   (fn [ws e]
-                 (log/error e "Exception in websocket"))})
+   :on-text (fn [ws raw]
+              (let [msg (msg/map->Message (parse-string raw true))
+                    client (.get client-adapters ws)]
+                (log/info "message" msg)
+                (if client
+                  (msg/publish bus client msg)
+                  (if (= "authenticate" (:command msg))
+                    (if-let [ca (register-ws-connection db msg secret bus ws)]
+                      (.put client-adapters ws ca))
+                    (send! ws (generate-string (assoc msg :state "unauthenticated")))))))
+   :on-closed (fn [ws status-code reason]
+                (log/info "Websocket closing because:" reason)
+                (when-let [client (.remove client-adapters ws)]
+                  (msg/close bus client)))
+   :on-error (fn [ws e]
+               (log/error e "Exception in websocket"))})
 
 (def ^{:private true} bastion-server (atom nil))
 
@@ -76,13 +77,13 @@
 (defn- start-bastion-server [db bus options]
   (if-not @bastion-server (reset! bastion-server (bastion/bastion-server db bus options))))
 
-(defn- start-ws-server [executor db bus config]
+(defn- start-ws-server [executor scheduler db bus config]
   (if-not @ws-server
     (reset! ws-server
             (run-jetty
               (api/handler executor bus db config)
               (assoc (:server config)
-                :websockets {"/stream" (ws-handler bus db (:secret config))})))))
+                :websockets {"/stream" (ws-handler scheduler bus db (:secret config))})))))
 
 (defn stop-server []
   (do
@@ -97,10 +98,11 @@
   (let [config (parse-string (slurp (first args)) true)
         db (sql/pool (:db-spec config))
         bus (msg/message-bus)
-        executor (Executors/utilizationExecutor (:thread-util config) (:max-threads config))]
+        executor (Executors/utilizationExecutor (:thread-util config) (:max-threads config))
+        scheduler (ScheduledThreadPoolExecutor. 10)]
+    (instance/create-memory-store bus)
     (start-bastion-server db bus (:bastion-server config))
-    (start-ws-server executor db bus config)
-    (instance/create-memory-store)))
+    (start-ws-server executor scheduler db bus config)))
 
 (.addShutdownHook
   (Runtime/getRuntime)

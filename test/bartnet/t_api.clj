@@ -19,7 +19,8 @@
             [bartnet.instance :as instance]
             [clojure.string :as str])
   (:import [org.cliffc.high_scale_lib NonBlockingHashMap]
-           [io.aleph.dirigiste Executors]))
+           [io.aleph.dirigiste Executors]
+           (java.util.concurrent ScheduledThreadPoolExecutor)))
 
 (log/info "Testing!")
 
@@ -28,6 +29,7 @@
 
 (def bus (msg/message-bus))
 (def executor (Executors/utilizationExecutor 0.9 10))
+(def scheduler (ScheduledThreadPoolExecutor. 10))
 (def ws-server (atom nil))
 
 (defn do-setup []
@@ -43,7 +45,7 @@
     (reset! ws-server (run-jetty
                         (api/handler executor bus @db test-config)
                         (assoc (:server test-config)
-                          :websockets {"/stream" (core/ws-handler bus @db (:secret test-config))})))
+                          :websockets {"/stream" (core/ws-handler scheduler bus @db (:secret test-config))})))
     (log/info "server started")))
 
 (defn stop-ws-server []
@@ -355,19 +357,13 @@
                  (:status response) => 201
                  @(s/take! stream) => (contains {:attributes (contains {:name "My Dope Fuckin Check"})})))))
 
-(defn primed-map [coll]
-  (let [new-map (NonBlockingHashMap.)]
-    (doseq [instance (seq coll)]
-      (.put new-map (str (:customer_id instance) ":" (:id instance)) instance))
-    new-map))
-
 (facts "about /instance/:id"
-  (let [my-instance {:customer_id "cliff" :id "id" :name "my instance"}]
-
+  (let [my-instance {:customer_id "cliff" :id "id" :name "my instance" :group_id "sg-123456"}]
     (with-state-changes
       [(before :facts
          (do
-           (instance/create-memory-store (primed-map [my-instance]))
+           (instance/create-memory-store bus)
+           (instance/save-instance! my-instance)
            (doto (do-setup)
                   login-fixtures)))]
       (fact "GET existing instance returns the instance"

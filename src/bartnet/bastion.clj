@@ -11,7 +11,7 @@
   (:import (bartnet.autobus MessageClient Message)))
 
 (def protocol
-  (gloss/compile-frame (gloss/string :utf-8 :delimiters ["\r\n"])))
+  (gloss/compile-frame (gloss/delimited-frame ["\r\n"] (gloss/string :utf-8))))
 
 (defn wrap-duplex-stream [protocol s]
   (let [out (s/stream)]
@@ -23,7 +23,7 @@
     (s/splice
       out
       (s/map #(msg/map->Message (parse-string % true))
-             (s/map #(io/decode protocol %) s)))))
+        (io/decode-stream s protocol)))))
 
 (defn send-down-checks [counter customer-id db stream]
   (try
@@ -36,7 +36,7 @@
                                             :customer_id customer-id
                                             :state "update"
                                             :attributes check})))))
-    (catch Exception e (log/error e))))
+    (catch Exception e (log/error "Error sending checks: " e))))
 
 (defn bastion-client [stream]
   (reify
