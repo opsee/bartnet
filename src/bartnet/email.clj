@@ -40,14 +40,14 @@
 
 (defn send-activation! [config signup id]
   (let [email (render-email "templates/activation.mustache", (merge signup {:id id}))]
-    (send-mail! config
+    (send-mail! (:mailgun config)
                 "welcome@opsee.co"
                 (:email signup)
                 email)))
 
 (defn send-verification! [config login id]
   (let [email (render-email "templates/verification.mustache", (merge login {:id id}))]
-    (send-mail! config
+    (send-mail! (:mailgun config)
                 "verify@opsee.co"
                 (:email login)
                 email)))
