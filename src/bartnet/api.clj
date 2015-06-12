@@ -276,12 +276,15 @@
     (if-let [unsec-login (json-body ctx)]
       (auth/basic-authenticate @db (:email unsec-login) (:password unsec-login))))
 
+(defn generate-hmac-string [id]
+  (str id "--" (.encodeToString (Base64/getUrlEncoder) (auth/generate-hmac-signature id @secret))))
+
 (defn add-hmac-to-ctx
   "Gets the login from the context and generates an HMAC which gets added to the response"
   [ctx]
     (let [login (:login ctx)
           id (str (:id login))
-          hmac (str id "--" (.encodeToString (Base64/getUrlEncoder) (auth/generate-hmac-signature id @secret)))]
+          hmac (generate-hmac-string id)]
       (ring-response {:headers {"X-Auth-HMAC" hmac}
                       :body (generate-string (merge (dissoc login :password_hash)
                                                {:token (str "HMAC " hmac)}))})))
@@ -328,7 +331,10 @@
     (ring-response {:status (:status error)
                     :body (generate-string {:error (:message error)})
                     :headers {"Content-Type" "application/json"}})
-    (dissoc (or (:new-login ctx) (:old-login ctx)) :password_hash)))
+    (do
+      (let [login (or (:new-login ctx) (:old-login ctx))]
+        (let [token (generate-hmac-string (:id login))]
+          (assoc (dissoc login :password_hash) :token token))))))
 
 (defn environment-exists? [id]
   (fn [ctx]
