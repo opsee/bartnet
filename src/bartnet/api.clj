@@ -190,9 +190,6 @@
       (when instance
         {:instance (build-composite-instance instance)}))))
 
-(defn get-instance [ctx]
-  (:instance ctx))
-
 (defn get-instances [ctx]
   (let [customer-id (get-in ctx [:login :customer_id])]
     {:instances (instance/list-instances! customer-id)}))
@@ -323,9 +320,6 @@
       (if (sql/link-environment-and-login! @db id (:id login))
         {:env env}))))
 
-(defn get-environment [ctx]
-  (:env ctx))
-
 (defn get-new-login [ctx]
   (if-let [error (:error ctx)]
     (ring-response {:status (:status error)
@@ -369,9 +363,6 @@
     (let [cmd (json-body ctx)
           recv @(send-msg @bus id (:cmd cmd) (:body cmd))]
       {:msg recv})))
-
-(defn get-msg [ctx]
-  (:msg ctx))
 
 (defn check-exists? [id]
   (fn [ctx]
@@ -431,9 +422,6 @@
   (let [login (:login ctx)
         env (first (sql/get-environments-for-login @db (:id login)))]
     (sql/get-checks-by-env-id @db (:id env))))
-
-(defn get-check [ctx]
-  (:check ctx))
 
 (def query-limit 100)
 
@@ -511,9 +499,6 @@
             (if (sql/insert-into-logins! @db login)
               (use-activation! login activation))))))))
 
-(defn get-activation [ctx]
-  (:activation ctx))
-
 (defn allowed-edit-login? [id]
   (fn [ctx]
     (let [login (:login ctx)]
@@ -580,9 +565,6 @@
                    :ec2-classic (ec2-classic? attrs)
                    :vpcs (:vpcs vpcs)}))}))
 
-(defn get-vpcs [ctx]
-  (:regions ctx))
-
 (defn subdomain-exists? [subdomain]
   (empty? (sql/get-org-by-subdomain @db subdomain)))
 
@@ -595,9 +577,6 @@
       (sql/update-login! @db (assoc login :customer_id (:subdomain org))))
     {:org org}))
 
-(defn get-org [ctx]
-  (:org ctx))
-
 (defn find-group [id]
   (fn [ctx]
     (let [login (:login ctx)
@@ -605,9 +584,6 @@
           group (build-composite-group customer-id id)]
       (when group
         {:group group}))))
-
-(defn get-group [ctx]
-  (:group ctx))
 
 (defn get-groups [ctx]
   (let [customer-id (get-in ctx [:login :customer_id])]
@@ -635,14 +611,14 @@
   :authorized? (authorized? :superuser)
   :exists? signup-exists?
   :post! create-and-send-activation!
-  :handle-created get-activation)
+  :handle-created :activation)
 
 (defresource activation-resource [id]
   :available-media-types ["application/json"]
   :allowed-methods [:post]
   :exists? (activation-exists? id)
   :post! activate-activation!
-  :handle-ok get-activation
+  :handle-ok :activation
   :handle-created get-new-login)
 
 (defresource authenticate-resource []
@@ -657,7 +633,7 @@
   :authorized? (authorized?)
   :post! create-environment!
   :handle-ok list-environments
-  :handle-created get-environment)
+  :handle-created :env)
 
 (defresource environment-resource [id]
   :available-media-types ["application/json"]
@@ -666,7 +642,7 @@
   :exists? (environment-exists? id)
   :put! (update-environment! id)
   :delete! (delete-environment! id)
-  :handle-ok get-environment)
+  :handle-ok :env)
 
 (defresource login-resource [id]
   :available-media-types ["application/json"]
@@ -685,7 +661,7 @@
   :allowed-methods [:get]
   :authorized? (authorized?)
   :exists? (find-instance id)
-  :handle-ok get-instance)
+  :handle-ok :instance)
 
 (defresource instances-resource []
   :available-media-types ["application/json"]
@@ -698,7 +674,7 @@
   :allowed-methods [:get]
   :authorized? (authorized?)
   :exists? (find-group id)
-  :handle-ok get-group)
+  :handle-ok :group)
 
 (defresource groups-resource []
   :available-media-types ["application/json"]
@@ -718,7 +694,7 @@
   :allowed-methods [:post]
   :authorized? (authorized?)
   :post! (cmd-bastion! id)
-  :handle-created get-msg)
+  :handle-created :msg)
 
 (defresource bastions-resource []
   :available-media-types ["application/json"]
@@ -739,21 +715,21 @@
   :new? false
   :respond-with-entity? respond-with-entity?
   :delete! (delete-check! id)
-  :handle-ok get-check)
+  :handle-ok :check)
 
 (defresource checks-resource []
   :available-media-types ["application/json"]
   :allowed-methods [:get :post]
   :authorized? (authorized?)
   :post! create-check!
-  :handle-created get-check
+  :handle-created :check
   :handle-ok list-checks)
 
 (defresource scan-vpc-resource []
   :available-media-types ["application/json"]
   :allowed-methods [:post]
   :post! scan-vpcs
-  :handle-created get-vpcs)
+  :handle-created :regions)
 
 (defresource subdomain-resource [subdomain]
   :available-media-types ["application/json"]
@@ -769,14 +745,14 @@
              (let [subdomain (:subdomain (json-body ctx))]
                (subdomain-exists? subdomain)))
   :post! create-org!
-  :handle-created get-org)
+  :handle-created :org)
 
 (defresource org-resource [subdomain]
   :available-media-types ["application/json"]
   :allowed-methods [:get]
   :authorized? (authorized?)
   :exists? (fn [_] ((if (subdomain-exists? subdomain) [true {:org (first (sql/get-org-by-subdomain @db subdomain))}] false)))
-  :handle-ok get-org)
+  :handle-ok :org)
 
 (defn wrap-options [handler]
   (fn [request]
