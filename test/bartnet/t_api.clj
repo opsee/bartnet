@@ -2,11 +2,11 @@
   (:use midje.sweet)
   (:require [bartnet.api :as api]
             [bartnet.core :as core]
+            [bartnet.websocket :as websocket]
             [bartnet.autobus :as msg]
             [bartnet.fixtures :refer :all]
             [yesql.util :refer [slurp-from-classpath]]
             [clojure.test :refer :all]
-            [clojure.string :as string]
             [ring.mock.request :as mock]
             [bartnet.sql :as sql]
             [manifold.stream :as s]
@@ -16,10 +16,8 @@
             [ring.adapter.jetty9 :refer [run-jetty]]
             [bartnet.auth :as auth]
             [clojure.java.io :as io]
-            [bartnet.instance :as instance]
-            [clojure.string :as str])
-  (:import [org.cliffc.high_scale_lib NonBlockingHashMap]
-           [io.aleph.dirigiste Executors]
+            [bartnet.instance :as instance])
+  (:import [io.aleph.dirigiste Executors]
            (java.util.concurrent ScheduledThreadPoolExecutor)))
 
 (log/info "Testing!")
@@ -46,7 +44,7 @@
     (reset! ws-server (run-jetty
                         (api/handler executor bus @db test-config)
                         (assoc (:server test-config)
-                          :websockets {"/stream" (core/ws-handler scheduler bus @db (:secret test-config))})))
+                          :websockets {"/stream" (websocket/ws-handler scheduler bus @db (:secret test-config))})))
     (log/info "server started")))
 
 (defn stop-ws-server []
