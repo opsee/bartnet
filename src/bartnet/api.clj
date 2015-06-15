@@ -587,8 +587,12 @@
   (empty? (sql/get-org-by-subdomain @db subdomain)))
 
 (defn create-org! [ctx]
-  (let [org (json-body ctx)]
+  (let [org (json-body ctx)
+        login (:login ctx)
+        customer-id (:customer_id login)]
     (sql/insert-into-orgs! @db org)
+    (when-not customer-id
+      (sql/update-login! @db (assoc login :customer_id (:subdomain org))))
     {:org org}))
 
 (defn get-org [ctx]

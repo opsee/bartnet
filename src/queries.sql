@@ -24,7 +24,7 @@ insert into logins (email,name, password_hash, active,customer_id,verified) valu
 
 -- name: update-login!
 -- Updates the login
-update logins set email=:email,name=:name,password_hash=:password_hash,verified=:verified where id=:id;
+update logins set email=:email,name=:name,password_hash=:password_hash,verified=:verified,customer_id=:customer_id where id=:id;
 
 -- name: make-superuser!
 -- Flip the superuser bit.
