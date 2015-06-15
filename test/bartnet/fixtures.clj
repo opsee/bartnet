@@ -26,7 +26,11 @@
                                :customer_id   "cliff"})
   (sql/insert-into-logins! db {:email         "cliff+notsuper@leaninto.it"
                                :password_hash (auth/hash-password "cliff")
-                               :customer_id   "cliff2"}))
+                               :customer_id   "cliff2"})
+  ; Login without a customer_id for testing new org creation in new accounts.
+  (sql/insert-into-logins! db {:email         "cliff+newuser@leaninto.it"
+                               :password_hash (auth/hash-password "cliff")}))
+
 
 (defn unverified-fixtures [db]
   (sql/update-login! db {:id 2

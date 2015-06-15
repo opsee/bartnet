@@ -26,6 +26,7 @@
 
 (def auth-header "HMAC 1--iFplvAUtzi_veq_dMKPfnjtg_SQ=")
 (def auth-header2 "HMAC 2--kJXpzFOo0ZfI_PG069j0iNDAc-o=")
+(def auth-header3 "HMAC 3--NSlzR-VsmftimMosLpXHoG1Z7kM=")
 
 (def bus (msg/message-bus))
 (def executor (Executors/utilizationExecutor 0.9 10))
@@ -240,8 +241,14 @@
                                                                   :subdomain "foo"}))
                                   (mock/header "Authorization" auth-header)))]
           (:status response) => 201
-          (:body response) => (is-json (contains {:name "test org"}))
-        )))
+          (:body response) => (is-json (contains {:name "test org"}))))
+      (fact "POST associates the current login with the new org"
+        (let [response ((app) (-> (mock/request :post "/orgs" (generate-string
+                                                                {:name "test org"
+                                                                 :subdomain "foo"}))
+                                (mock/header "Authorization" auth-header3)))]
+          (:status response) => 201
+          (:customer_id (first (sql/get-any-login-by-email @db "cliff+newuser@leaninto.it"))) => "foo")))
     (facts "about /orgs/subdomain/:subdomain"
       (fact "GET returns availability for a subdomain"
         (let [response ((app) (-> (mock/request :get "/orgs/subdomain/cliff")
