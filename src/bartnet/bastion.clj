@@ -63,16 +63,20 @@
                     msg)
 
                   (fn [msg]
-                    (if (= "connected" (:command msg))
-                      (let [client-handle (msg/register msg-bus client (:customer_id msg))]
-                        (msg/publish msg-bus client-handle msg)
-                        (s/put! stream (msg/map->Message {:id (swap! (:counter client-handle) inc)
-                                                          :in_reply_to (:id msg)
-                                                          :customer_id (:customer_id msg)
-                                                          :state "ok"}))
-                        (d/future (send-down-checks (:counter client-handle) (:customer_id msg) db stream))
+                    (if-not (= ::none msg)
+                      (if (= "connected" (:command msg))
+                        (let [client-handle (msg/register msg-bus client (:customer_id msg))]
+                          (msg/publish msg-bus client-handle msg)
+                          (s/put! stream (msg/map->Message {:id (swap! (:counter client-handle) inc)
+                                                            :in_reply_to (:id msg)
+                                                            :customer_id (:customer_id msg)
+                                                            :state "ok"}))
+                          (d/future (send-down-checks (:counter client-handle) (:customer_id msg) db stream))
+                          (d/recur client client-handle))
                         (d/recur client client-handle))
-                      (d/recur client client-handle))))
+                      (do
+                        (log/info "connection closed")
+                        (s/close! stream)))))
 
                 (d/catch
                   (fn [ex]
