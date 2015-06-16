@@ -1,5 +1,7 @@
 [Unit]
 Description=Bartnet ELB Registration
+After=docker.service
+Requires=docker.service
 BindsTo=bartnet-api@%i.service
 
 [Service]

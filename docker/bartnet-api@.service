@@ -1,7 +1,7 @@
 [Unit]
 Description=Bartnet
 After=docker.service
-Requires=docker.service
+Requires=docker.service bartnet-elb@%i.service
 
 [Service]
 User=core
