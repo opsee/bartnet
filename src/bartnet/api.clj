@@ -20,9 +20,7 @@
             [schema.core :as s])
   (:import (java.sql BatchUpdateException)
            [java.util Base64]
-           (java.sql BatchUpdateException)
-           (javax.security.auth.login AccountException)
-           (org.eclipse.jetty.websocket.common.frames TextFrame)))
+           (java.sql BatchUpdateException)))
 
 ;; Schemata
 
@@ -253,12 +251,11 @@
    :headers {"Content-Type" "application/json"}
    :body (generate-string {:error (.getMessage ex)})})
 
-(defn robustify [handler]
-  (fn [request]
-    (try
-      (handler request)
-      (catch BatchUpdateException ex (log-and-error (.getNextException ex)))
-      (catch Exception ex (log-and-error ex)))))
+(defn robustify-errors [^Exception ex]
+  (if (instance? BatchUpdateException ex)
+    (log-and-error (.getNextException ex))
+    (log-and-error ex)))
+
 
 (defn json-body [ctx]
   (if-let [body (get-in ctx [:request :strbody])]
@@ -766,6 +763,7 @@
       (handler request))))
 
 (defapi bartnet-api
+  {:exceptions {:exception-handler robustify-errors}}
   (swagger-docs "/api/swagger.json"
     {:info {
             :title "Opsee API"
@@ -820,7 +818,6 @@
     bartnet-api
     (log-request)
     (log-response)
-    (robustify)
     (wrap-cors :access-control-allow-origin [#".*"]
       :access-control-allow-methods [:get :put :post :patch :delete]
       :access-control-allow-headers ["X-Auth-HMAC"])
