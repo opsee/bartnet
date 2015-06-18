@@ -8,6 +8,24 @@
            (clojure.lang Keyword)
            (bartnet.autobus MessageClient MessageBus)))
 
+;; The InstanceStore is the location for all instance and group data required
+;; by Bartnet. Currently this includes (per customer_id):
+;;   - Instance objects (see Instance schema)
+;;   - Set of all instances
+;;   - Groups of instances (by service, security group, etc).
+;;   - Group metadata (description of the group)
+;;   - Set of all groups
+;;
+;; Upon insertion to the instance store, the following happens:
+;;   - The instance is inserted into the master instance set
+;;   - Any groups to which the instances belongs are created
+;;   - Those groups are added to the set of all groups
+;;   - Group metadata is stored
+;;   - The instance is added to each of those groups
+;;
+;; This facilitates searching groups without maintaining any complex
+;; data structures ourselves. We will outgrow this at some point.
+
 (defprotocol InstanceStoreProtocol
   "External storage for AWS instance data"
   (list! [this customer-id] "List instances for a customer")
@@ -64,7 +82,7 @@
       (let [instance-set-key (iskey customer-id)]
         (when-not (.get instances instance-set-key)
           (.put instances instance-set-key (NonBlockingHashSet.)))
-        (.add (.get instances instance-set-key) {:id (:id instance) :name (:name instance)}))
+        (.add (.get instances instance-set-key) (select-keys instance [:id :name])))
       ; Group storage
       (doseq [group (:groups instance)]
         (let [group-id (:group_id group)
@@ -93,18 +111,23 @@
   (group-list! [_ customer-id]
     (seq (.get instances (gskey customer-id)))))
 
-;The redis datastore looks roughly like so:
-;`type:customer_id:id`
-;types:
-;  - instance
-;  - group
-;  - group-meta
+(defn- scan-wrapper
+  ([fn key idx]
+   (with-redis
+     (fn key idx)))
+  ([fn key]
+   (let [page (scan-wrapper fn key 0)]
+     (when-not (empty? page)
+       (let [cursor   (Integer. (first page))
+             smembers (second page)]
+         (if (= 0 cursor)
+           smembers
+           (concat smembers (scan-wrapper fn key cursor))))))))
 
 (defrecord RedisInstanceStore []
   InstanceStoreProtocol
   (list! [_ customer-id]
-    (with-redis
-      (car/get (key-for :instance-list customer-id "*"))))
+    (scan-wrapper car/sscan (iskey customer-id)))
   (get! [_ customer-id id]
     (with-redis
       (car/get (ikey customer-id id))))
@@ -112,6 +135,7 @@
     (with-redis
       (car/set (instance->ikey instance) instance)
       (let [customer-id (:customer_id instance)]
+        (car/sadd (iskey customer-id) (select-keys instance [:id :name]))
         (doseq [group (:groups instance)]
           (car/sadd (gkey customer-id (:group_id group)) (:id instance))
           (car/set (gmetakey customer-id (:group_id group)) group))))
@@ -124,13 +148,12 @@
       )
     instance)
   (group-get! [_ customer-id id]
-    (with-redis
-      (let [group-meta (car/get (key-for :group-meta customer-id id))
-            instances (car/get (key-for :group customer-id id))]
-        (assoc group-meta :instances instances))))
+    (let [group-meta (with-redis (car/get (gmetakey customer-id id)))
+          instances (scan-wrapper car/sscan (gkey customer-id id))]
+      (assoc group-meta :instances instances)))
   (group-save! [_ customer-id group]
     (with-redis
-      (car/set (key-for :group-meta customer-id (:id group)) group))))
+      (car/set (gmetakey customer-id (:id group)) group))))
 
 (defn list-instances! [customer-id]
   (list! @instance-store customer-id))
@@ -159,7 +182,7 @@
    :instanceSize (:InstanceType attrs)
    })
 
-(defn message->instance [msg]
+(defn- message->instance [msg]
   (let [instance-attributes (get-in msg [:attributes :instance])
         instance-id (:InstanceID instance-attributes)
         customer-id (:customer_id msg)
@@ -189,7 +212,7 @@
 (defn create-memory-store
   ([bus coll]
    (reset! instance-store (MemoryInstanceStore. coll))
-   (connect-bus bus))
+   (when bus (connect-bus bus)))
   ([bus]
    (log/info "Setting up MoemoryInstanceStore")
    (create-memory-store bus (NonBlockingHashMap.))))
@@ -199,4 +222,4 @@
   (do
     (reset! redis-conn connection-details)
     (reset! instance-store (RedisInstanceStore.))
-    (connect-bus bus)))
+    (when bus (connect-bus bus))))
