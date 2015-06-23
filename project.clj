@@ -43,4 +43,5 @@
                  [instaparse "1.4.0"]
                  [org.clojure/core.match "0.3.0-alpha4"]
                  [manifold "0.1.0"]
-                 [com.taoensso/carmine "2.10.0"]])
+                 [com.taoensso/carmine "2.10.0"]
+                 [clj-disco "0.0.1"]])
