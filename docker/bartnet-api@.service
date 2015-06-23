@@ -1,6 +1,6 @@
 [Unit]
 Description=Bartnet
-After=docker.service
+After=docker.service bartnet-redis-master@1.service
 Requires=docker.service bartnet-elb@%i.service
 
 [Service]
