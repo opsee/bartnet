@@ -41,6 +41,16 @@
 (defn carmine-connection-details []
   {:pool {} :spec @redis-conn})
 
+(defn str->int [k m]
+  (let [v (get m k)]
+    (when (get m k) {k (Integer. (str (get m k)))})))
+
+(defn- sanitize-connection-details [conn-info]
+  (let [sanitized (merge conn-info
+                    (str->int :port conn-info)
+                    (str->int :db conn-info))]
+    sanitized))
+
 (defmacro ^{:private true} with-redis [& body]
   `(try
      (car/wcar (carmine-connection-details) ~@body)
@@ -214,12 +224,13 @@
    (reset! instance-store (MemoryInstanceStore. coll))
    (when bus (connect-bus bus)))
   ([bus]
-   (log/info "Setting up MoemoryInstanceStore")
+   (log/info "Setting up MemoryInstanceStore")
    (create-memory-store bus (NonBlockingHashMap.))))
 
 (defn create-redis-store [bus connection-details]
   "Given a map of connection information, return an instance store"
   (do
-    (reset! redis-conn connection-details)
+    (reset! redis-conn (sanitize-connection-details connection-details))
     (reset! instance-store (RedisInstanceStore.))
+    (log/info "Connecting to RedisInstanceStore at" @redis-conn)
     (when bus (connect-bus bus))))
