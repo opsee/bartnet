@@ -56,4 +56,8 @@
         (facts "list!"
           (fact "returns a list of instances"
             (instance/save-instance! fake-instance)
-            (instance/list-instances! "customer_id") => '({:id "id", :name "anInstance"}))))))
+            (instance/list-instances! "customer_id") => '({:id "id", :name "anInstance"})))
+        (facts "group-list!"
+          (fact "returns a list of groups"
+            (instance/save-instance! fake-instance)
+            (instance/list-groups! "customer_id") => '({:id "sg-123456", :name "group"}))))))

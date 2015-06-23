@@ -147,8 +147,14 @@
       (let [customer-id (:customer_id instance)]
         (car/sadd (iskey customer-id) (select-keys instance [:id :name]))
         (doseq [group (:groups instance)]
-          (car/sadd (gkey customer-id (:group_id group)) (:id instance))
-          (car/set (gmetakey customer-id (:group_id group)) group))))
+          (let [group-id (:group_id group)
+                group-name (:group_name group)
+                group-key (gkey customer-id group-id)
+                group-set-key (gskey customer-id)
+                group-meta-key (gmetakey customer-id group-id)]
+            (car/sadd group-set-key {:id group-id :name group-name})
+            (car/sadd group-key (:id instance))
+            (car/set group-meta-key group)))))
     instance)
   (save! [this instance ttl]
     (save! this instance)
@@ -163,7 +169,9 @@
       (assoc group-meta :instances instances)))
   (group-save! [_ customer-id group]
     (with-redis
-      (car/set (gmetakey customer-id (:id group)) group))))
+      (car/set (gmetakey customer-id (:id group)) group)))
+  (group-list! [_ customer-id]
+    (scan-wrapper car/sscan (gskey customer-id))))
 
 (defn list-instances! [customer-id]
   (list! @instance-store customer-id))
