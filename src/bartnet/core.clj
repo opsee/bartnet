@@ -15,7 +15,8 @@
             [bartnet.sql :as sql]
             [bartnet.util :refer :all]
             [ring.adapter.jetty9 :refer :all]
-            [cheshire.core :refer :all])
+            [cheshire.core :refer :all]
+            [clj-disco.core :as disco])
   (:import [java.util.concurrent ScheduledThreadPoolExecutor]
            [io.aleph.dirigiste Executors]))
 
@@ -48,8 +49,12 @@
         db (sql/pool (:db-spec config))
         bus (msg/message-bus)
         executor (Executors/utilizationExecutor (:thread-util config) (:max-threads config))
-        scheduler (ScheduledThreadPoolExecutor. 10)]
-    (instance/create-memory-store bus)
+        scheduler (ScheduledThreadPoolExecutor. 10)
+        redis-conn (disco/get-service-endpoint "bartnet-redis")]
+    (if redis-conn
+      (instance/create-redis-store bus redis-conn)
+      ;; XXX: Maybe we want to hard fail instead or make this configurable?
+      (instance/create-memory-store bus))
     (start-bastion-server db bus (:bastion-server config))
     (start-ws-server executor scheduler db bus config)))
 
