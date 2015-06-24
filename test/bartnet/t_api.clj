@@ -16,7 +16,8 @@
             [ring.adapter.jetty9 :refer [run-jetty]]
             [bartnet.auth :as auth]
             [clojure.java.io :as io]
-            [bartnet.instance :as instance])
+            [bartnet.instance :as instance]
+            [schema.core :as sch])
   (:import [io.aleph.dirigiste Executors]
            (java.util.concurrent ScheduledThreadPoolExecutor)))
 
@@ -171,7 +172,8 @@
                                            (mock/header "Authorization" auth-header)))]
                    (:status response) => 201
                    (sql/get-checks-by-env-id @db "abc123") => (contains (contains {:name "A New Check"})))))))
-(facts "signups enpoint works"
+
+(facts "/signups"
        (with-state-changes
          [(before :facts (doto
                            (do-setup)
@@ -195,12 +197,15 @@
                (let [response ((app) (-> (mock/request :get "/signups")
                                          (mock/header "Authorization" auth-header)))]
                  (:status response) => 200
-                 (:body response) => (is-json (just (contains {:email "cliff+signup@leaninto.it"})))))
+                 (:body response) => (is-json (just (contains {:email "cliff+signup@leaninto.it"})))
+                 (let [body (parse-string (:body response) true)]
+                   (sch/validate [api/Signup] body) => body)))
          (fact "superusers can send an activation email"
                (let [response ((app) (-> (mock/request :post "/signups/send-activation?email=cliff%2Bsignup@leaninto.it")
                                          (mock/header "Authorization" auth-header)))]
                  (:status response) => 201
                  (count (sql/get-unused-activations @db)) => 1))))
+
 (facts "activations endpoint works"
        (with-state-changes
          [(before :facts (doto

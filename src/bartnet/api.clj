@@ -17,103 +17,114 @@
             [bartnet.identifiers :as identifiers]
             [bartnet.launch :as launch]
             [bartnet.autobus :as msg]
-            [schema.core :as s])
+            [schema.core :as sch])
   (:import (java.sql BatchUpdateException)
            [java.util Base64]
            (java.sql BatchUpdateException)))
 
 ;; Schemata
 
-(s/defschema Account
+(sch/defschema Signup
   {
-   :email s/Str
-   :verified s/Bool
+   :id sch/Int
+   :email sch/Str
+   :name sch/Str
+   :created_at sch/Str
+   :updated_at sch/Str
+   :activation_id (sch/maybe sch/Str)
+   :activation_used (sch/maybe sch/Bool)
    })
 
-(s/defschema APIObjectPointer
-  {:type s/Str :name s/Str :id s/Str})
-
-(s/defschema Organization
+(sch/defschema Account
   {
-   :name                   s/Str
-   :domain                 s/Str
-   :id                     s/Str
+   :email sch/Str
+   :verified sch/Bool
+   })
+
+(sch/defschema APIObjectPointer
+  {:type sch/Str :name sch/Str :id sch/Str})
+
+(sch/defschema Organization
+  {
+   :name                   sch/Str
+   :domain                 sch/Str
+   :id                     sch/Str
    :users                  [APIObjectPointer]
-   (s/optional-key :teams) [APIObjectPointer]
+   (sch/optional-key :teams) [APIObjectPointer]
    })
 
-(s/defschema Team
+(sch/defschema Team
   {
-   :name s/Str
+   :name sch/Str
    :users [APIObjectPointer]
    })
 
-(s/defschema User
+(sch/defschema User
   {
-   :id           s/Str
+   :id           sch/Str
    :meta         {
-                  :admin       s/Bool
-                  :active      s/Bool
-                  :created_at  s/Str
-                  :updated_at  s/Str
+                  :admin       sch/Bool
+                  :active      sch/Bool
+                  :created_at  sch/Str
+                  :updated_at  sch/Str
                   }
    :accounts     [Account]
    :integrations {
                   :slack {
-                          :access_key s/Str
+                          :access_key sch/Str
                           :user       clojure.lang.APersistentMap
                           }
                   }
-   (s/optional-key :bio) {
-                          :name s/Str
-                          :title s/Str
+   (sch/optional-key :bio) {
+                          :name sch/Str
+                          :title sch/Str
                           }
-   (s/optional-key :organizations) [Organization]
+   (sch/optional-key :organizations) [Organization]
    })
 
 (def protocol-enum
-  (s/enum "http"))
+  (sch/enum "http"))
 
 (def verb-enum
-  (s/enum "GET" "PUT" "POST" "HEAD" "OPTIONS" "DELETE" "TRACE" "CONNECT"))
+  (sch/enum "GET" "PUT" "POST" "HEAD" "OPTIONS" "DELETE" "TRACE" "CONNECT"))
 
 (def check-rel-enum
-  (s/enum "equal-to" "not-equal-to" "is-empty" "is-not-empty" "contains" "regex"))
+  (sch/enum "equal-to" "not-equal-to" "is-empty" "is-not-empty" "contains" "regex"))
 
-(s/defschema CheckAssertion
+(sch/defschema CheckAssertion
   {
    :relationship check-rel-enum
-   :value s/Str
-   :type s/Str
+   :value sch/Str
+   :type sch/Str
    })
 
-(s/defschema SilenceAttrs
+(sch/defschema SilenceAttrs
   {
-   :startDate s/Str
-   :duration s/Int
+   :startDate sch/Str
+   :duration sch/Int
    :user User
    })
 
-(s/defschema CheckStatus
+(sch/defschema CheckStatus
   {
-   :passing s/Bool
-   :passingChanged s/Str
-   :state s/Str
+   :passing sch/Bool
+   :passingChanged sch/Str
+   :state sch/Str
    :silence SilenceAttrs
    })
 
-(s/defschema CheckNotification
+(sch/defschema CheckNotification
   {
-   :type s/Str
-   :value s/Str
+   :type sch/Str
+   :value sch/Str
    })
 
-(s/defschema Check
+(sch/defschema Check
   {
-   :name s/Str
-   :id s/Str
-   :url s/Str
-   :interval s/Int
+   :name sch/Str
+   :id sch/Str
+   :url sch/Str
+   :interval sch/Int
    :protocol protocol-enum
    :verb verb-enum
    :assertions [CheckAssertion]
@@ -123,33 +134,33 @@
 
 (def build-check [])
 
-(s/defschema Instance
+(sch/defschema Instance
   {
-   :id s/Str
-   :name s/Str
-   :customer_id s/Str
+   :id sch/Str
+   :name sch/Str
+   :customer_id sch/Str
    :meta {
-          :state s/Str
-          :lastChecked s/Str
-          :created s/Str
-          :instanceSize s/Str
+          :state sch/Str
+          :lastChecked sch/Str
+          :created sch/Str
+          :instanceSize sch/Str
           }
    })
 
-(s/defschema Group
+(sch/defschema Group
   {
-   :id          s/Str
-   :customer_id s/Str
-   :name        (s/maybe s/Str)
+   :id          sch/Str
+   :customer_id sch/Str
+   :name        (sch/maybe sch/Str)
    })
 
-(s/defschema CompositeGroup
+(sch/defschema CompositeGroup
   (merge Group { :instances [Instance] }))
 
-(s/defschema CompositeInstance
+(sch/defschema CompositeInstance
   (merge Instance {
-                   :checks [(s/maybe Check)]
-                   :groups [(s/maybe Group)]
+                   :checks [(sch/maybe Check)]
+                   :groups [(sch/maybe Group)]
                    }))
 
 (defn build-group [customer-id id]
@@ -192,20 +203,20 @@
   (let [customer-id (get-in ctx [:login :customer_id])]
     {:instances (instance/list-instances! customer-id)}))
 
-(s/defschema CompositeGroup
+(sch/defschema CompositeGroup
   (merge Group
     {
      :checks [Check]
      :instances [Instance]
      }))
 
-(s/defschema CheckTarget
+(sch/defschema CheckTarget
   {
-   :type s/Str
-   :id s/Str
+   :type sch/Str
+   :id sch/Str
    })
 
-(s/defschema CompositeCheck
+(sch/defschema CompositeCheck
   (merge Check
     {
      :targets [CheckTarget]
@@ -456,10 +467,9 @@
     (let [signup (:signup ctx)]
       (sql/insert-into-signups! @db signup))))
 
-
 (defn list-signups [ctx]
   (let [page (or (get-in ctx [:request :params "page"]) 1)]
-    (sql/get-signups @db query-limit (* (- page 1) query-limit))))
+    (sql/get-signups-with-activations @db query-limit (* (- page 1) query-limit))))
 
 (defn get-signup [ctx]
   (if (:duplicate ctx)
@@ -770,8 +780,8 @@
             :description "Own your availability."
             }})
   (swagger-ui "/api/swagger" :swagger-docs "/api/swagger.json")
+  ;; TODO: Split out request methods and document with swagger metadata
   (GET* "/health_check" [] "A ok")
-  (ANY* "/signups" [] (signups-resource))
   (ANY* "/signups/send-activation" [] (signup-resource))
   (GET* "/activations/:id" [id] (activation-resource id))
   (POST* "/activations/:id/activate" [id] (activation-resource id))
@@ -790,18 +800,25 @@
   (ANY* "/discovery" [] (discovery-resource))
   (ANY* "/checks" [] (checks-resource))
   (ANY* "/checks/:id" [id] (check-resource id))
+
+  ;; DONE
+  (GET* "/signups" []
+    :summary "List signups, including activation id and status."
+    ;:return (sch/maybe [Signup])
+    (signups-resource))
+  (POST* "/signups" [] (signups-resource))
   (GET* "/instance/:id" [id]
     :summary "Retrieve instance by ID."
-    :path-params [id :- s/Str]
-    ;:return (s/maybe CompositeInstance)
+    :path-params [id :- sch/Str]
+    ;:return (sch/maybe CompositeInstance)
     (instance-resource id))
   (GET* "/instances" []
     :summary "Retrieve a list of instances."
     (instances-resource))
   (GET* "/group/:id" [id]
     :summary "Retrieve a Group by ID."
-    :path-params [id :- s/Str]
-    ;:return (s/maybe CompositeGroup)
+    :path-params [id :- sch/Str]
+    ;:return (sch/maybe CompositeGroup)
     (group-resource id))
   (GET* "/groups" []
     :summary "Retrieve a list of groups."
