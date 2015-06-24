@@ -102,7 +102,6 @@ select checks.* from checks inner join environments on checks.environment_id = e
     inner join logins on environments_logins.login_id = logins.id
     where logins.customer_id = :customer_id;
 
-
 -- name: delete-check-by-id!
 -- Deletes a check record by id.
 delete from checks where id=:id;
@@ -118,6 +117,13 @@ select * from signups order by email limit :limit offset :offset;
 
 -- name: get-signup-by-email
 select * from signups where email=:email;
+
+-- name: get-signups-with-activations
+-- Get signups and their corresponding activation information.
+select s.*, a.id as activation_id, a.used as activation_used from signups as s
+  left outer join activations as a
+  on s.email = a.email
+  order by email limit :limit offset :offset;
 
 -----------------------------------------------------------------------------
 
