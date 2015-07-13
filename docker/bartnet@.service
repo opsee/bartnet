@@ -1,9 +1,10 @@
 [Unit]
 Description=Bartnet
-After=docker.service bartnet-redis-master@1.service
-Requires=docker.service bartnet-elb@%i.service
+After=docker.service 
+Requires=docker.service
 
 [Service]
+Restart=always
 User=core
 EnvironmentFile=/etc/environment
 EnvironmentFile=/opt/etc/environment
@@ -20,4 +21,4 @@ ExecStart=/usr/bin/docker run --name %p-%i -p 8080:8080 -p 4080:4080 -e ETCD_HOS
 ExecStop=/usr/bin/docker stop %p-%i
 
 [X-Fleet]
-Conflicts=bartnet-api@*.service
+Conflicts=bartnet@*.service

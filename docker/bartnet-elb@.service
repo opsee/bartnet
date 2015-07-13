@@ -2,9 +2,10 @@
 Description=Bartnet ELB Registration
 After=docker.service
 Requires=docker.service
-BindsTo=bartnet-api@%i.service
+PartOf=bartnet@%i.service
 
 [Service]
+Restart=always
 TimeoutStartSec=0
 ExecStartPre=-/usr/bin/docker kill %p-%i
 ExecStartPre=-/usr/bin/docker rm %p-%i
@@ -13,4 +14,4 @@ ExecStart=/usr/bin/docker run --rm --name %p-%i -e AWS_ACCESS_KEY=AKIAIWSLK3OVJG
 ExecStop=/usr/bin/docker stop %p-%i
 
 [X-Fleet]
-MachineOf=bartnet-api@%i.service
+MachineOf=bartnet@%i.service
