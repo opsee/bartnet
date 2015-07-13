@@ -4,6 +4,7 @@ After=docker.service
 Requires=docker.service
 
 [Service]
+Restart=always
 User=core
 TimeoutStartSec=0
 ExecStartPre=-/usr/bin/docker kill %p-%i
