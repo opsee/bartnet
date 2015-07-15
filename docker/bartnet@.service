@@ -16,8 +16,8 @@ Environment="DB_NAME=opsee_stage"
 TimeoutStartSec=0
 ExecStartPre=-/usr/bin/docker kill %p-%i
 ExecStartPre=-/usr/bin/docker rm %p-%i
-ExecStartPre=/usr/bin/docker pull opsee/bartnet:latest
-ExecStart=/usr/bin/docker run --name %p-%i -p 8080:8080 -p 4080:4080 -e ETCD_HOST=${ETCD_HOST} -e ETCD_PORT=${ETCD_PORT} -e DB_HOST=${DB_HOST} -e DB_USER=${DB_USER} -e DB_PORT=${DB_PORT} -e DB_PASS=${DB_PASS} -e DB_NAME=${DB_NAME} opsee/bartnet
+ExecStartPre=/usr/bin/docker pull quay.io/opsee/bartnet:latest
+ExecStart=/usr/bin/docker run --name %p-%i -p 8080:8080 -p 4080:4080 -e ETCD_HOST=${ETCD_HOST} -e ETCD_PORT=${ETCD_PORT} -e DB_HOST=${DB_HOST} -e DB_USER=${DB_USER} -e DB_PORT=${DB_PORT} -e DB_PASS=${DB_PASS} -e DB_NAME=${DB_NAME} quay.io/opsee/bartnet
 ExecStop=/usr/bin/docker stop %p-%i
 
 [X-Fleet]
