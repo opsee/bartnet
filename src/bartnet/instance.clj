@@ -2,11 +2,11 @@
   (:require [taoensso.carmine :as car]
             [clojure.tools.logging :as log]
             [clojure.string :as string]
-            [bartnet.autobus :as msg]
+            [bartnet.bus :as bus]
             [manifold.deferred :as d])
   (:import (org.cliffc.high_scale_lib NonBlockingHashMap NonBlockingHashSet)
            (clojure.lang Keyword)
-           (bartnet.autobus MessageClient MessageBus)))
+           (bartnet.bus MessageClient)))
 
 ;; The InstanceStore is the location for all instance and group data required
 ;; by Bartnet. Currently this includes (per customer_id):
@@ -216,16 +216,17 @@
 (defn instance-message-client []
   (reify
     MessageClient
-    (deliver-to [_ msg]
+    (deliver-to [_ topic msg]
       (when-let [instance (get-in msg [:attributes :instance])]
         (d/deferred (do
                       (log/info "instance-store registering instance:" (:InstanceID instance))
-                      (save-instance! (message->instance msg))))))))
+                      (save-instance! (message->instance msg))))))
+    (session-id [this] nil)))
 
 (defn connect-bus [bus]
   (log/info "Connecting instance store to message bus.")
-  (let [client (msg/register bus (instance-message-client) '("*"))]
-    (msg/subscribe bus client '("*.discovery"))))
+  (let [client (bus/register bus (instance-message-client) '("*"))]
+    (bus/subscribe bus client "*" '("discovery"))))
 
 (defn create-memory-store
   ([bus coll]

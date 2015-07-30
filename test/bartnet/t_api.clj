@@ -3,7 +3,8 @@
   (:require [bartnet.api :as api]
             [bartnet.core :as core]
             [bartnet.websocket :as websocket]
-            [bartnet.autobus :as msg]
+            [bartnet.autobus :as autobus]
+            [bartnet.bus :as bus]
             [bartnet.fixtures :refer :all]
             [yesql.util :refer [slurp-from-classpath]]
             [clojure.test :refer :all]
@@ -27,7 +28,7 @@
 (def auth-header2 "HMAC 2--kJXpzFOo0ZfI_PG069j0iNDAc-o=")
 (def auth-header3 "HMAC 3--NSlzR-VsmftimMosLpXHoG1Z7kM=")
 
-(def bus (msg/message-bus))
+(def bus (bus/message-bus (autobus/autobus)))
 (def executor (Executors/utilizationExecutor 0.9 10))
 (def scheduler (ScheduledThreadPoolExecutor. 10))
 (def ws-server (atom nil))
@@ -56,16 +57,16 @@
     (checker (parse-string actual true))))
 
 (defn publisher [customer-id]
-  (let [client (msg/register bus (msg/publishing-client) customer-id)]
-    (fn [msg]
-      (msg/publish bus client msg))))
+  (let [client (bus/register bus (bus/publishing-client) customer-id)]
+    (fn [topic msg]
+      (bus/publish bus customer-id topic client msg))))
 
 (defn test-stream [customer-id topics]
-  (let [client (msg/testing-client)
+  (let [client (autobus/testing-client)
         stream (:stream client)
-        client-adapter (msg/register bus client customer-id)]
+        client-adapter (bus/register bus client customer-id)]
     (log/info "subscribing to" topics)
-    (msg/subscribe bus client-adapter topics)
+    (bus/subscribe bus client-adapter customer-id topics)
     stream))
 
 (facts "Auth endpoint works"

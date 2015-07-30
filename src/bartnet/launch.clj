@@ -1,7 +1,7 @@
 (ns bartnet.launch
   (:require [bartnet.identifiers :as identifiers]
             [bartnet.s3-buckets :as buckets]
-            [bartnet.autobus :as msg]
+            [bartnet.bus :as bus]
             [cheshire.core :refer :all]
             [instaparse.core :as insta]
             [clostache.parser :refer [render-resource]]
@@ -73,7 +73,7 @@
                      ;{:path "/etc/opsee/key.pem"
                      ; :perm}]})))
 
-(defn parse-cloudformation-msg [instance-id customer-id msg]
+(defn parse-cloudformation-msg [instance-id msg]
   (if-let [msg-str (:Message msg)]
     (try
       (let [parsed (cf-parser msg-str)
@@ -85,14 +85,9 @@
                                                                            (str/join "" strings))))
                          {} parsed)
             state (attributes->state attributes)]
-        (msg/map->Message {:command "launch-bastion"
-                           :sent (Date.)
-                           :attributes attributes
-                           :customer_id customer-id
-                           :instance_id instance-id
-                           :service "launch-bastion"
-                           :state state
-                           :time (f/parse formatter (:Timestamp msg))}))
+        (bus/make-msg "LaunchEvent" {:attributes attributes
+                                     :instance_id instance-id
+                                     :state state}))
         (catch Exception e (pprint msg) (log/error e "exception on parse")))))
 
 (defn launcher [creds id bus client image-id instance-type vpc-id url-map customer-id keypair template-src]
@@ -129,20 +124,17 @@
             (not-any? #(true? %)
               (for [message messages
                     :let [msg-body (:body message)
-                          msg (parse-cloudformation-msg id customer-id (parse-string msg-body true))]]
+                          msg (parse-cloudformation-msg id (parse-string msg-body true))]]
                 (do
                   (sqs/delete-message creds (assoc message :queue-url queue-url))
-                  (msg/publish bus client msg)
+                  (bus/publish bus client customer-id "launch-bastion" msg)
                   (log/info (get-in msg [:attributes :ResourceType]) (get-in msg [:attributes :ResourceStatus]))
                   (contains? #{"complete" "failed"} (:state msg)))))
             (recur (sqs/receive-message creds {:queue-url queue-url
                                              :wait-time-seconds 20}))))
         (log/info "exiting" id)
-        (msg/publish bus client
-          (msg/map->Message {:customer_id customer-id
-                             :command "bastion-launch"
-                             :state "ok"
-                             :attributes {:status :success}}))
+        (bus/publish bus client customer-id "launch-bastion"
+                     (bus/make-msg "LaunchEvent" {:state "ok" :attributes {:status :success}}))
         (sqs/delete-queue creds queue-url)
         (sns/delete-topic creds topic-arn))
       (catch Exception ex (log/error ex "Exception in thread")))))
@@ -156,7 +148,7 @@
         tag (:tag options)
         keypair (:keypair options)
         template-src (:template-src options)
-        client (msg/register bus (msg/publishing-client) customer-id)]
+        client (bus/register bus (bus/publishing-client) customer-id)]
     (log/info regions)
     (for [region-obj regions]
         (let [creds {:access-key access-key
