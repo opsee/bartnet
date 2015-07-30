@@ -12,6 +12,7 @@
             [bartnet.upload-cmd :as upload-cmd]
             [bartnet.bus :as bus]
             [bartnet.autobus :as autobus]
+            [bartnet.nsq :as nsq]
             [bartnet.websocket :as websocket]
             [bartnet.sql :as sql]
             [bartnet.util :refer :all]
@@ -48,7 +49,9 @@
 (defn start-server [args]
   (let [config (parse-string (slurp (first args)) true)
         db (sql/pool (:db-spec config))
-        bus (bus/message-bus (autobus/autobus))
+        bus (bus/message-bus (if (:nsq config)
+                               (nsq/message-bus (get-in config [:nsq :host]) (get-in config [:nsq :port]))
+                               (autobus/autobus)))
         executor (Executors/utilizationExecutor (:thread-util config) (:max-threads config))
         scheduler (ScheduledThreadPoolExecutor. 10)
         redis-conn (disco/get-service-endpoint "bartnet-redis")]
