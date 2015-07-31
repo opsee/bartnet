@@ -26,6 +26,7 @@
                  [com.boundary/high-scale-lib "1.0.6"]
                  [ring-cors "0.1.6"]
                  [gloss "0.2.5"]
+                 [com.github.brainlag/nsq-client "1.0.0.BETA" :exclusions [com.fasterxml.jackson.core/jackson-databind]]
                  [org.mindrot/jbcrypt "0.3m"]
                  [org.postgresql/postgresql "9.3-1102-jdbc41"]
                  [c3p0/c3p0 "0.9.1.2"]

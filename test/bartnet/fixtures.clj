@@ -15,6 +15,10 @@
     (migrate-db @db {:drop-all true :silent true}))
   @db)
 
+(defn is-json [checker]
+  (fn [actual]
+    (checker (parse-string actual true))))
+
 (defn login-fixtures [db]
   ; A shitty side-effect of using ysql in testing is that if you rename
   ; a column, you have to keep the original column name in your fixtures.

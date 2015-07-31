@@ -16,7 +16,7 @@
             [clojure.string :as str]
             [bartnet.identifiers :as identifiers]
             [bartnet.launch :as launch]
-            [bartnet.autobus :as msg]
+            [bartnet.bus :as bus]
             [schema.core :as sch])
   (:import (java.sql BatchUpdateException)
            [java.util Base64]
@@ -380,8 +380,8 @@
       (if (= (:id env) (:environment_id check))
         {:check check}))))
 
-(defn publish-command [msg]
-  (msg/publish @bus @client msg))
+(defn publish-command [customer_id topic msg]
+  (bus/publish @bus @client customer_id topic msg))
 
 (defn update-check! [id]
   (fn [ctx]
@@ -394,10 +394,10 @@
           (log/info merged)
           (if (sql/update-check! @db merged)
             (let [final-check (first (sql/get-check-by-id @db id))]
-              (publish-command (msg/map->Message {:customer_id (:customer_id login)
-                                                  :command "healthcheck"
-                                                  :state "update"
-                                                  :attributes final-check}))
+              (publish-command (:customer_id login)
+                               "commands"
+                               (bus/make-msg "CheckCommand" {:action "update_check"
+                                                             :parameters final-check}))
               {:check final-check})))))))
 
 (defn delete-check! [id]
@@ -408,10 +408,10 @@
       (if (= (:id env) (:environment_id check))
         (do
           (sql/delete-check-by-id! @db id)
-          (publish-command (msg/map->Message {:customer_id (:customer_id login)
-                                              :command "healthcheck"
-                                              :state "delete"
-                                              :attributes {:checks id}})))
+          (publish-command (:customer_id login)
+                           "commands"
+                           (bus/make-msg "CheckCommand" {:action "delete_check"
+                                                         :parameters {:id id}})))
         (log/info (:id env) (:environment_id check))))))
 
 (defn create-check! [ctx]
@@ -421,10 +421,10 @@
         id (identifiers/generate)
         final-check (merge check {:id id, :environment_id (:id env)})]
     (sql/insert-into-checks! @db final-check)
-    (publish-command (msg/map->Message {:customer_id (:customer_id login)
-                                        :command "healthcheck"
-                                        :state "new"
-                                        :attributes final-check}))))
+    (publish-command (:customer_id login)
+                     "commands"
+                     (bus/make-msg "CheckCommand" {:action "create_check"
+                                                   :parameters final-check}))))
 
 (defn list-checks [ctx]
   (let [login (:login ctx)
@@ -830,7 +830,7 @@
   (reset! db database)
   (reset! config conf)
   (reset! secret (:secret conf))
-  (reset! client (msg/register @bus (msg/publishing-client) "*"))
+  (reset! client (bus/register @bus (bus/publishing-client) "*"))
   (->
     bartnet-api
     (log-request)
