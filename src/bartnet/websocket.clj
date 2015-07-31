@@ -49,7 +49,9 @@
 
 
 (defn bus-msg [in]
-  (bus/make-msg "Websocket" in))
+  (if (= (:command in) "subscribe")
+    (bus/make-msg "subscribe" (:attributes in))
+    (bus/make-msg "Websocket" in)))
 
 (defn ws-handler [scheduler bus db secret]
   {:on-connect (fn [ws]
