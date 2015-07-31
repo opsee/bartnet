@@ -2,6 +2,7 @@
 Description=Bartnet
 After=docker.service 
 Requires=docker.service
+Wants=%p-elb@%i.service
 
 [Service]
 Restart=always
