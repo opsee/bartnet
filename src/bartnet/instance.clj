@@ -3,6 +3,8 @@
             [clojure.tools.logging :as log]
             [clojure.string :as string]
             [bartnet.bus :as bus]
+            [cheshire.core :refer :all]
+            [bartnet.util :refer :all]
             [manifold.deferred :as d])
   (:import (org.cliffc.high_scale_lib NonBlockingHashMap NonBlockingHashSet)
            (clojure.lang Keyword)
@@ -200,9 +202,8 @@
    :instanceSize (:InstanceType attrs)
    })
 
-(defn- message->instance [msg]
-  (let [instance-attributes (get-in msg [:attributes :instance])
-        instance-id (:InstanceID instance-attributes)
+(defn- message->instance [msg instance-attributes]
+  (let [instance-id (:InstanceID instance-attributes)
         customer-id (:customer_id msg)
         instance-name (:Value (first (filter #(= "Name" (:Key %)) (:Tags instance-attributes))))]
     {:name        instance-name
@@ -217,10 +218,12 @@
   (reify
     MessageClient
     (deliver-to [_ topic msg]
-      (when-let [instance (get-in msg [:attributes :instance])]
-        (d/deferred (do
-                      (log/info "instance-store registering instance:" (:InstanceID instance))
-                      (save-instance! (message->instance msg))))))
+      (log/info "msg" topic msg)
+      (when (= (:type msg) "Instance")
+        (let [instance (parse-string (:body msg) true)]
+          (d/deferred (do
+                        (log/info "instance-store registering instance:" (:InstanceID instance))
+                        (save-instance! (message->instance msg instance)))))))
     (session-id [this] nil)))
 
 (defn connect-bus [bus]

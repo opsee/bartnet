@@ -8,6 +8,7 @@
 
 (defrecord BusMessage [^Integer id
                        ^Integer reply_to
+                       ^String customer_id
                        ^String type
                        ^String body])
 
@@ -110,24 +111,25 @@
 (defn message-bus [ bus]
   (reify MessageBus
 
-    (publish [this client customer_id topic msg-noid]
+    (publish [this client customer_id t msg-noid]
       (let [msg (merge msg-noid {:id (id-inc client)
+                                 :customer_id customer_id
                                  :version 1})]
         (if (= "subscribe" (:type msg))
           (let [id (:id msg)
                 body (parse-string (:body msg) true)
                 subscribe-to (split-list (get-in body [:subscribe_to]))
-                unsubscribe-from (split-list (get-in msg [:unsubscribe_from]))]
+                unsubscribe-from (split-list (get-in body [:unsubscribe_from]))]
             (log/info "subscribing to" subscribe-to unsubscribe-from)
             (subscribe this client customer_id (flatten [subscribe-to]))
             (unsubscribe this client customer_id (flatten [unsubscribe-from]))
             (let [subscriptions (str/join "," (topics-for-client client))]
-              (deliver-to (:client client) topic (map->BusMessage {:id (id-inc client)
+              (deliver-to (:client client) t (map->BusMessage {:id (id-inc client)
                                                                    :in_reply_to id
                                                                    :type "subscribe"
                                                                    :body (generate-string {:subscriptions subscriptions})}))))
-          (let [topic (str/join "." [customer_id topic])
-                firehose (str "*." (:command msg))]
+          (let [topic (str/join "." [customer_id t])
+                firehose (str "*." t)]
             (log/info "trying to publish to" topic)
             (when (has-permissions? client topic)
               (log/info "publishing to" topic)
