@@ -1,7 +1,8 @@
 (ns bartnet.bus
   (:require [clojure.tools.logging :as log]
             [cheshire.core :refer :all]
-            [clojure.string :as str])
+            [clojure.string :as str]
+            [manifold.deferred :as d])
   (:import (clojure.lang IPersistentMap)))
 
 
@@ -30,6 +31,9 @@
   (session-id [this] "Calculates a session id that is unique to this client."))
 
 (defprotocol MessageBus
+  (publish-with-reply [this ^ClientAdapter client customer_id topic msg]
+    "Publish a message and return a deferred value that the client can dereference
+    to get at the eventual reply message.")
   (publish [this ^ClientAdapter client customer_id topic msg]
     "Publishes a message to the bus for delivery. The client is checked for proper
     permissions before the message gets published.")
@@ -66,6 +70,12 @@
 
 (defn- client-adapter [client perms]
   (ClientAdapter. client (atom {}) (atom 0) (atom perms)))
+
+(defn manifold-client [deferred]
+  (reify MessageClient
+    (deliver-to [_ _ msg]
+      (d/success! deferred msg))
+    (session-id [_] nil)))
 
 (defn- has-permissions? [^ClientAdapter client topic-name]
   (when-not (instance? ClientAdapter client) false)
@@ -136,7 +146,17 @@
               (log/info "publishing to" firehose)
               (log/info msg)
               (publish! bus topic msg)
-              (publish! bus firehose msg))))))
+              (publish! bus firehose msg))))
+        (:id msg)))
+
+    (publish-with-reply [this client customer_id t msg-noid]
+      (let [id (publish this client customer_id t msg-noid)]
+        (let [reply-topic (str customer_id ".reply-" id)
+              deferred (d/deferred)
+              reply-client (manifold-client deferred)
+              consumer (subscribe! bus reply-topic reply-client)
+              fn (fn [_] (stop! consumer))]
+          (d/on-realized deferred fn fn))))
 
     (register [_ client customer-ids]
       (client-adapter client (flatten [customer-ids])))
