@@ -19,14 +19,13 @@
 (def server (atom nil))
 
 (def registration-event
-  {:customer_id "cliff",
-   :hostname "cliff.local",
-   :command "connected",
-   :id 1,
-   :sent 0,
-   :version 1,
-   :instance_id "i25738ajfi"
-   })
+  {:id 1
+   :version 1
+   :sent 0
+   :type "Connected"
+   :body (generate-string {:time 0
+                           :customer_id "cliff"
+                           :instance {:InstanceId "i25738ajfi"}})})
 
 (defn publisher [customer-id]
   (let [client (bus/register @bus (bus/publishing-client) customer-id)]
@@ -60,37 +59,27 @@
 (defn teardown-server []
   (.close @server))
 
-;(facts "Bastion channel listens"
-;  (with-redefs [sns/create-topic (fn [& _] {:topic-arn "test topic"})
-;                sns/publish (fn [& _] true)]
-;       (with-state-changes
-;         [(before :facts (setup-server 4080 {"echo" echo}))
-;          (after :facts (teardown-server))]
-;         (fact "registers the client"
-;               (let [client @(client "localhost" 4080)]
-;                 @(send-reg client) => true
-;                 @(s/take! client) => (contains {:in_reply_to 1})
-;                 (.close client)))
-;         (with-state-changes
-;           [(before :facts (do
-;                             (login-fixtures @db)
-;                             (environment-fixtures @db)
-;                             (check-fixtures @db)))]
-;           (fact "bastions will get existing checks on registration"
-;                 (let [client @(client "localhost" 4080)]
-;                   @(send-reg client) => true
-;                   @(s/take! client) => (contains {:in_reply_to 1})
-;                   (let [msg @(s/take! client)]
-;                     msg => (contains {:command "healthcheck"})
-;                     (:attributes msg) => (contains {:name "A Nice Check"})))))
-;         (fact "can send commands to the client"
-;               (let [client @(client "localhost" 4080)
-;                     publish (publisher "cliff")
-;                     _ @(send-reg client)
-;                     _ @(s/take! client)
-;                     _ @(s/put! client (bus/make-msg "subscribe" {:subscribe_to "echo"}))
-;                     _ @(s/take! client)
-;                     defer (publish "echo" (bus/make-msg "echo" {:msg "hello"}))
-;                     msg @(s/take! client)]
-;                 msg => (contains {:id 1, :body (is-json {:msg "hello"}), :version 1})
-;                 (.close client))))))
+(facts "Bastion channel listens"
+  (with-redefs [sns/create-topic (fn [& _] {:topic-arn "test topic"})
+                sns/publish (fn [& _] true)]
+       (with-state-changes
+         [(before :facts (setup-server 4080 {"echo" echo}))
+          (after :facts (teardown-server))]
+         (fact "registers the client"
+               (let [client @(client "localhost" 4080)]
+                 @(send-reg client) => true
+                 @(s/take! client) => (is-msg (contains {:reply_to 1}))
+                 (.close client)))
+         (with-state-changes
+           [(before :facts (do
+                             (login-fixtures @db)
+                             (environment-fixtures @db)
+                             (check-fixtures @db)))]
+           (fact "bastions will get existing checks on registration"
+                 (let [client @(client "localhost" 4080)]
+                   @(send-reg client) => true
+                   @(s/take! client) => (is-msg (contains {:reply_to 1}))
+
+                   @(s/take! client) => (is-msg (contains {:type "CheckCommand"
+                                                           :body (contains {:action "create_check"
+                                                                            :parameters (contains {:name "A Nice Check"})})}))))))))

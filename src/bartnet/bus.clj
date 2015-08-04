@@ -64,9 +64,15 @@
 
 (defrecord DefaultClient []
   MessageClient
-  (deliver-to [_ topic msg] (log/info "msg undeliverable" msg)))
+  (deliver-to [_ topic msg] (log/info "msg undeliverable" msg))
+  (session-id [_] nil))
 
-(defrecord ClientAdapter [client topic->consumer counter permissions])
+(defrecord ClientAdapter [client topic->consumer counter permissions]
+  MessageClient
+  (deliver-to [_ t msg]
+    (let [[c_id topic] (str/split t #"\.")]
+      (deliver-to client topic msg)))
+  (session-id [_] (session-id client)))
 
 (defn- client-adapter [client perms]
   (ClientAdapter. client (atom {}) (atom 0) (atom perms)))
@@ -134,10 +140,11 @@
             (subscribe this client customer_id (flatten [subscribe-to]))
             (unsubscribe this client customer_id (flatten [unsubscribe-from]))
             (let [subscriptions (str/join "," (topics-for-client client))]
-              (deliver-to (:client client) t (map->BusMessage {:id (id-inc client)
-                                                                   :in_reply_to id
-                                                                   :type "subscribe"
-                                                                   :body (generate-string {:subscriptions subscriptions})}))))
+              (deliver-to (:client client) "subscribe" (map->BusMessage {:id (id-inc client)
+                                                                         :in_reply_to id
+                                                                         :type "subscribe"
+                                                                         :body (generate-string {:attributes {:subscriptions subscriptions}
+                                                                                                 :state "ok"})}))))
           (let [topic (str/join "." [customer_id t])
                 firehose (str "*." t)]
             (log/info "trying to publish to" topic)
@@ -170,7 +177,7 @@
             (log/info "sub for" topic)
             (when (has-permissions? client topic)
 
-              (let [consumer (subscribe! bus topic (:client client))]
+              (let [consumer (subscribe! bus topic client)]
                 (log/info "consuming from" topic)
                 (add-consumer client topic consumer)))))))
 
