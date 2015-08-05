@@ -32,11 +32,24 @@
     (fn [topic msg]
       (bus/publish @bus client customer-id topic msg))))
 
+(defn reply-publisher [customer-id]
+  (let [client (bus/register @bus (bus/publishing-client) customer-id)]
+    (fn [topic msg]
+      (bus/publish-with-reply @bus client customer-id topic msg))))
+
 (defn echo [msg]
   (assoc msg :reply "ok"))
 
 (defn send-reg [client]
   (s/put! client registration-event))
+
+(defn send-sub [client]
+  (s/put! client
+          {:id 2
+           :version 1
+           :sent 0
+           :type "subscribe"
+           :body (generate-string {:subscribe_to "echo"})}))
 
 (defn client [host port]
   (let [c (-> (tcp/client {:host host, :port port})
@@ -50,7 +63,7 @@
     (log/info (str "client " c))
     c))
 
-(defn setup-server [port cmds]
+(defn setup-server [port]
   (do
     (start-connection)
     (reset! bus (bus/message-bus (autobus/autobus)))
@@ -63,7 +76,7 @@
   (with-redefs [sns/create-topic (fn [& _] {:topic-arn "test topic"})
                 sns/publish (fn [& _] true)]
        (with-state-changes
-         [(before :facts (setup-server 4080 {"echo" echo}))
+         [(before :facts (setup-server 4080))
           (after :facts (teardown-server))]
          (fact "registers the client"
                (let [client @(client "localhost" 4080)]

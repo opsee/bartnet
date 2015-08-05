@@ -169,7 +169,7 @@
               (unsubscribe this client customer_id (flatten [unsubscribe-from]))
               (let [subscriptions (str/join "," (topics-for-client client))]
                 (deliver-to (:client client) "subscribe" (map->BusMessage {:id (id-inc client)
-                                                                           :in_reply_to id
+                                                                           :reply_to id
                                                                            :type "subscribe"
                                                                            :body (generate-string {:attributes {:subscriptions subscriptions}
                                                                                                    :state "ok"})}))))
