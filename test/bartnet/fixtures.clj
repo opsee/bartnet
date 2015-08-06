@@ -19,6 +19,10 @@
   (fn [actual]
     (checker (parse-string actual true))))
 
+(defn is-msg [checker]
+  (fn [msg]
+    (checker (assoc msg :body (parse-string (:body msg) true)))))
+
 (defn login-fixtures [db]
   ; A shitty side-effect of using ysql in testing is that if you rename
   ; a column, you have to keep the original column name in your fixtures.
