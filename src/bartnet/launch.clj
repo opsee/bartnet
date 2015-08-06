@@ -55,7 +55,7 @@
     "#cloud-config\n"
     (yaml/generate-string
       {:write_files [{:path "/etc/opsee/bastion-env.sh"
-                      :permissions 0644
+                      :permissions "0644"
                       :owner "root"
                       :content (generate-env-shell
                                  {:CUSTOMER_ID customer-id})}]})))
