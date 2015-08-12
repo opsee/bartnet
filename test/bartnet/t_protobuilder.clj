@@ -17,7 +17,7 @@
                (.getSeconds (.getDeadline proto)) => 1
                (.getMaxHosts proto) => 2))
        (fact "converts nested anyhash into Any"
-             (let [proto (hash->proto TestCheckRequest {:check_spec {:type "HttpCheck"
+             (let [proto (hash->proto TestCheckRequest {:check_spec {:type_url "HttpCheck"
                                                                      :value {:name "check-1"}}})]
                (.getTypeUrl (.getCheckSpec proto)) => "HttpCheck"
                (let [checkspec (HttpCheck/parseFrom ^ByteString (.getValue (.getCheckSpec proto)))]

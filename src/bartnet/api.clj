@@ -597,8 +597,10 @@
   (fn [ctx]
     (let [login (:login ctx)
           addr (router/get-service (:customer_id login) instance_id "checker")
+          _ (log/info "addr" addr)
           client (rpc/check-tester-client addr)
           response (rpc/test-check client (json-body ctx))]
+
       {:test-results response})))
 
 (defn launch-bastions! [ctx]

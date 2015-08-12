@@ -41,7 +41,7 @@
   "Searches co.opsee.* for the type element of the hash, brings back its builder, builds it and delivers
   it marshalled into the value element of the hash"
   [hash]
-  (let [clazz (Class/forName (str "co.opsee." (:type hash)))
+  (let [clazz (Class/forName (str "co.opsee." (:type_url hash)))
         proto (hash->proto clazz (:value hash))]
     {:type_url (:type hash) :value (.toByteArray proto)}))
 

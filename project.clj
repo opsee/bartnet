@@ -7,9 +7,11 @@
   :profiles {:uberjar {:aot :all}
              :dev {:dependencies [[midje "1.6.3"]
                                   [ring/ring-mock "0.2.0"]]
+                   :jvm-opts ["-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005"]
                    :plugins [[lein-midje "3.0.0"]]}}
   :plugins [[s3-wagon-private "1.1.2"]]
   :java-source-paths ["src"]
+  :aliases {"debug" ["with-profile" "dev" "run"]}
   :repositories [["snapshots" {:url "s3p://opsee-maven-snapshots/snapshot"
                                :username :env
                                :passphrase :env}]]
