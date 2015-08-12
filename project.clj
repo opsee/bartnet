@@ -9,10 +9,11 @@
                                   [ring/ring-mock "0.2.0"]]
                    :plugins [[lein-midje "3.0.0"]]}}
   :plugins [[s3-wagon-private "1.1.2"]]
+  :java-source-paths ["src"]
   :repositories [["snapshots" {:url "s3p://opsee-maven-snapshots/snapshot"
                                :username :env
                                :passphrase :env}]]
-  :dependencies [[org.clojure/clojure "1.6.0"]
+  :dependencies [[org.clojure/clojure "1.7.0"]
                  [liberator "0.13"]
                  [compojure "1.3.4"]
                  [metosin/compojure-api "0.21.0" :exclusions [org.clojure/java.classpath hiccup clj-time joda-time]]
@@ -25,9 +26,12 @@
                  [cheshire "5.4.0"]
                  [com.boundary/high-scale-lib "1.0.6"]
                  [ring-cors "0.1.6"]
+                 [io.netty/netty-all "4.1.0.Beta5"]
+                 [com.google.protobuf/protobuf-java "3.0.0-alpha-3.1"]
                  [gloss "0.2.5"]
                  [com.github.brainlag/nsq-client "1.0.0.BETA" :exclusions [com.fasterxml.jackson.core/jackson-databind]]
                  [org.mindrot/jbcrypt "0.3m"]
+                 [io.grpc/grpc-all "0.7.2"]
                  [org.postgresql/postgresql "9.3-1102-jdbc41"]
                  [c3p0/c3p0 "0.9.1.2"]
                  [org.clojure/tools.logging "0.3.1"]

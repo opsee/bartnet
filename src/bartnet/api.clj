@@ -3,6 +3,8 @@
             [bartnet.email :refer [send-activation! send-verification!]]
             [bartnet.instance :as instance]
             [bartnet.sql :as sql]
+            [bartnet.rpc :as rpc]
+            [bartnet.bastion-router :as router]
             [clojure.tools.logging :as log]
             [ring.middleware.cors :refer [wrap-cors]]
             [liberator.representation :refer [ring-response]]
@@ -131,8 +133,6 @@
    :status CheckStatus
    :notifications [CheckNotification]
    })
-
-(def build-check [])
 
 (sch/defschema Instance
   {
@@ -355,14 +355,11 @@
   (fn [ctx]
     (sql/toggle-environment! @db false id)))
 
-(defn get-bastions [bus customer-id] {})
-
 (defn list-bastions []
   (fn [ctx]
-    (let [login (:login ctx)]
-      (for [brec (get-bastions @bus (:customer_id login))
-            :let [reg (:registration brec)]]
-        reg))))
+    (let [login (:login ctx)
+          instance-ids (router/get-customer-bastions (:customer_id login))]
+      {:bastions instance-ids})))
 
 (defn send-msg [bus id cmd body] {})
 
@@ -596,6 +593,14 @@
   (let [customer-id (get-in ctx [:login :customer_id])]
     {:groups (instance/list-groups! customer-id)}))
 
+(defn test-check! [instance_id]
+  (fn [ctx]
+    (let [login (:login ctx)
+          addr (router/get-service (:customer_id login) instance_id "checker")
+          client (rpc/check-tester-client addr)
+          response (rpc/test-check client (json-body ctx))]
+      {:test-results response})))
+
 (defn launch-bastions! [ctx]
   (let [login (:login ctx)
         launch-cmd (json-body ctx)]
@@ -709,6 +714,13 @@
   :authorized? (authorized?)
   :handle-ok list-bastions)
 
+(defresource test-check-resource [id]
+             :available-media-types ["application/json"]
+             :allowed-methods [:post]
+             :authorized? (authorized?)
+             :post! (test-check! id)
+             :handle-created :test-results)
+
 (defresource discovery-resource []
   :available-media-types ["application/json"]
   :allowed-methods [:get])
@@ -797,6 +809,7 @@
   (ANY* "/bastions" [] (bastions-resource))
   (ANY* "/bastions/launch" [] (launch-bastions-resource))
   (ANY* "/bastions/:id" [id] (bastion-resource id))
+  (ANY* "/bastions/:id/test-check" [id] (test-check-resource id))
   (ANY* "/discovery" [] (discovery-resource))
   (ANY* "/checks" [] (checks-resource))
   (ANY* "/checks/:id" [id] (check-resource id))
