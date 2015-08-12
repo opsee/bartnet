@@ -43,7 +43,7 @@
   [hash]
   (let [clazz (Class/forName (str "co.opsee." (:type_url hash)))
         proto (hash->proto clazz (:value hash))]
-    {:type_url (:type hash) :value (.toByteArray proto)}))
+    {:type_url (:type_url hash) :value (.toByteArray proto)}))
 
 (defn value-converter [v builder field]
   (case-enum (.getJavaType field)

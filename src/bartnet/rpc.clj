@@ -1,5 +1,6 @@
 (ns bartnet.rpc
-  (:require [bartnet.protobuilder :as proto])
+  (:require [bartnet.protobuilder :as proto]
+            [clojure.tools.logging :as log])
   (:import (io.grpc.transport.netty NettyChannelBuilder NegotiationType)
            (co.opsee CheckerGrpc TestCheckRequest CheckerGrpc$CheckerBlockingStub)))
 
@@ -14,5 +15,8 @@
     (->CheckTesterClient channel stub)))
 
 (defn test-check [^CheckTesterClient client check]
-  (let [req (proto/hash->proto TestCheckRequest check)]
-    (proto/proto->hash (.testCheck (:stub client) req))))
+  (let [req (proto/hash->proto TestCheckRequest check)
+        resp (.testCheck (:stub client) req)]
+    (log/info "req" req)
+    (log/info "resp" resp)
+    (proto/proto->hash resp)))

@@ -600,7 +600,7 @@
           _ (log/info "addr" addr)
           client (rpc/check-tester-client addr)
           response (rpc/test-check client (json-body ctx))]
-
+      (log/info "resp" response)
       {:test-results response})))
 
 (defn launch-bastions! [ctx]
