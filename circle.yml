@@ -3,6 +3,8 @@ checkout:
     - git submodule sync
     - git submodule update --init
 dependencies:
+  cache_directories:
+    - "~/.m2"
   pre:
     - createdb bartnet_test
     - curl -k -L -o docker/bin/ec2-env https://s3-us-west-2.amazonaws.com/opsee-releases/go/ec2-env/ec2-env
