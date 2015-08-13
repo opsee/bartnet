@@ -5,7 +5,7 @@
         "subprotocol":"postgresql",
         "subname":"bartnet_test",
         "user":"postgres",
-        "password":"",
+        "password":"test",
         "max-conns":6,
         "min-conns":1,
         "init-conns":1

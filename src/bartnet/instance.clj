@@ -47,11 +47,16 @@
   (let [v (get m k)]
     (when (get m k) {k (Integer. (str (get m k)))})))
 
-(defn- sanitize-connection-details [conn-info]
+(defn- sanitize-connection-details' [conn-info]
   (let [sanitized (merge conn-info
-                    (str->int :port conn-info)
-                    (str->int :db conn-info))]
+                         (str->int :port conn-info)
+                         (str->int :db conn-info))]
     sanitized))
+
+(defn- sanitize-connection-details [conn-info]
+  (if-let [spec (:spec conn-info)]
+    (sanitize-connection-details' spec)
+    (sanitize-connection-details' conn-info)))
 
 (defmacro ^{:private true} with-redis [& body]
   `(try
