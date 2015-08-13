@@ -1,7 +1,7 @@
 (ns bartnet.t-protobuilder
   (:require [midje.sweet :refer :all]
             [bartnet.protobuilder :refer :all])
-  (:import (co.opsee TestCheckRequest Any Timestamp HttpCheck Header)
+  (:import (co.opsee.proto TestCheckRequest Any Timestamp HttpCheck Header)
            (com.google.protobuf ByteString)))
 
 (facts "Hash to proto"

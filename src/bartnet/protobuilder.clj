@@ -3,7 +3,7 @@
            (java.nio ByteBuffer)
            (io.netty.buffer ByteBuf)
            (clojure.lang Reflector)
-           (co.opsee Any)))
+           (co.opsee.proto Any)))
 
 (defn- byte-string [buf]
   (cond
@@ -38,10 +38,10 @@
 (defmethod into-builder GeneratedMessage$Builder [b] b)
 
 (defn hash->anyhash
-  "Searches co.opsee.* for the type element of the hash, brings back its builder, builds it and delivers
+  "Searches co.opsee.proto.* for the type element of the hash, brings back its builder, builds it and delivers
   it marshalled into the value element of the hash"
   [hash]
-  (let [clazz (Class/forName (str "co.opsee." (:type_url hash)))
+  (let [clazz (Class/forName (str "co.opsee.proto." (:type_url hash)))
         proto (hash->proto clazz (:value hash))]
     {:type_url (:type_url hash) :value (.toByteArray proto)}))
 
@@ -77,7 +77,7 @@
 
 (defn- any->hash [^Any any]
   (let [type (.getTypeUrl any)
-        clazz (Class/forName (str "co.opsee." type))
+        clazz (Class/forName (str "co.opsee.proto." type))
         proto (Reflector/invokeStaticMethod clazz "parseFrom" (to-array [(.getValue any)]))]
     {:type_url type
      :value (proto->hash proto)}))
