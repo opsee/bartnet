@@ -488,9 +488,11 @@
                  (loop [msg @(s/take! client)]
                    (if (= "heartbeat" (:command msg))
                      (do
-                       (log/info msg)
+                       (log/info "wtf" msg)
                        (recur @(s/take! client)))
-                     msg => (is-json (contains {:command "discovery"}))))
+                     (do
+                       (log/info "freal tho" msg)
+                       msg => (is-json (contains {:command "discovery"})))))
                  (.close client)))
          ))
 
