@@ -7,7 +7,6 @@
 (defn docker
   "Build docker image"
   [project]
-  (uberjar project)
   (let [jar-path (get-jar-filename project :standalone)]
     (sh "cp" jar-path "docker/lib/bartnet.jar")
     (let [docker (sh "docker" "build" "-t" "quay.io/opsee/bartnet" "docker")

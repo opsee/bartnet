@@ -50,7 +50,7 @@
   (let [config (parse-string (slurp (first args)) true)
         db (sql/pool (:db-spec config))
         bus (bus/message-bus (if (:nsq config)
-                               (nsq/message-bus (get-in config [:nsq :host]) (get-in config [:nsq :port]))
+                               (nsq/message-bus (:nsq config))
                                (autobus/autobus)))
         executor (Executors/utilizationExecutor (:thread-util config) (:max-threads config))
         scheduler (ScheduledThreadPoolExecutor. 10)

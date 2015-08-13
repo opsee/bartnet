@@ -2,10 +2,18 @@
   (:require [bartnet.sql :as sql]
             [bartnet.auth :as auth]
             [cheshire.core :refer :all]
+            [clojure.string :as str]
             [yesql.util :refer [slurp-from-classpath]]
             [bartnet.db-cmd :refer [migrate-db]]))
 
-(def test-config (parse-string (slurp-from-classpath "test-config.json") true))
+(defn- docker-knockout "don't judge me" [config]
+  (if-let [slug (get (System/getenv) "POSTGRESQL_PORT")]
+    (let [[_ _ port] (str/split slug #":")]
+      (let [db-spec (:db-spec config)]
+        (assoc config :db-spec (assoc db-spec :subname (str "//postgresql:" port "/bartnet_test")))))
+    config))
+
+(def test-config (docker-knockout (parse-string (slurp-from-classpath "test-config.json") true)))
 
 (def db (atom nil))
 

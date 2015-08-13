@@ -485,7 +485,10 @@
                                                                    :port 3884
                                                                    :protocol "sql"
                                                                    :request "select 1;"}))
-                 @(s/take! client) => (is-json (contains {:command "discovery"}))
+                 (loop [msg @(s/take! client)]
+                   (if (= "heartbeat" (:command msg))
+                     (recur @(s/take! client))
+                     msg => (is-json (contains {:command "discovery"}))))
                  (.close client)))
          ))
 

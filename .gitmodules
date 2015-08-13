@@ -1,0 +1,3 @@
+[submodule "resources/proto"]
+	path = resources/proto
+	url = git@github.com:opsee/bastion_proto.git

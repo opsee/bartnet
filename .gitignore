@@ -11,3 +11,4 @@ pom.xml.asc
 *.iml
 *.sublime-project
 *.sublime-workspace
+src/co/opsee/proto/*
