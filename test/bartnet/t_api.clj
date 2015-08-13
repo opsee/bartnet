@@ -487,7 +487,9 @@
                                                                    :request "select 1;"}))
                  (loop [msg @(s/take! client)]
                    (if (= "heartbeat" (:command msg))
-                     (recur @(s/take! client))
+                     (do
+                       (log/info msg)
+                       (recur @(s/take! client)))
                      msg => (is-json (contains {:command "discovery"}))))
                  (.close client)))
          ))
