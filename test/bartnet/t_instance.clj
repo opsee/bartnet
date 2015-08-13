@@ -15,9 +15,10 @@
    :meta        {:created "timestamp" :instanceSize "t2.micro"}})
 
 (def connection-info
-  {:host "127.0.0.1"
-   :port 6379
-   :db 1})
+  {:pool {}
+   :spec {:host (get (System/getenv) "REDIS_PORT_6379_TCP_ADDR" "127.0.0.1")
+          :port (Integer/parseInt (get (System/getenv) "REDIS_PORT_6379_TCP_PORT" "6379"))
+          :db 0}})
 
 (defn reset-redis [conn-info]
   (car/wcar conn-info (car/flushall)))

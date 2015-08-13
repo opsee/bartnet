@@ -7,9 +7,10 @@
             [bartnet.db-cmd :refer [migrate-db]]))
 
 (defn- docker-knockout "don't judge me" [config]
-  (if-let [[_ _ port] (str/split (get (System/getenv) "POSTGRESQL_PORT") #":")]
-    (let [db-spec (:db-spec config)]
-      (assoc config :db-spec (assoc db-spec :subname (str "//postgresql:" port "/bartnet_test"))))
+  (if-let [slug (get (System/getenv) "POSTGRESQL_PORT")]
+    (let [[_ _ port] (str/split slug #":")]
+      (let [db-spec (:db-spec config)]
+        (assoc config :db-spec (assoc db-spec :subname (str "//postgresql:" port "/bartnet_test")))))
     config))
 
 (def test-config (docker-knockout (parse-string (slurp-from-classpath "test-config.json") true)))

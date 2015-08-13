@@ -9,8 +9,10 @@ dependencies:
   override:
     - docker info
     - docker pull quay.io/opsee/build-clj
+    - docker pull quay.io/opsee/redis
     - docker pull sameersbn/postgresql:9.4-3
     - docker run --name postgresql -d -e PSQL_TRUST_LOCALNET=true -e DB_USER=postgres -e DB_PASS= -e DB_NAME=bartnet_test sameersbn/postgresql:9.4-3
+    - docker run --name redis -d quay.io/opsee/redis
 machine:
   java:
     version: oraclejdk8
@@ -22,7 +24,7 @@ notify:
     - url: https://hooks.slack.com/services/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
 test:
   override:
-    - docker run --link postgresql:postgresql -e LEIN_USERNAME=$LEIN_USERNAME -e LEIN_PASSPHRASE=$LEIN_PASSPHRASE -v $HOME/.m2:/root/.m2 -v `pwd`:/build quay.io/opsee/build-clj
+    - docker run --link postgresql:postgresql --link redis:redis -e LEIN_USERNAME=$LEIN_USERNAME -e LEIN_PASSPHRASE=$LEIN_PASSPHRASE -v $HOME/.m2:/root/.m2 -v `pwd`:/build quay.io/opsee/build-clj
     - lein docker
     - docker run -d -p 8080:8080 quay.io/opsee/bartnet; sleep 20
     - test "$(curl -s --retry 10 --retry-delay 5 http://localhost:8080/health_check)" = "A ok"
