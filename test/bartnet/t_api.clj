@@ -492,7 +492,7 @@
                        (recur @(s/take! client)))
                      (do
                        (log/info "freal tho" msg)
-                       msg => (is-json (contains {:command "discovery"})))))
+                       (fact msg => (is-json (contains {:command "discovery"}))))))
                  (.close client)))
          ))
 
