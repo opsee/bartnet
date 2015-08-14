@@ -485,14 +485,15 @@
                                                                    :port 3884
                                                                    :protocol "sql"
                                                                    :request "select 1;"}))
-                 (loop [msg @(s/take! client)]
-                   (if (= "heartbeat" (:command msg))
-                     (do
-                       (log/info "wtf" msg)
-                       (recur @(s/take! client)))
-                     (do
-                       (log/info "freal tho" msg)
-                       (fact msg => (is-json (contains {:command "discovery"}))))))
+                 (let [msg (loop [msg @(s/take! client)]
+                             (if (= "heartbeat" (:command msg))
+                               (do
+                                 (log/info "wtf" msg)
+                                 (recur @(s/take! client)))
+                               (do
+                                 (log/info "freal tho" msg)
+                                 msg)))]
+                   msg => (is-json (contains {:command "discovery"})))
                  (.close client)))
          ))
 
