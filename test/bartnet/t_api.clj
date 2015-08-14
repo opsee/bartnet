@@ -452,6 +452,19 @@
                                                      (contains {:region "us-west-2"
                                                                 :ec2-classic true
                                                                 :vpcs (just [(contains {:vpc-id "vpc-82828282"})])})]))))))
+
+(defn- take-until! [pred stream]
+  (loop [msg @(s/take! stream)]
+    (log/info "msg" msg)
+    (if (or (pred msg) (= nil msg))
+      msg
+      (recur @(s/take! stream)))))
+
+(defn- xform [msg]
+  (log/info "xform" msg)
+  (into {} (map (fn [[k v]]
+                  [(keyword k) v])) msg))
+
 (facts "Websocket handling works"
        (with-state-changes
          [(before :facts (do
@@ -485,14 +498,7 @@
                                                                    :port 3884
                                                                    :protocol "sql"
                                                                    :request "select 1;"}))
-                 (let [msg (loop [msg @(s/take! client)]
-                             (if (= "heartbeat" (:command msg))
-                               (do
-                                 (log/info "wtf" msg)
-                                 (recur @(s/take! client)))
-                               (do
-                                 (log/info "freal tho" msg)
-                                 msg)))]
+                 (let [msg (take-until! #(re-find #"discovery" %) client)]
                    msg => (is-json (contains {:command "discovery"})))
                  (.close client)))
          ))
