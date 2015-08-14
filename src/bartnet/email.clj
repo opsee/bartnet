@@ -3,8 +3,9 @@
             [clojure.string :as string]
             [clostache.parser :refer [render-resource]]
             [instaparse.core :as insta]
+            [ring.util.codec :refer [url-encode]]
             [clojure.tools.logging :as log]
-            [clojure.string :refer [join]]
+            [clojure.string :refer [join replace]]
             [clojure.core.match :refer [match]]))
 
 
@@ -34,8 +35,16 @@
                       [:subject subj] (assoc obj :subject subj)
                       [:body [:sep separator] & body] (assoc obj (keyword separator) (join "\n" body))))) {} email))
 
-(defn render-email [template-path data]
-  (let [tree (email-parser (render-resource template-path data))]
+(defn- escape [value]
+  (replace (url-encode value) #"\+" "%2B"))
+
+(defn- escape-data [data]
+  (into data (map (fn [[k v]]
+                    [(keyword (str (name k) "_escaped")) (escape v)])) data))
+
+(defn render-email [template-path raw-data]
+  (let [data (escape-data raw-data)
+        tree (email-parser (render-resource template-path data))]
     (xform tree)))
 
 (defn send-activation! [config signup id]
