@@ -2,7 +2,7 @@
 
 Monolothic Clojure API Server
 
-Firstly you'll need to do codegen for protobufs/grpc.  Codegen can be accomplished via protobufs 3 and the grpc-java plugin.  Or just use the build-clj container like so:
+Firstly you'll need to do codegen for protobufs/grpc. Protobuf defs are in a git submodule, so be sure to run `git submodule init && git submodule update` on a fresh install. Codegen can be accomplished via protobufs 3 and the grpc-java plugin.  Or just use the build-clj container like so:
 
 ```docker pull quay.io/opsee/build-clj && docker run -v `pwd`:/build quay.io/opsee/build-clj ./build.sh nobuild```
 
