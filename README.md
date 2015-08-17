@@ -2,6 +2,8 @@
 
 Monolothic Clojure API Server
 
+In order to build, you need AWS API keys for our snapshot jars.  Set the env variables thusly: LEIN_USERNAME=aws access key id LEIN_PASSPHRASE=aws secret key.
+
 ## Testing
 
 ```lein midje```
