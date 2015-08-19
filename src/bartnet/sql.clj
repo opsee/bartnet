@@ -1,6 +1,8 @@
 (ns bartnet.sql
   (:import com.mchange.v2.c3p0.ComboPooledDataSource)
-  (:require [yesql.core :refer [defqueries]]
+  (:require [clj-postgresql.core]
+            [clojure.java.jdbc]
+            [yesql.core :refer [defqueries]]
             [clojure.tools.logging :as log]))
 
 (defn build-jdbc-url [config]
@@ -23,5 +25,7 @@
                (.setMinPoolSize (:min-conns config))
                (.setInitialPoolSize (:init-conns config)))]
     {:datasource cpds}))
+
+
 
 (defqueries "queries.sql")

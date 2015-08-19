@@ -416,8 +416,13 @@
         env (first (sql/get-environments-for-login @db (:id login)))
         check (json-body ctx)
         id (identifiers/generate)
-        final-check (merge check {:id id, :environment_id (:id env)})]
+        final-check (merge check {:id id, :environment_id (:id env)})
+        bastions (router/get-customer-bastions (:customer_id login))]
     (sql/insert-into-checks! @db final-check)
+    (doseq [bastion bastions
+            :let [addr (router/get-service (:customer_id login) bastion "checker")
+                  client (rpc/check-tester-client addr)
+                  response ()]])
     (publish-command (:customer_id login)
                      "commands"
                      (bus/make-msg "CheckCommand" {:action "create_check"

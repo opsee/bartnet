@@ -1,5 +1,6 @@
 (ns bartnet.protobuilder
-  (:import (com.google.protobuf GeneratedMessage$Builder WireFormat$JavaType Descriptors$FieldDescriptor ByteString GeneratedMessage ProtocolMessageEnum)
+  (:require [schema.core :as s])
+  (:import (com.google.protobuf GeneratedMessage$Builder WireFormat$JavaType Descriptors$FieldDescriptor ByteString GeneratedMessage ProtocolMessageEnum Descriptors$Descriptor Descriptors$EnumDescriptor)
            (java.nio ByteBuffer)
            (io.netty.buffer ByteBuf)
            (clojure.lang Reflector)
@@ -59,6 +60,10 @@
                                            (hash->proto (.newBuilderForField builder field) (hash->anyhash v))
                                            (hash->proto (.newBuilderForField builder field) v))))
 
+(defrecord AnyTypeSchema []
+  s/Schema
+  ())
+
 (defn- enum-keyword [^ProtocolMessageEnum enum]
   (let [enum-type (.getValueDescriptor enum)]
     (keyword (.getName enum-type))))
@@ -106,3 +111,36 @@
         (map (fn [[^Descriptors$FieldDescriptor desc value]]
                [(keyword (.getName desc)) (unpack-repeated-or-single desc value)]))
         (.getAllFields proto)))
+
+(declare type->schema)
+
+(defn- enum->schema [^Descriptors$EnumDescriptor enum]
+  (apply s/enum (map #(keyword (.getName %)) (.getValues enum))))
+
+(defn- field->schema-entry [^Descriptors$FieldDescriptor field]
+  [(keyword (.getName field)) (if (.isRepeated field)
+                                [(type->schema field)]
+                                (type->schema field))])
+
+(defn- descriptor->schema [^Descriptors$Descriptor descriptor]
+  (into {}
+        (map field->schema-entry)
+        (.getFields descriptor)))
+
+(defn- type->schema [^Descriptors$FieldDescriptor field]
+  (case-enum (.getJavaType field)
+             WireFormat$JavaType/BOOLEAN s/Bool
+             WireFormat$JavaType/BYTE_STRING s/Str
+             WireFormat$JavaType/DOUBLE s/Num
+             WireFormat$JavaType/ENUM (enum->schema (.getEnumType field))
+             WireFormat$JavaType/FLOAT s/Num
+             WireFormat$JavaType/INT s/Int
+             WireFormat$JavaType/LONG s/Int
+             WireFormat$JavaType/STRING s/Str
+             WireFormat$JavaType/MESSAGE (if (= "Any" (.getName (.getMessageType field)))
+                                           (anytype-schema)
+                                           (descriptor->schema (.getMessageType field)))))
+
+(defn proto->schema [^Class clazz]
+  (let [^Descriptors$Descriptor descriptor (Reflector/invokeStaticMethod clazz "getDescriptor" (to-array nil))]
+    (descriptor->schema descriptor)))

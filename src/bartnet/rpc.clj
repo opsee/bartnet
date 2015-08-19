@@ -20,3 +20,9 @@
     (log/info "req" req)
     (log/info "resp" resp)
     (proto/proto->hash resp)))
+
+(defn dbcheck->protocheck [check]
+  (merge check {:check_spec {}}))
+
+(defn create-check [^CheckTesterClient client check]
+  )

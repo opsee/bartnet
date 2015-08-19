@@ -77,15 +77,15 @@ select * from environments where enabled=false and id=:id;
 
 -- name: insert-into-checks!
 -- Inserts a new record into the checks table.
-insert into checks (id,environment_id,name,description,group_type,group_id,check_type,check_request,check_interval,port) values
-                          (:id,:environment_id,:name,:description,:group_type,:group_id,:check_type,:check_request,:check_interval,:port);
+insert into checks (id, environment_id, "interval", target_id, last_run, check_spec) values (:id, :environment_id, :interval, :target_id, :last_run, :check_spec::jsonb);
 
 -- name: update-check!
 -- Updates an existing health_check record.
-update checks set name=:name, description=:description,
-                  group_type=:group_type, group_id=:group_id,
-                  check_type=:check_type, check_request=:check_request,
-                  check_interval=:check_interval, port=:port where id=:id;
+update checks set environment_id = :environment_id,
+                  "interval" = :interval,
+                  target_id = :target_id,
+                  last_run = :last_run,
+                  check_spec = :check_spec where id=:id;
 
 -- name: get-check-by-id
 -- Retrieves a health check record.
