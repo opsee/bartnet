@@ -5,7 +5,7 @@
             [instaparse.core :as insta]
             [ring.util.codec :refer [url-encode]]
             [clojure.tools.logging :as log]
-            [clojure.string :refer [join replace]]
+            [clojure.string :as str]
             [clojure.core.match :refer [match]]))
 
 
@@ -33,10 +33,10 @@
                (match token
                       :email obj
                       [:subject subj] (assoc obj :subject subj)
-                      [:body [:sep separator] & body] (assoc obj (keyword separator) (join "\n" body))))) {} email))
+                      [:body [:sep separator] & body] (assoc obj (keyword separator) (str/join "\n" body))))) {} email))
 
 (defn- escape [value]
-  (replace (url-encode value) #"\+" "%2B"))
+  (if value (str/replace (url-encode value) #"\+" "%2B")))
 
 (defn- escape-data [data]
   (into data (map (fn [[k v]]
