@@ -47,7 +47,7 @@
 (defn generate-env-shell [env]
   (str/join "\n" (map
                    (fn [[k v]]
-                     (str "export " (name k) "=\"" v "\""))
+                     (str (name k) "=\"" v "\""))
                    env)))
 
 (defn generate-user-data [customer-id env] ;ca cert key]
