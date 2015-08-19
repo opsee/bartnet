@@ -465,9 +465,9 @@
       (sql/insert-into-signups! @db signup))))
 
 (defn- page-count [count query-limit]
-  (if (< 0 (rem count query-limit))
-    (+ 1 (quot count query-limit))
-    (quot count query-limit)))
+  (if (= 0 (rem count query-limit))
+    (quot count query-limit)
+    (+ 1 (quot count query-limit))))
 
 (defn list-signups [ctx]
   (let [page (or (get-in ctx [:request :params "page"]) 1)
