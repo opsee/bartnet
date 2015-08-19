@@ -118,6 +118,11 @@ select * from signups order by email limit :limit offset :offset;
 -- name: get-signup-by-email
 select * from signups where email=:email;
 
+-- name: get-signups-with-activations-count
+select count(*) as "count" from signups as s
+  left outer join activations as a
+  on s.email = a.email;
+
 -- name: get-signups-with-activations
 -- Get signups and their corresponding activation information.
 select s.*, a.id as activation_id, a.used as activation_used from signups as s

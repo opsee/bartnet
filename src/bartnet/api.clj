@@ -464,9 +464,16 @@
     (let [signup (:signup ctx)]
       (sql/insert-into-signups! @db signup))))
 
+(defn- page-count [count query-limit]
+  (if (< 0 (rem count query-limit))
+    (+ 1 (quot count query-limit))
+    (quot count query-limit)))
+
 (defn list-signups [ctx]
-  (let [page (or (get-in ctx [:request :params "page"]) 1)]
-    (sql/get-signups-with-activations @db query-limit (* (- page 1) query-limit))))
+  (let [page (or (get-in ctx [:request :params "page"]) 1)
+        count (:count (first (sql/get-signups-with-activations-count @db)))]
+    {:pages (page-count count query-limit)
+     :signups (sql/get-signups-with-activations @db query-limit (* (- page 1) query-limit))}))
 
 (defn get-signup [ctx]
   (if (:duplicate ctx)
