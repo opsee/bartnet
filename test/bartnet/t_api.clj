@@ -194,9 +194,9 @@
                (let [response ((app) (-> (mock/request :get "/signups")
                                          (mock/header "Authorization" auth-header)))]
                  (:status response) => 200
-                 (:body response) => (is-json (just (contains {:email "cliff+signup@leaninto.it"})))
                  (let [body (parse-string (:body response) true)]
-                   (sch/validate [api/Signup] body) => body)))
+                   (sch/validate [api/Signup] (:signups body)) => (:signups body)
+                   (:pages body) => 1)))
          (fact "superusers can send an activation email"
                (let [response ((app) (-> (mock/request :post "/signups/send-activation?email=cliff%2Bsignup@leaninto.it")
                                          (mock/header "Authorization" auth-header)))]
