@@ -118,6 +118,7 @@
                                                                              (generate-user-data customer-id {}))}
                                {:parameter-key "VpcId" :parameter-value vpc-id}
                                {:parameter-key "KeyName" :parameter-value keypair}]
+                  :tags [{:key "Name" :value (str customer-id " Opsee Bastion")}]
                   :notification-arns [topic-arn]} template-map))
         (loop [{messages :messages} (sqs/receive-message creds {:queue-url queue-url})]
           (if
