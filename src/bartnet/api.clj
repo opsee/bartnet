@@ -4,25 +4,41 @@
             [bartnet.instance :as instance]
             [bartnet.sql :as sql]
             [bartnet.rpc :as rpc]
+            [bartnet.protobuilder :as pb]
             [bartnet.bastion-router :as router]
             [clojure.tools.logging :as log]
             [ring.middleware.cors :refer [wrap-cors]]
             [liberator.representation :refer [ring-response]]
             [yesql.util :refer [slurp-from-classpath]]
-            [liberator.core :refer [resource defresource]]
-            [liberator.dev :refer [wrap-trace]]
+
             [amazonica.aws.ec2 :refer [describe-vpcs describe-account-attributes]]
             [ring.middleware.params :refer [wrap-params]]
             [compojure.api.sweet :refer :all]
+            [compojure.api.meta :as meta]
+            [compojure.api.middleware :as mw]
             [cheshire.core :refer :all]
+            [cheshire.generate :as cg]
             [clojure.string :as str]
             [bartnet.identifiers :as identifiers]
             [bartnet.launch :as launch]
             [bartnet.bus :as bus]
-            [schema.core :as sch])
+            [schema.core :as sch]
+            [liberator.dev :refer [wrap-trace]]
+            [liberator.representation :as lr]
+            [liberator.core :refer [resource defresource]])
   (:import (java.sql BatchUpdateException)
            [java.util Base64]
-           (java.sql BatchUpdateException)))
+           (java.sql BatchUpdateException)
+           (co.opsee.proto TestCheckRequest TestCheckResponse)
+           (java.io ByteArrayInputStream)
+           (com.google.protobuf GeneratedMessage)))
+
+;; preamble enables spiffy protobuf coercion
+
+(defmethod meta/restructure-param :proto [_ [value clazz] acc]
+  (-> acc
+      (update-in [:lets] into [value (meta/src-coerce! (resolve clazz) :body-params :proto)])
+      (assoc-in [:parameters :parameters :body] (pb/proto->schema (resolve clazz)))))
 
 ;; Schemata
 
@@ -244,7 +260,9 @@
   (fn [request]
     (if-let [body-rdr (:body request)]
                     (let [body (slurp body-rdr)
-                          req1 (assoc request :strbody body)]
+                          req1 (assoc request
+                                 :strbody body
+                                 :body (ByteArrayInputStream. (.getBytes body)))]
                       (log/info "request:" req1)
                       (handler req1))
                     (do (log/info "request:" request)
@@ -269,7 +287,7 @@
 
 
 (defn json-body [ctx]
-  (if-let [body (get-in ctx [:request :strbody])]
+  (if-let [body (get-in ctx [:request :body])]
     (parse-string body true)))
 
 (defn respond-with-entity? [ctx]
@@ -598,13 +616,13 @@
   (let [customer-id (get-in ctx [:login :customer_id])]
     {:groups (instance/list-groups! customer-id)}))
 
-(defn test-check! [instance_id]
+(defn test-check! [instance_id testCheck]
   (fn [ctx]
     (let [login (:login ctx)
           addr (router/get-service (:customer_id login) instance_id "checker")
           _ (log/info "addr" addr)
           client (rpc/check-tester-client addr)
-          response (rpc/test-check client (json-body ctx))]
+          response (rpc/test-check client testCheck)]
       (log/info "resp" response)
       {:test-results response})))
 
@@ -721,12 +739,12 @@
   :authorized? (authorized?)
   :handle-ok list-bastions)
 
-(defresource test-check-resource [id]
+(defresource test-check-resource [id testCheck]
              :available-media-types ["application/json"]
              :allowed-methods [:post]
              :authorized? (authorized?)
-             :post! (test-check! id)
-             :handle-created :test-results)
+             :post! (test-check! id testCheck)
+             :handle-created (fn [ctx] (pb/proto->hash (:test-results ctx))))
 
 (defresource discovery-resource []
   :available-media-types ["application/json"]
@@ -792,7 +810,9 @@
       (handler request))))
 
 (defapi bartnet-api
-  {:exceptions {:exception-handler robustify-errors}}
+  {:exceptions {:exception-handler robustify-errors}
+   :coercion (fn [_] (assoc mw/default-coercion-matchers
+                       :proto pb/proto-walker))}
   (swagger-docs "/api/swagger.json"
     {:info {
             :title "Opsee API"
@@ -816,7 +836,11 @@
   (ANY* "/bastions" [] (bastions-resource))
   (ANY* "/bastions/launch" [] (launch-bastions-resource))
   (ANY* "/bastions/:id" [id] (bastion-resource id))
-  (ANY* "/bastions/:id/test-check" [id] (test-check-resource id))
+  (POST* "/bastions/:id/test-check" [id]
+         :summary "Tells the bastion instance in question to test out a check and return the response"
+         :proto [testCheck TestCheckRequest]
+         :return (pb/proto->schema TestCheckResponse)
+         (test-check-resource id testCheck))
   (ANY* "/discovery" [] (discovery-resource))
   (ANY* "/checks" [] (checks-resource))
   (ANY* "/checks/:id" [id] (check-resource id))

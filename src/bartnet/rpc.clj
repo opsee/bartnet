@@ -15,11 +15,11 @@
     (->CheckTesterClient channel stub)))
 
 (defn test-check [^CheckTesterClient client check]
-  (let [req (proto/hash->proto TestCheckRequest check)
-        resp (.testCheck (:stub client) req)]
-    (log/info "req" req)
-    (log/info "resp" resp)
-    (proto/proto->hash resp)))
+  (log/info "check" check)
+  ;(let [req (proto/hash->proto TestCheckRequest check)]
+    (let [resp (.testCheck (:stub client) check)]
+      (log/info "resp" resp)
+      resp))
 
 (defn dbcheck->protocheck [check]
   (merge check {:check_spec {}}))
