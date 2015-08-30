@@ -3,11 +3,7 @@
   (:require [clojure.tools.logging :as log]
             [clojure.tools.cli :refer [parse-opts]]
             [bartnet.api :as api]
-            [bartnet.auth :as auth]
-            [bartnet.identifiers :as identifiers]
-            [bartnet.bastion :as bastion]
             [bartnet.instance :as instance]
-            [bartnet.launch :as launch]
             [bartnet.db-cmd :as db-cmd]
             [bartnet.upload-cmd :as upload-cmd]
             [bartnet.bus :as bus]
@@ -22,12 +18,7 @@
   (:import [java.util.concurrent ScheduledThreadPoolExecutor]
            [io.aleph.dirigiste Executors]))
 
-(def ^{:private true} bastion-server (atom nil))
-
 (def ^{:private true} ws-server (atom nil))
-
-(defn- start-bastion-server [db bus options]
-  (if-not @bastion-server (reset! bastion-server (bastion/bastion-server db bus options))))
 
 (defn- start-ws-server [executor scheduler db bus config]
   (if-not @ws-server
@@ -39,9 +30,6 @@
 
 (defn stop-server []
   (do
-    (if @bastion-server (do
-                          (.close @bastion-server)
-                          (reset! bastion-server nil)))
     (if @ws-server (do
                      (.stop @ws-server)
                      (reset! ws-server nil)))))
@@ -59,7 +47,6 @@
       (instance/create-redis-store bus redis-conn)
       ;; XXX: Maybe we want to hard fail instead or make this configurable?
       (instance/create-memory-store bus))
-    (start-bastion-server db bus (:bastion-server config))
     (start-ws-server executor scheduler db bus config)))
 
 (.addShutdownHook

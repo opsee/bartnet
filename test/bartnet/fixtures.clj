@@ -4,7 +4,9 @@
             [cheshire.core :refer :all]
             [clojure.string :as str]
             [yesql.util :refer [slurp-from-classpath]]
-            [bartnet.db-cmd :refer [migrate-db]]))
+            [bartnet.db-cmd :refer [migrate-db]])
+  (:import (co.opsee.proto Timestamp)
+           (java.sql BatchUpdateException)))
 
 (defn- docker-knockout "don't judge me" [config]
   (if-let [slug (get (System/getenv) "POSTGRESQL_PORT")]
@@ -25,7 +27,9 @@
 
 (defn is-json [checker]
   (fn [actual]
-    (checker (parse-string actual true))))
+    (if (instance? String actual)
+      (checker (parse-string actual true))
+      (checker (parse-stream actual true)))))
 
 (defn is-msg [checker]
   (fn [msg]
@@ -62,18 +66,30 @@
     (sql/link-environment-and-login! db {:environment_id "abc123", :login_id 1})
     (sql/link-environment-and-login! db {:environment_id "nice123", :login_id 1})))
 
+(defn target-fixtures [db]
+  (do
+    (sql/insert-into-targets! db {:id "sg-123"
+                                  :type "sg"
+                                  :name "coreos"})))
+
 (defn check-fixtures [db]
   (do
-    (sql/insert-into-checks! db {:id "checkid123"
+    (sql/insert-into-targets! db {:id "sg-123"
+                                  :name "boreos"
+                                  :type "sg"})
+    (sql/insert-into-checks! db {:id             "checkid123"
                                  :environment_id "abc123"
-                                 :name "A Nice Check"
-                                 :description "description"
-                                 :group_type "sg"
-                                 :group_id "sg123"
-                                 :check_type "http"
-                                 :check_request "GET /health_check"
-                                 :check_interval 60
-                                 :port 80})))
+                                 :target_id      "sg-123"
+                                 :interval       60
+                                 :last_run       (-> (Timestamp/newBuilder)
+                                                     (.setSeconds 1440802961)
+                                                     .build)
+                                 :check_spec     {:type_url "HttpCheck"
+                                                  :value {:name "A Good Check"
+                                                          :path "/health_check"
+                                                          :port 80
+                                                          :verb "GET"
+                                                          :protocol "http"}}})))
 
 (defn admin-fixtures [db]
   (do

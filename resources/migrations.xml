@@ -285,4 +285,10 @@
     <addForeignKeyConstraint baseTableName="checks" baseColumnNames="target_id" constraintName="fk_checks_targets" referencedTableName="targets"
                              referencedColumnNames="id"/>
   </changeSet>
+  <changeSet id="20" author="cliff">
+    <dropColumn tableName="checks" columnName="last_run"/>
+    <addColumn tableName="checks">
+      <column name="last_run" type="DATETIME"/>
+    </addColumn>
+  </changeSet>
 </databaseChangeLog>

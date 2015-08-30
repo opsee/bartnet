@@ -5,6 +5,7 @@
             [bartnet.websocket :as websocket]
             [bartnet.autobus :as autobus]
             [bartnet.bus :as bus]
+            [bartnet.rpc :as rpc]
             [bartnet.fixtures :refer :all]
             [yesql.util :refer [slurp-from-classpath]]
             [clojure.test :refer :all]
@@ -33,6 +34,15 @@
 (def scheduler (ScheduledThreadPoolExecutor. 10))
 (def ws-server (atom nil))
 
+(defn mock-checker-client [addr]
+  (reify rpc/CheckerClient
+    (shutdown [_])
+    (test-check [_ check])
+    (create-check [_ check])
+    (update-check [_ check])
+    (retrieve-check [_ check])
+    (delete-check [_ check])))
+
 (defn do-setup []
   (do
     (start-connection)))
@@ -51,19 +61,6 @@
 
 (defn stop-ws-server []
   (.stop @ws-server))
-
-(defn publisher [customer-id]
-  (let [client (bus/register bus (bus/publishing-client) customer-id)]
-    (fn [topic msg]
-      (bus/publish bus client customer-id topic msg))))
-
-(defn test-stream [customer-id topics]
-  (let [client (autobus/testing-client)
-        stream (:stream client)
-        client-adapter (bus/register bus client customer-id)]
-    (log/info "subscribing to" topics)
-    (bus/subscribe bus client-adapter customer-id topics)
-    stream))
 
 (facts "Auth endpoint works"
        (fact "bounces bad logins"
@@ -134,42 +131,6 @@
                                          (mock/header "Authorization" auth-header)))]
                  (:status response) => 201
                  (sql/get-environment-for-login @db "abc123" 1) => (just [(contains {:name "Test Update"})])))))
-(facts "checks endpoint works"
-       (with-state-changes
-         [(before :facts (doto
-                           (do-setup)
-                           login-fixtures
-                           environment-fixtures))]
-         (fact "empty checks are empty"
-               (let [response ((app) (-> (mock/request :get "/checks")
-                                         (mock/header "Authorization" auth-header)))]
-                 (:status response) => 200
-                 (:body response) => (is-json empty?)))
-         (with-state-changes
-           [(before :facts (check-fixtures @db))]
-           (fact "checks need auth"
-                 (let [response ((app) (-> (mock/request :get "/checks")
-                                           (mock/header "Authorization" "asasdasd")))]
-                   (:status response) => 401))
-           (fact "checks get returned"
-                 (let [response ((app) (-> (mock/request :get "/checks")
-                                           (mock/header "Authorization" auth-header)))]
-                   (:status response) => 200
-                   (:body response) => (is-json (just (contains {:name "A Nice Check" :id "checkid123"})))))
-           (fact "creates new checks"
-                 (let [response ((app) (-> (mock/request :post "/checks" (generate-string
-                                                                           {:name "A New Check"
-                                                                            :description "Here is my nice check"
-                                                                            :group_type "rds"
-                                                                            :group_id "rds123"
-                                                                            :check_type "postgres"
-                                                                            :check_request "select 1;"
-                                                                            :check_interval 60
-                                                                            :port 5433}))
-                                           (mock/header "Authorization" auth-header)))]
-                   (:status response) => 201
-                   (sql/get-checks-by-env-id @db "abc123") => (contains (contains {:name "A New Check"})))))))
-
 (facts "/signups"
        (with-state-changes
          [(before :facts (doto
@@ -311,66 +272,97 @@
                                          (mock/header "Authorization" auth-header2)))]
                  (:status response) => 204
                  (sql/get-active-login-by-id @db 2) => empty?))))
+(facts "checks endpoint works"
+       (with-redefs [rpc/checker-client mock-checker-client]
+         (with-state-changes
+           [(before :facts (doto
+                             (do-setup)
+                             login-fixtures
+                             environment-fixtures))]
+           (fact "empty checks are empty"
+                 (let [response ((app) (-> (mock/request :get "/checks")
+                                           (mock/header "Authorization" auth-header)))]
+                   (:status response) => 200
+                   (:body response) => (is-json empty?)))
+           (fact "tests a check"
+                 )
+           (with-state-changes
+             [(before :facts (check-fixtures @db))]
+             (fact "checks need auth"
+                   (let [response ((app) (-> (mock/request :get "/checks")
+                                             (mock/header "Authorization" "asasdasd")))]
+                     (:status response) => 401))
+             (fact "checks get returned"
+                   (let [response ((app) (-> (mock/request :get "/checks")
+                                             (mock/header "Authorization" auth-header)))]
+                     (:status response) => 200
+                     (:body response) => (is-json (just
+                                                    (contains
+                                                      {:check_spec
+                                                       (contains {:value (contains {:name "A Good Check"})})})))))
+             (fact "creates new checks"
+                   (let [response ((app) (-> (mock/request :post "/checks" (generate-string
+                                                                             {:interval 10
+                                                                              :target {:name "goobernetty"
+                                                                                       :type "sg"
+                                                                                       :id "sg123679"}
+                                                                              :check_spec {:type_url "HttpCheck"
+                                                                                           :value {:name "A Good Check"
+                                                                                                   :path "/health_check"
+                                                                                                   :port 80
+                                                                                                   :verb "GET"
+                                                                                                   :protocol "http"}}}))
+                                             (mock/header "Authorization" auth-header)))]
+                     (:status response) => 201
+                     (sql/get-checks-by-env-id @db "abc123") => (contains (contains {:interval 10}))))))))
 (facts "check endpoint works"
-       (with-state-changes
-         [(before :facts (doto
-                           (do-setup)
-                           login-fixtures
-                           environment-fixtures
-                           check-fixtures))]
-         (fact "checks that don't exist will 404"
-               (let [response ((app) (-> (mock/request :get "/checks/derpderp")
-                                         (mock/header "Authorization" auth-header)))]
-                 (:status response) => 404))
-         (fact "checks need auth"
-               (let [response ((app) (-> (mock/request :get "/checks/checkid123")
-                                         (mock/header "Authorization" "sdfsdfsdfsdf")))]
-                 (:status response) => 401))
-         (fact "checks that exist get returned"
-               (let [response ((app) (-> (mock/request :get "/checks/checkid123")
-                                         (mock/header "Authorization" auth-header)))]
-                 (:status response) => 200
-                 (:body response) => (is-json (contains {:name "A Nice Check" :id "checkid123"}))))
-         (fact "checks get deleted"
-               (let [stream (test-stream "cliff" "commands")
-                     response ((app) (-> (mock/request :delete "/checks/checkid123")
-                                         (mock/header "Authorization" auth-header)))]
-                 (:status response) => 204
-                 (sql/get-check-by-id @db "checkid123") => empty?
-                 (log/info "sdfsfdasdfadsf")
-                 @(s/take! stream) => (is-msg (contains {:type "CheckCommand"
-                                                         :body (contains {:action "delete_check"
-                                                                          :parameters (contains {:id "checkid123"})})}))
-                 (log/info "gotsdfsdfsdf")))
-         (fact "checks get updated"
-               (let [stream (test-stream "cliff" "commands")
-                     response ((app) (-> (mock/request :put "/checks/checkid123" (generate-string {:check_interval 100
-                                                                                                   :port 443}))
-                                         (mock/header "Authorization" auth-header)))]
-                 (:status response) => 200
-                 (:body response) => (is-json (contains {:port 443 :check_interval 100}))
-                 (sql/get-check-by-id @db "checkid123") => (just (contains {:port 443 :check_interval 100}))
-                 @(s/take! stream) => (is-msg (contains {:type "CheckCommand"
-                                                         :body (contains {:action "update_check"
-                                                                          :parameters (contains {:name "A Nice Check"})})}))
-                 ))
-         (fact "new checks get saved"
-               (let [stream (test-stream "cliff" "commands")
-                     response ((app) (-> (mock/request :post "/checks" (generate-string {:environment_id "abc123"
-                                                                                         :name "My Dope Fuckin Check"
-                                                                                         :description "yo"
-                                                                                         :group_type "sg"
-                                                                                         :group_id "sg345"
-                                                                                         :check_type "postgres"
-                                                                                         :check_request "select 1 from table;"
-                                                                                         :check_interval 60
-                                                                                         :port 5432}))
-                                         (mock/header "Authorization" auth-header)))]
-                 (:status response) => 201
-                 @(s/take! stream) => (is-msg (contains {:type "CheckCommand"
-                                                         :body (contains {:action "create_check"
-                                                                          :parameters (contains {:name "My Dope Fuckin Check"})})}))
-                 ))))
+       (with-redefs [rpc/checker-client mock-checker-client]
+         (with-state-changes
+           [(before :facts (doto
+                             (do-setup)
+                             login-fixtures
+                             environment-fixtures
+                             check-fixtures))]
+           (fact "checks that don't exist will 404"
+                 (let [response ((app) (-> (mock/request :get "/checks/derpderp")
+                                           (mock/header "Authorization" auth-header)))]
+                   (:status response) => 404))
+           (fact "checks need auth"
+                 (let [response ((app) (-> (mock/request :get "/checks/checkid123")
+                                           (mock/header "Authorization" "sdfsdfsdfsdf")))]
+                   (:status response) => 401))
+           (fact "checks that exist get returned"
+                 (let [response ((app) (-> (mock/request :get "/checks/checkid123")
+                                           (mock/header "Authorization" auth-header)))]
+                   (:status response) => 200
+                   (:body response) => (is-json (contains {:id "checkid123" :check_spec (contains {:value (contains {:name "A Good Check"})})}))))
+           (fact "checks get deleted"
+                 (let [response ((app) (-> (mock/request :delete "/checks/checkid123")
+                                           (mock/header "Authorization" auth-header)))]
+                   (:status response) => 204
+                   (sql/get-check-by-id @db "checkid123") => empty?
+                   (log/info "sdfsfdasdfadsf")
+                   (log/info "gotsdfsdfsdf")))
+           (fact "checks get updated"
+                 (let [response ((app) (-> (mock/request :put "/checks/checkid123" (generate-string {:interval 100}))
+                                           (mock/header "Authorization" auth-header)))]
+                   (:status response) => 200
+                   (:body response) => (is-json (contains {:interval 100}))
+                   (sql/get-check-by-id @db "checkid123") => (just (contains {:interval 100}))))
+           (fact "new checks get saved"
+                 (let [response ((app) (-> (mock/request :post "/checks" (generate-string
+                                                                           {:interval 10
+                                                                            :target {:name "goobernetty"
+                                                                                     :type "sg"
+                                                                                     :id "sg123"}
+                                                                            :check_spec {:type_url "HttpCheck"
+                                                                                         :value {:name "A Good Check"
+                                                                                                 :path "/health_check"
+                                                                                                 :port 80
+                                                                                                 :verb "GET"
+                                                                                                 :protocol "http"}}}))
+                                           (mock/header "Authorization" auth-header)))]
+                   (:status response) => 201)))))
 
 (facts "about /instance/:id"
   (let [my-instance {:customer_id "cliff" :id "id" :name "my instance" :group_id "sg-123456"}]
@@ -452,56 +444,6 @@
                                                      (contains {:region "us-west-2"
                                                                 :ec2-classic true
                                                                 :vpcs (just [(contains {:vpc-id "vpc-82828282"})])})]))))))
-
-(defn- take-until! [pred stream]
-  (loop [msg @(s/take! stream)]
-    (log/info "msg" msg)
-    (if (or (pred msg) (= nil msg))
-      msg
-      (recur @(s/take! stream)))))
-
-(defn- xform [msg]
-  (log/info "xform" msg)
-  (into {} (map (fn [[k v]]
-                  [(keyword k) v])) msg))
-
-(facts "Websocket handling works"
-       (with-state-changes
-         [(before :facts (do
-                           (do-setup)
-                           (login-fixtures @db)
-                           (start-ws-server)))
-          (after :facts (stop-ws-server))]
-         (fact "registers a websocket client"
-               (let [client @(websocket-client "ws://localhost:8080/stream/")]
-                 (log/info "gothere")
-                 @(s/put! client (generate-string {:command "authenticate"
-                                                   :attributes {:hmac "1--iFplvAUtzi_veq_dMKPfnjtg_SQ="}})) => true
-                 @(s/take! client) => (is-json (contains {:command "authenticate"
-                                                          :state "ok"}))
-                 (.close client)))
-         (fact "rejects commands from an unauthorized client"
-               (let [client @(websocket-client "ws://localhost:8080/stream/")]
-                 @(s/put! client (generate-string {:command "echo"})) => true
-                 @(s/take! client) => (is-json (contains {:state "unauthenticated"}))
-                 (.close client)))
-         (fact "subscribes to bastion discovery messages"
-               (let [client @(websocket-client "ws://localhost:8080/stream/")
-                     publisher (publisher "cliff")]
-                 @(s/put! client (generate-string {:command "authenticate"
-                                                   :attributes {:hmac "1--iFplvAUtzi_veq_dMKPfnjtg_SQ="}})) => true
-                 @(s/take! client) => (is-json (contains {:state "ok"}))
-                 @(s/put! client (generate-string {:command "subscribe"
-                                                   :attributes {:subscribe_to "discovery"}})) => true
-                 @(s/take! client) => (is-json (contains {:state "ok"}))
-                 (publisher "discovery" (bus/make-msg "discovery" {:group_name "group 1"
-                                                                   :port 3884
-                                                                   :protocol "sql"
-                                                                   :request "select 1;"}))
-                 (let [msg (take-until! #(re-find #"discovery" %) client)]
-                   msg => (is-json (contains {:command "discovery"})))
-                 (.close client)))
-         ))
 
 (facts "about bartnet server" :integration
   (with-state-changes

@@ -1,6 +1,7 @@
 (ns bartnet.protobuilder
   (:require [schema.core :as s]
             [clj-time.core :as t]
+            [clojure.tools.logging :as log]
             [clj-time.coerce :as c]
             [schema.utils :as su]
             [ring.swagger.json-schema :as js]
@@ -161,7 +162,8 @@
         (let [name (:type_url v)]
           (if-and-let [clazz (Class/forName (str "co.opsee.proto." name))
                        schema (proto->schema clazz)]
-                      ((s/start-walker @walker schema) (:value v)))))))
+                      {:type_url name
+                       :value ((s/start-walker @walker schema) (:value v))})))))
   (explain [_]
     'any))
 
@@ -196,6 +198,9 @@
           (fn [data]
             (let [count (swap! first inc)
                   result (walk data)]
+              (log/debugf "%s | checking %s against %s\n",
+                      (if (su/error? result) "FAIL" "PASS")
+                      data (s/explain schema))
               (if (or (su/error? result)
                       (< 1 count))
                 result

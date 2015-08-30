@@ -75,9 +75,20 @@ select * from environments where enabled=false and id=:id;
 
 -----------------------------------------------------------------------------
 
+-- name: insert-into-targets!
+-- Inserts a new record into the targets table.
+insert into targets (id, type, name) values (:id, :type, :name);
+
+-- name: get-target-by-id
+-- Retrieves a target by its id.
+select * from targets where id=:id;
+
+-----------------------------------------------------------------------------
+
 -- name: insert-into-checks!
 -- Inserts a new record into the checks table.
-insert into checks (id, environment_id, "interval", target_id, last_run, check_spec) values (:id, :environment_id, :interval, :target_id, :last_run, :check_spec::jsonb);
+insert into checks (id, environment_id, "interval", target_id, last_run, check_spec) values
+                  (:id, :environment_id, :interval, :target_id, :last_run, :check_spec::jsonb);
 
 -- name: update-check!
 -- Updates an existing health_check record.
