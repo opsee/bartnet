@@ -4,6 +4,7 @@
             [bartnet.core :as core]
             [bartnet.websocket :as websocket]
             [bartnet.autobus :as autobus]
+            [bartnet.bastion-router :as router]
             [bartnet.bus :as bus]
             [bartnet.rpc :as rpc]
             [bartnet.fixtures :refer :all]
@@ -42,6 +43,12 @@
     (update-check [_ check])
     (retrieve-check [_ check])
     (delete-check [_ check])))
+
+(defn mock-get-customer-bastions [customer_id]
+  ["i-8888888"])
+
+(defn mock-get-service [customer_id instance_id service-name]
+  {:host "localhost" :port 4001})
 
 (defn do-setup []
   (do
@@ -273,7 +280,9 @@
                  (:status response) => 204
                  (sql/get-active-login-by-id @db 2) => empty?))))
 (facts "checks endpoint works"
-       (with-redefs [rpc/checker-client mock-checker-client]
+       (with-redefs [rpc/checker-client mock-checker-client
+                     router/get-customer-bastions mock-get-customer-bastions
+                     router/get-service mock-get-service]
          (with-state-changes
            [(before :facts (doto
                              (do-setup)
@@ -316,7 +325,9 @@
                      (:status response) => 201
                      (sql/get-checks-by-env-id @db "abc123") => (contains (contains {:interval 10}))))))))
 (facts "check endpoint works"
-       (with-redefs [rpc/checker-client mock-checker-client]
+       (with-redefs [rpc/checker-client mock-checker-client
+                     router/get-customer-bastions mock-get-customer-bastions
+                     router/get-service mock-get-service]
          (with-state-changes
            [(before :facts (doto
                              (do-setup)
