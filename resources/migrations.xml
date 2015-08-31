@@ -261,4 +261,34 @@
   <changeSet id="17" author="greg">
     <dropNotNullConstraint tableName="logins" columnName="customer_id"/>
   </changeSet>
+  <changeSet id="18" author="cliff">
+    <dropTable tableName="checks" />
+    <createTable tableName="targets">
+      <column name="name" type="varchar(255)"/>
+      <column name="type" type="varchar(255)"/>
+      <column name="id" type="varchar(255)"><constraints primaryKey="true" nullable="false"/></column>
+    </createTable>
+    <createTable tableName="checks">
+      <column name="id" type="varchar(255)"><constraints primaryKey="true" nullable="false"/></column>
+      <column name="interval" type="integer"/>
+      <column name="target_id" type="varchar(255)"/>
+      <column name="last_run" type="integer"/>
+      <column name="check_spec" type="jsonb"/>
+    </createTable>
+  </changeSet>
+  <changeSet id="19" author="cliff">
+    <addColumn tableName="checks">
+      <column name="environment_id" type="varchar(255)"/>
+    </addColumn>
+    <addForeignKeyConstraint baseTableName="checks" baseColumnNames="environment_id" constraintName="fk_checks_env" referencedTableName="environments"
+                             referencedColumnNames="id"/>
+    <addForeignKeyConstraint baseTableName="checks" baseColumnNames="target_id" constraintName="fk_checks_targets" referencedTableName="targets"
+                             referencedColumnNames="id"/>
+  </changeSet>
+  <changeSet id="20" author="cliff">
+    <dropColumn tableName="checks" columnName="last_run"/>
+    <addColumn tableName="checks">
+      <column name="last_run" type="DATETIME"/>
+    </addColumn>
+  </changeSet>
 </databaseChangeLog>

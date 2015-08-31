@@ -1,7 +1,7 @@
 (ns bartnet.t-protobuilder
   (:require [midje.sweet :refer :all]
             [bartnet.protobuilder :refer :all])
-  (:import (co.opsee.proto TestCheckRequest Any Timestamp HttpCheck Header)
+  (:import (co.opsee.proto TestCheckRequest Any Timestamp HttpCheck Header Check)
            (com.google.protobuf ByteString)))
 
 (facts "Hash to proto"
@@ -17,8 +17,8 @@
                (.getSeconds (.getDeadline proto)) => 1
                (.getMaxHosts proto) => 2))
        (fact "converts nested anyhash into Any"
-             (let [proto (hash->proto TestCheckRequest {:check_spec {:type_url "HttpCheck"
-                                                                     :value {:name "check-1"}}})]
+             (let [proto (hash->proto Check {:check_spec {:type_url "HttpCheck"
+                                                          :value {:name "check-1"}}})]
                (.getTypeUrl (.getCheckSpec proto)) => "HttpCheck"
                (let [checkspec (HttpCheck/parseFrom ^ByteString (.getValue (.getCheckSpec proto)))]
                  (.getName checkspec) => "check-1")))
@@ -69,7 +69,7 @@
                                                        {:name "Cache-Control"
                                                         :values ["whenever dude"]}]})
          (fact "converts any fields"
-               (let [proto (-> (TestCheckRequest/newBuilder)
+               (let [proto (-> (Check/newBuilder)
                                (.setCheckSpec (-> (Any/newBuilder)
                                                   (.setTypeUrl "HttpCheck")
                                                   (.setValue (.toByteString check-proto))))

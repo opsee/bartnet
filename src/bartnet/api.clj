@@ -3,198 +3,84 @@
             [bartnet.email :refer [send-activation! send-verification!]]
             [bartnet.instance :as instance]
             [bartnet.sql :as sql]
-            [bartnet.rpc :as rpc]
+            [bartnet.rpc :as rpc :refer [all-bastions]]
+            [bartnet.protobuilder :as pb]
             [bartnet.bastion-router :as router]
             [clojure.tools.logging :as log]
             [ring.middleware.cors :refer [wrap-cors]]
             [liberator.representation :refer [ring-response]]
             [yesql.util :refer [slurp-from-classpath]]
-            [liberator.core :refer [resource defresource]]
-            [liberator.dev :refer [wrap-trace]]
             [amazonica.aws.ec2 :refer [describe-vpcs describe-account-attributes]]
             [ring.middleware.params :refer [wrap-params]]
             [compojure.api.sweet :refer :all]
+            [compojure.api.meta :as meta]
+            [compojure.api.middleware :as mw]
             [cheshire.core :refer :all]
             [clojure.string :as str]
             [bartnet.identifiers :as identifiers]
             [bartnet.launch :as launch]
             [bartnet.bus :as bus]
-            [schema.core :as sch])
+            [schema.core :as sch]
+            [liberator.dev :refer [wrap-trace]]
+            [liberator.core :refer [resource defresource]])
   (:import (java.sql BatchUpdateException)
            [java.util Base64]
-           (java.sql BatchUpdateException)))
+           (java.sql BatchUpdateException)
+           (co.opsee.proto TestCheckRequest TestCheckResponse CheckResourceRequest Check)
+           (java.io ByteArrayInputStream InputStream)))
+
+;; preamble enables spiffy protobuf coercion
+
+(defmethod meta/restructure-param :proto [_ [value clazz] acc]
+  (-> acc
+      (update-in [:lets] into [value (meta/src-coerce! (resolve clazz) :body-params :proto)])
+      (assoc-in [:parameters :parameters :body] (pb/proto->schema (resolve clazz)))))
 
 ;; Schemata
 
 (sch/defschema Signup
   {
-   :id sch/Int
-   :email sch/Str
-   :name sch/Str
-   :created_at sch/Str
-   :updated_at sch/Str
-   :activation_id (sch/maybe sch/Str)
+   :id              sch/Int
+   :email           sch/Str
+   :name            sch/Str
+   :created_at      sch/Str
+   :updated_at      sch/Str
+   :activation_id   (sch/maybe sch/Str)
    :activation_used (sch/maybe sch/Bool)
    })
-
-(sch/defschema Account
-  {
-   :email sch/Str
-   :verified sch/Bool
-   })
-
-(sch/defschema APIObjectPointer
-  {:type sch/Str :name sch/Str :id sch/Str})
-
-(sch/defschema Organization
-  {
-   :name                   sch/Str
-   :domain                 sch/Str
-   :id                     sch/Str
-   :users                  [APIObjectPointer]
-   (sch/optional-key :teams) [APIObjectPointer]
-   })
-
-(sch/defschema Team
-  {
-   :name sch/Str
-   :users [APIObjectPointer]
-   })
-
-(sch/defschema User
-  {
-   :id           sch/Str
-   :meta         {
-                  :admin       sch/Bool
-                  :active      sch/Bool
-                  :created_at  sch/Str
-                  :updated_at  sch/Str
-                  }
-   :accounts     [Account]
-   :integrations {
-                  :slack {
-                          :access_key sch/Str
-                          :user       clojure.lang.APersistentMap
-                          }
-                  }
-   (sch/optional-key :bio) {
-                          :name sch/Str
-                          :title sch/Str
-                          }
-   (sch/optional-key :organizations) [Organization]
-   })
-
-(def protocol-enum
-  (sch/enum "http"))
-
-(def verb-enum
-  (sch/enum "GET" "PUT" "POST" "HEAD" "OPTIONS" "DELETE" "TRACE" "CONNECT"))
-
-(def check-rel-enum
-  (sch/enum "equal-to" "not-equal-to" "is-empty" "is-not-empty" "contains" "regex"))
-
-(sch/defschema CheckAssertion
-  {
-   :relationship check-rel-enum
-   :value sch/Str
-   :type sch/Str
-   })
-
-(sch/defschema SilenceAttrs
-  {
-   :startDate sch/Str
-   :duration sch/Int
-   :user User
-   })
-
-(sch/defschema CheckStatus
-  {
-   :passing sch/Bool
-   :passingChanged sch/Str
-   :state sch/Str
-   :silence SilenceAttrs
-   })
-
-(sch/defschema CheckNotification
-  {
-   :type sch/Str
-   :value sch/Str
-   })
-
-(sch/defschema Check
-  {
-   :name sch/Str
-   :id sch/Str
-   :url sch/Str
-   :interval sch/Int
-   :protocol protocol-enum
-   :verb verb-enum
-   :assertions [CheckAssertion]
-   :status CheckStatus
-   :notifications [CheckNotification]
-   })
-
-(sch/defschema Instance
-  {
-   :id sch/Str
-   :name sch/Str
-   :customer_id sch/Str
-   :meta {
-          :state sch/Str
-          :lastChecked sch/Str
-          :created sch/Str
-          :instanceSize sch/Str
-          }
-   })
-
-(sch/defschema Group
-  {
-   :id          sch/Str
-   :customer_id sch/Str
-   :name        (sch/maybe sch/Str)
-   })
-
-(sch/defschema CompositeGroup
-  (merge Group { :instances [Instance] }))
-
-(sch/defschema CompositeInstance
-  (merge Instance {
-                   :checks [(sch/maybe Check)]
-                   :groups [(sch/maybe Group)]
-                   }))
 
 (defn build-group [customer-id id]
   (let [group (instance/get-group! customer-id id)]
     {
-     :name (:group_name group)
+     :name        (:group_name group)
      :customer_id customer-id
-     :id (:group_id group)
-     :instances (:instances group)
+     :id          (:group_id group)
+     :instances   (:instances group)
      }))
 
 (defn build-composite-group [customer-id id]
   (let [group (build-group customer-id id)]
     (merge group
-      (let [instances (:instances group)]
-        (assoc (dissoc group :instances)
-          :instances (map #(instance/get-instance! customer-id %) instances))))))
+           (let [instances (:instances group)]
+             (assoc (dissoc group :instances)
+               :instances (map #(instance/get-instance! customer-id %) instances))))))
 
 (defn build-composite-instance [instance]
   (let [group-hints (:groups instance)
-        instance    (dissoc instance :groups)
+        instance (dissoc instance :groups)
         customer-id (:customer_id instance)]
     (merge instance
-      {
-       ;:checks (map build-check (sql/get-checks-by-customer-id @db customer-id))
-       :groups (map (fn [g] (build-group customer-id (:group_id g))) group-hints)
-       })))
+           {
+            ;:checks (map build-check (sql/get-checks-by-customer-id @db customer-id))
+            :groups (map (fn [g] (build-group customer-id (:group_id g))) group-hints)
+            })))
 
 (defn find-instance [id]
   (fn [ctx]
     (log/info "find-instance was called")
-    (let [login       (:login ctx)
+    (let [login (:login ctx)
           customer_id (:customer_id login)
-          instance    (instance/get-instance! customer_id id)]
+          instance (instance/get-instance! customer_id id)]
       (log/info "login: " login " customer_id: " customer_id " instance: " instance)
       (when instance
         {:instance (build-composite-instance instance)}))))
@@ -202,26 +88,6 @@
 (defn get-instances [ctx]
   (let [customer-id (get-in ctx [:login :customer_id])]
     {:instances (instance/list-instances! customer-id)}))
-
-(sch/defschema CompositeGroup
-  (merge Group
-    {
-     :checks [Check]
-     :instances [Instance]
-     }))
-
-(sch/defschema CheckTarget
-  {
-   :type sch/Str
-   :id sch/Str
-   })
-
-(sch/defschema CompositeCheck
-  (merge Check
-    {
-     :targets [CheckTarget]
-     }))
-
 
 (def executor (atom nil))
 (def config (atom nil))
@@ -243,24 +109,31 @@
 (defn log-request [handler]
   (fn [request]
     (if-let [body-rdr (:body request)]
-                    (let [body (slurp body-rdr)
-                          req1 (assoc request :strbody body)]
-                      (log/info "request:" req1)
-                      (handler req1))
-                    (do (log/info "request:" request)
-                        (handler request)))))
+      (let [body (slurp body-rdr)
+            req' (assoc request
+                   :strbody body
+                   :body (ByteArrayInputStream. (.getBytes body)))
+            req'' (if-not (get-in req' [:headers "Content-Type"])
+                    (assoc-in req' [:headers "Content-Type"] "application/json"))]
+        (log/info "request:" req'')
+        (handler req''))
+      (do (log/info "request:" request)
+          (handler request)))))
 
 (defn log-response [handler]
   (fn [request]
-    (let [response (handler request)]
-      (log/info "response:" response)
-      response)))
+    (let [response (handler request)
+          response' (if (instance? java.io.InputStream (:body response))
+                      (assoc response :body (slurp (:body response)))
+                      response)]
+      (log/info "response:" response')
+      response')))
 
 (defn log-and-error [ex]
   (log/error ex "problem encountered")
-  {:status 500
-   :headers {"Content-Type" "application/json"}
-   :body (generate-string {:error (.getMessage ex)})})
+  {:status  500
+   :headers {"Content-Type" "application/json"}`
+   :body    (generate-string {:error (.getMessage ex)})})
 
 (defn robustify-errors [^Exception ex]
   (if (instance? BatchUpdateException ex)
@@ -270,7 +143,9 @@
 
 (defn json-body [ctx]
   (if-let [body (get-in ctx [:request :strbody])]
-    (parse-string body true)))
+    (parse-string body true)
+    (if-let [in (get-in ctx [:request :body])]
+      (parse-stream in true))))
 
 (defn respond-with-entity? [ctx]
   (not= (get-in ctx [:request :request-method]) :delete))
@@ -278,8 +153,8 @@
 (defn allowed-to-auth?
   "Checks the body of the request and uses the password to authenticate the user."
   [ctx]
-    (if-let [unsec-login (json-body ctx)]
-      (auth/basic-authenticate @db (:email unsec-login) (:password unsec-login))))
+  (if-let [unsec-login (json-body ctx)]
+    (auth/basic-authenticate @db (:email unsec-login) (:password unsec-login))))
 
 (defn generate-hmac-string [id]
   (str id "--" (.encodeToString (Base64/getUrlEncoder) (auth/generate-hmac-signature id @secret))))
@@ -287,12 +162,12 @@
 (defn add-hmac-to-ctx
   "Gets the login from the context and generates an HMAC which gets added to the response"
   [ctx]
-    (let [login (:login ctx)
-          id (str (:id login))
-          hmac (generate-hmac-string id)]
-      (ring-response {:headers {"X-Auth-HMAC" hmac}
-                      :body (generate-string (merge (dissoc login :password_hash)
-                                               {:token (str "HMAC " hmac)}))})))
+  (let [login (:login ctx)
+        id (str (:id login))
+        hmac (generate-hmac-string id)]
+    (ring-response {:headers {"X-Auth-HMAC" hmac}
+                    :body    (generate-string (merge (dissoc login :password_hash)
+                                                     {:token (str "HMAC " hmac)}))})))
 
 (defn user-authorized? [ctx]
   (if-let [auth-header (get-in ctx [:request :headers "authorization"])]
@@ -330,8 +205,8 @@
 
 (defn get-new-login [ctx]
   (if-let [error (:error ctx)]
-    (ring-response {:status (:status error)
-                    :body (generate-string {:error (:message error)})
+    (ring-response {:status  (:status error)
+                    :body    (generate-string {:error (:message error)})
                     :headers {"Content-Type" "application/json"}})
     (do
       (let [login (or (:new-login ctx) (:old-login ctx))]
@@ -369,32 +244,53 @@
           recv @(send-msg @bus id (:cmd cmd) (:body cmd))]
       {:msg recv})))
 
+(defn ensure-target-created [target]
+  (if (empty? (sql/get-target-by-id @db (:id target)))
+    (sql/insert-into-targets! @db target))
+  (:id target))
+
+(defn retrieve-target [target-id]
+  (first (sql/get-target-by-id @db target-id)))
+
+(defn resolve-target [check]
+  (if (:target check)
+    (assoc check :target_id (ensure-target-created (:target check)))
+    (dissoc (assoc check :target (retrieve-target (:target_id check))) :target_id)))
+
+(defn resolve-lastrun [customer-id check]
+  (let [req (-> (CheckResourceRequest/newBuilder)
+                (.addChecks (pb/hash->proto Check check))
+                .build)
+        retr-checks (all-bastions customer-id #(rpc/retrieve-check % req))
+        max-check (max-key #(:seconds (:last_run %)) retr-checks)]
+    (assoc check :last_run (:last_run max-check))))
+
 (defn check-exists? [id]
   (fn [ctx]
     (let [login (:login ctx)
           env (first (sql/get-environments-for-login @db (:id login)))
           check (first (sql/get-check-by-id @db id))]
       (if (= (:id env) (:environment_id check))
-        {:check check}))))
+        {:check (resolve-lastrun (:customer_id login) (resolve-target check))}))))
 
-(defn publish-command [customer_id topic msg]
-  (bus/publish @bus @client customer_id topic msg))
-
-(defn update-check! [id]
+(defn update-check! [id pb-check]
   (fn [ctx]
     (let [login (:login ctx)
           env (first (sql/get-environments-for-login @db (:id login)))
-          check (:check ctx)
-          updated-check (json-body ctx)]
-      (if (= (:id env) (:environment_id check))
-        (let [merged (merge check (assoc updated-check :id id))]
+          updated-check (pb/proto->hash pb-check)
+          old-check (:check ctx)]
+      (if (= (:id env) (:environment_id old-check))
+        (let [merged (merge old-check (assoc (resolve-target updated-check) :id id))]
           (log/info merged)
           (if (sql/update-check! @db merged)
-            (let [final-check (first (sql/get-check-by-id @db id))]
-              (publish-command (:customer_id login)
-                               "commands"
-                               (bus/make-msg "CheckCommand" {:action "update_check"
-                                                             :parameters final-check}))
+            (let [final-check (resolve-target (first (sql/get-check-by-id @db id)))
+                  _ (log/info "final-check" final-check)
+                  check (pb/hash->proto Check final-check)
+                  checks (-> (CheckResourceRequest/newBuilder)
+                             (.addChecks check)
+                             .build)]
+              (all-bastions (:customer_id login) #(rpc/update-check % checks))
+
               {:check final-check})))))))
 
 (defn delete-check! [id]
@@ -405,28 +301,38 @@
       (if (= (:id env) (:environment_id check))
         (do
           (sql/delete-check-by-id! @db id)
-          (publish-command (:customer_id login)
-                           "commands"
-                           (bus/make-msg "CheckCommand" {:action "delete_check"
-                                                         :parameters {:id id}})))
+          (let [req (-> (CheckResourceRequest/newBuilder)
+                        (.addChecks (-> (Check/newBuilder)
+                                        (.setId id)
+                                        .build))
+                        .build)]
+            (all-bastions (:customer_id login) #(rpc/delete-check % req))))
         (log/info (:id env) (:environment_id check))))))
 
-(defn create-check! [ctx]
-  (let [login (:login ctx)
-        env (first (sql/get-environments-for-login @db (:id login)))
-        check (json-body ctx)
-        id (identifiers/generate)
-        final-check (merge check {:id id, :environment_id (:id env)})]
-    (sql/insert-into-checks! @db final-check)
-    (publish-command (:customer_id login)
-                     "commands"
-                     (bus/make-msg "CheckCommand" {:action "create_check"
-                                                   :parameters final-check}))))
+(defn create-check! [^Check check]
+  (fn [ctx]
+    (let [login (:login ctx)
+          env (first (sql/get-environments-for-login @db (:id login)))
+          check' (-> (.toBuilder check)
+                     (.setId (identifiers/generate))
+                     (.setEnvironmentId (:id env))
+                     .build)
+          checks (-> (CheckResourceRequest/newBuilder)
+                     (.addChecks check')
+                     .build)
+          db-check (resolve-target (pb/proto->hash check'))]
+      (sql/insert-into-checks! @db db-check)
+      (all-bastions (:customer_id login) #(rpc/create-check % checks))
+      (log/info "chechf" db-check)
+      {:checks db-check})))
 
 (defn list-checks [ctx]
   (let [login (:login ctx)
-        env (first (sql/get-environments-for-login @db (:id login)))]
-    (sql/get-checks-by-env-id @db (:id env))))
+        env (first (sql/get-environments-for-login @db (:id login)))
+        checks (map resolve-target (sql/get-checks-by-env-id @db (:id env)))]
+    (map #(resolve-lastrun (:customer_id login) %) checks)
+    (log/info "checks" checks)
+    checks))
 
 (def query-limit 100)
 
@@ -436,26 +342,26 @@
     [false, {:signup default}]))
 
 (defn signup-exists? [ctx]
-    (if-let [new-signup (json-body ctx)]
-      (retr-signup (:email new-signup) new-signup)
-      (if-let [email (get-in ctx [:request :params "email"])]
-        (retr-signup email nil)
-        true)))
+  (if-let [new-signup (json-body ctx)]
+    (retr-signup (:email new-signup) new-signup)
+    (if-let [email (get-in ctx [:request :params "email"])]
+      (retr-signup email nil)
+      true)))
 
 (defn create-and-send-activation! [ctx]
-    (let [id (identifiers/generate)
-          signup (:signup ctx)
-          activation (assoc signup :id id)]
-      (if (sql/insert-into-activations! @db activation)
-        (send-activation! @config signup id)
-        (let [saved-activation (first (sql/get-unused-activation @db id))]
-          {:activation saved-activation}))))
+  (let [id (identifiers/generate)
+        signup (:signup ctx)
+        activation (assoc signup :id id)]
+    (if (sql/insert-into-activations! @db activation)
+      (send-activation! @config signup id)
+      (let [saved-activation (first (sql/get-unused-activation @db id))]
+        {:activation saved-activation}))))
 
 (defn create-and-send-verification! [login]
   (let [id (identifiers/generate)
-        activation {:id id
+        activation {:id    id
                     :email (:email login)
-                    :name (:name login)}]
+                    :name  (:name login)}]
     (if (sql/insert-into-activations! @db activation)
       (send-verification! @config login id))))
 
@@ -475,8 +381,8 @@
 
 (defn get-signup [ctx]
   (if (:duplicate ctx)
-    (ring-response {:status 409
-                    :body (generate-string {:error "Conflict: that email is already signed up."})
+    (ring-response {:status  409
+                    :body    (generate-string {:error "Conflict: that email is already signed up."})
                     :headers {"Content-Type" "application/json"}})
     (:signup ctx)))
 
@@ -493,7 +399,7 @@
 (defn activate-activation! [ctx]
   (let [activation (:activation ctx)]
     (if-not activation
-      {:error {:status 409
+      {:error {:status  409
                :message "invalid activation"}}
       (if-let [existing-login (first (sql/get-active-login-by-email @db (:email activation)))]
         ;this is a verification of an existing login's email change
@@ -512,11 +418,11 @@
   (fn [ctx]
     (let [login (:login ctx)]
       (if (or (:admin login)
-            (= id (:id login)))
+              (= id (:id login)))
         (let [new-login (json-body ctx)]
           (if (:new_password new-login)
             (if (auth/password-match? (:old_password new-login)
-                  (:password_hash login))
+                                      (:password_hash login))
               [true, {:new-login new-login}]
               false)
             [true, {:new-login new-login}]))))))
@@ -541,8 +447,8 @@
                      (= (:email new-login) (:email old-login))
                      true)]
       (if (and (not verified)
-            (not (empty? (sql/get-any-login-by-email @db (:email new-login)))))
-        {:error {:status 409
+               (not (empty? (sql/get-any-login-by-email @db (:email new-login)))))
+        {:error {:status  409
                  :message (str "Email " (:email new-login) " already exists.")}}
         (if (do-update! old-login new-login verified)
           (if-let [saved-login (first (sql/get-active-login-by-id @db id))]
@@ -561,7 +467,7 @@
                            ttr))]
     (not (empty? (filter
                    #(or (.equalsIgnoreCase "EC2-Classic" (:attribute-value %))
-                     (.equalsIgnoreCase "EC2" (:attribute-value %)))
+                        (.equalsIgnoreCase "EC2" (:attribute-value %)))
                    (:attribute-values supported))))))
 
 (defn scan-vpcs [ctx]
@@ -570,9 +476,9 @@
                 (let [cd (assoc creds :endpoint region)
                       vpcs (describe-vpcs cd)
                       attrs (describe-account-attributes cd)]
-                  {:region region
+                  {:region      region
                    :ec2-classic (ec2-classic? attrs)
-                   :vpcs (:vpcs vpcs)}))}))
+                   :vpcs        (:vpcs vpcs)}))}))
 
 (defn subdomain-exists? [subdomain]
   (empty? (sql/get-org-by-subdomain @db subdomain)))
@@ -598,13 +504,13 @@
   (let [customer-id (get-in ctx [:login :customer_id])]
     {:groups (instance/list-groups! customer-id)}))
 
-(defn test-check! [instance_id]
+(defn test-check! [instance_id testCheck]
   (fn [ctx]
     (let [login (:login ctx)
           addr (router/get-service (:customer_id login) instance_id "checker")
           _ (log/info "addr" addr)
-          client (rpc/check-tester-client addr)
-          response (rpc/test-check client (json-body ctx))]
+          client (rpc/checker-client addr)
+          response (rpc/test-check client testCheck)]
       (log/info "resp" response)
       {:test-results response})))
 
@@ -614,235 +520,269 @@
     {:regions (launch/launch-bastions @executor @bus (:customer_id login) launch-cmd (:ami @config))}))
 
 (defresource signups-resource []
-  :available-media-types ["application/json"]
-  :allowed-methods [:post :get]
-  :exists? signup-exists?
-  :authorized? (authorized? #(case (get-in % [:request :request-method])
-                                        :get :superuser
-                                        :unauthenticated))
-  :post! create-signup!
-  :handle-ok list-signups
-  :handle-created get-signup)
+             :available-media-types ["application/json"]
+             :allowed-methods [:post :get]
+             :exists? signup-exists?
+             :authorized? (authorized? #(case (get-in % [:request :request-method])
+                                         :get :superuser
+                                         :unauthenticated))
+             :post! create-signup!
+             :handle-ok list-signups
+             :handle-created get-signup)
 
 (defresource signup-resource []
-  :available-media-types ["application/json"]
-  :allowed-methods [:post]
-  :authorized? (authorized? :superuser)
-  :exists? signup-exists?
-  :post! create-and-send-activation!
-  :handle-created :activation)
+             :available-media-types ["application/json"]
+             :allowed-methods [:post]
+             :authorized? (authorized? :superuser)
+             :exists? signup-exists?
+             :post! create-and-send-activation!
+             :handle-created :activation)
 
 (defresource activation-resource [id]
-  :available-media-types ["application/json"]
-  :allowed-methods [:post]
-  :exists? (activation-exists? id)
-  :post! activate-activation!
-  :handle-ok :activation
-  :handle-created get-new-login)
+             :available-media-types ["application/json"]
+             :allowed-methods [:post]
+             :exists? (activation-exists? id)
+             :post! activate-activation!
+             :handle-ok :activation
+             :handle-created get-new-login)
 
 (defresource authenticate-resource []
-  :available-media-types ["application/json"]
-  :allowed-methods [:post]
-  :authorized? allowed-to-auth?
-  :handle-created add-hmac-to-ctx)
+             :available-media-types ["application/json"]
+             :allowed-methods [:post]
+             :authorized? allowed-to-auth?
+             :handle-created add-hmac-to-ctx)
 
 (defresource environments-resource []
-  :available-media-types ["application/json"]
-  :allowed-methods [:get :post]
-  :authorized? (authorized?)
-  :post! create-environment!
-  :handle-ok list-environments
-  :handle-created :env)
+             :available-media-types ["application/json"]
+             :allowed-methods [:get :post]
+             :authorized? (authorized?)
+             :post! create-environment!
+             :handle-ok list-environments
+             :handle-created :env)
 
 (defresource environment-resource [id]
-  :available-media-types ["application/json"]
-  :allowed-methods [:get :put :delete]
-  :authorized? (authorized?)
-  :exists? (environment-exists? id)
-  :put! (update-environment! id)
-  :delete! (delete-environment! id)
-  :handle-ok :env)
+             :available-media-types ["application/json"]
+             :allowed-methods [:get :put :delete]
+             :authorized? (authorized?)
+             :exists? (environment-exists? id)
+             :put! (update-environment! id)
+             :delete! (delete-environment! id)
+             :handle-ok :env)
 
 (defresource login-resource [id]
-  :available-media-types ["application/json"]
-  :allowed-methods [:get :patch :delete]
-  :authorized? (authorized?)
-  :allowed? (allowed-edit-login? id)
-  :exists? (login-exists? id)
-  :patch! (update-login! id)
-  :delete! (delete-login! id)
-  :new? false
-  :respond-with-entity? respond-with-entity?
-  :handle-ok get-new-login)
+             :available-media-types ["application/json"]
+             :allowed-methods [:get :patch :delete]
+             :authorized? (authorized?)
+             :allowed? (allowed-edit-login? id)
+             :exists? (login-exists? id)
+             :patch! (update-login! id)
+             :delete! (delete-login! id)
+             :new? false
+             :respond-with-entity? respond-with-entity?
+             :handle-ok get-new-login)
 
 (defresource instance-resource [id]
-  :available-media-types ["application/json"]
-  :allowed-methods [:get]
-  :authorized? (authorized?)
-  :exists? (find-instance id)
-  :handle-ok :instance)
+             :available-media-types ["application/json"]
+             :allowed-methods [:get]
+             :authorized? (authorized?)
+             :exists? (find-instance id)
+             :handle-ok :instance)
 
 (defresource instances-resource []
-  :available-media-types ["application/json"]
-  :allowed-methods [:get]
-  :authorized? (authorized?)
-  :handle-ok get-instances)
+             :available-media-types ["application/json"]
+             :allowed-methods [:get]
+             :authorized? (authorized?)
+             :handle-ok get-instances)
 
 (defresource group-resource [id]
-  :available-media-types ["application/json"]
-  :allowed-methods [:get]
-  :authorized? (authorized?)
-  :exists? (find-group id)
-  :handle-ok :group)
+             :available-media-types ["application/json"]
+             :allowed-methods [:get]
+             :authorized? (authorized?)
+             :exists? (find-group id)
+             :handle-ok :group)
 
 (defresource groups-resource []
-  :available-media-types ["application/json"]
-  :allowed-methods [:get]
-  :authorized? (authorized?)
-  :handle-ok get-groups)
+             :available-media-types ["application/json"]
+             :allowed-methods [:get]
+             :authorized? (authorized?)
+             :handle-ok get-groups)
 
 (defresource launch-bastions-resource []
-  :available-media-types ["application/json"]
-  :allowed-methods [:post]
-  :authorized? (authorized?)
-  :post! launch-bastions!
-  :handle-created :regions)
-
-(defresource bastion-resource [id]
-  :available-media-types ["application/json"]
-  :allowed-methods [:post]
-  :authorized? (authorized?)
-  :post! (cmd-bastion! id)
-  :handle-created :msg)
-
-(defresource bastions-resource []
-  :available-media-types ["application/json"]
-  :allowed-methods [:get]
-  :authorized? (authorized?)
-  :handle-ok list-bastions)
-
-(defresource test-check-resource [id]
              :available-media-types ["application/json"]
              :allowed-methods [:post]
              :authorized? (authorized?)
-             :post! (test-check! id)
-             :handle-created :test-results)
+             :post! launch-bastions!
+             :handle-created :regions)
+
+(defresource bastion-resource [id]
+             :available-media-types ["application/json"]
+             :allowed-methods [:post]
+             :authorized? (authorized?)
+             :post! (cmd-bastion! id)
+             :handle-created :msg)
+
+(defresource bastions-resource []
+             :available-media-types ["application/json"]
+             :allowed-methods [:get]
+             :authorized? (authorized?)
+             :handle-ok list-bastions)
+
+(defresource test-check-resource [id testCheck]
+             :available-media-types ["application/json"]
+             :allowed-methods [:post]
+             :authorized? (authorized?)
+             :post! (test-check! id testCheck)
+             :handle-created (fn [ctx] (pb/proto->hash (:test-results ctx))))
 
 (defresource discovery-resource []
-  :available-media-types ["application/json"]
-  :allowed-methods [:get])
+             :available-media-types ["application/json"]
+             :allowed-methods [:get])
 
-(defresource check-resource [id]
-  :available-media-types ["application/json"]
-  :allowed-methods [:get :put :delete]
-  :authorized? (authorized?)
-  :exists? (check-exists? id)
-  :put! (update-check! id)
-  :new? false
-  :respond-with-entity? respond-with-entity?
-  :delete! (delete-check! id)
-  :handle-ok :check)
+(defresource check-resource [id check]
+             :as-response (fn [data _] {:body data})
+             :available-media-types ["application/json"]
+             :allowed-methods [:get :put :delete]
+             :authorized? (authorized?)
+             :exists? (check-exists? id)
+             :put! (update-check! id check)
+             :new? false
+             :respond-with-entity? respond-with-entity?
+             :delete! (delete-check! id)
+             :handle-ok :check)
 
-(defresource checks-resource []
-  :available-media-types ["application/json"]
-  :allowed-methods [:get :post]
-  :authorized? (authorized?)
-  :post! create-check!
-  :handle-created :check
-  :handle-ok list-checks)
+(defresource checks-resource [checks]
+             :as-response (fn [data _] {:body data})
+             :available-media-types ["application/json"]
+             :allowed-methods [:get :post]
+             :authorized? (authorized?)
+             :post! (create-check! checks)
+             :handle-created :checks
+             :handle-ok list-checks)
 
 (defresource scan-vpc-resource []
-  :available-media-types ["application/json"]
-  :allowed-methods [:post]
-  :post! scan-vpcs
-  :handle-created :regions)
+             :available-media-types ["application/json"]
+             :allowed-methods [:post]
+             :post! scan-vpcs
+             :handle-created :regions)
 
 (defresource subdomain-resource [subdomain]
-  :available-media-types ["application/json"]
-  :allowed-methods [:get]
-  :authorized? (authorized?)
-  :handle-ok (fn [_] {:available (subdomain-exists? subdomain)}))
+             :available-media-types ["application/json"]
+             :allowed-methods [:get]
+             :authorized? (authorized?)
+             :handle-ok (fn [_] {:available (subdomain-exists? subdomain)}))
 
 (defresource orgs-resource []
-  :available-media-types ["application/json"]
-  :allowed-methods [:post]
-  :authorized? (authorized?)
-  :exists? (fn [ctx]
-             (let [subdomain (:subdomain (json-body ctx))]
-               (subdomain-exists? subdomain)))
-  :post! create-org!
-  :handle-created :org)
+             :available-media-types ["application/json"]
+             :allowed-methods [:post]
+             :authorized? (authorized?)
+             :exists? (fn [ctx]
+                        (let [subdomain (:subdomain (json-body ctx))]
+                          (subdomain-exists? subdomain)))
+             :post! create-org!
+             :handle-created :org)
 
 (defresource org-resource [subdomain]
-  :available-media-types ["application/json"]
-  :allowed-methods [:get]
-  :authorized? (authorized?)
-  :exists? (fn [_] ((if (subdomain-exists? subdomain) [true {:org (first (sql/get-org-by-subdomain @db subdomain))}] false)))
-  :handle-ok :org)
+             :available-media-types ["application/json"]
+             :allowed-methods [:get]
+             :authorized? (authorized?)
+             :exists? (fn [_] ((if (subdomain-exists? subdomain) [true {:org (first (sql/get-org-by-subdomain @db subdomain))}] false)))
+             :handle-ok :org)
 
 (defn wrap-options [handler]
   (fn [request]
     (if (= :options (:request-method request))
-      {:status 200
-       :body ""
-       :headers {"Access-Control-Allow-Origin" "*"
+      {:status  200
+       :body    ""
+       :headers {"Access-Control-Allow-Origin"  "*"
                  "Access-Control-Allow-Methods" "GET, PUT, POST, PATCH, DELETE"
                  "Access-Control-Allow-Headers" "Accept-Encoding,Authorization,Content-Type,X-Auth-HMAC"
-                 "Access-Control-Max-Age" "1728000"}}
+                 "Access-Control-Max-Age"       "1728000"}}
       (handler request))))
 
 (defapi bartnet-api
-  {:exceptions {:exception-handler robustify-errors}}
-  (swagger-docs "/api/swagger.json"
-    {:info {
-            :title "Opsee API"
-            :description "Own your availability."
-            }})
-  (swagger-ui "/api/swagger" :swagger-docs "/api/swagger.json")
-  ;; TODO: Split out request methods and document with swagger metadata
-  (GET* "/health_check" [] "A ok")
-  (ANY* "/signups/send-activation" [] (signup-resource))
-  (GET* "/activations/:id" [id] (activation-resource id))
-  (POST* "/activations/:id/activate" [id] (activation-resource id))
-  (POST* "/verifications/:id/activate" [id] (activation-resource id))
-  (ANY* "/authenticate/password" [] (authenticate-resource))
-  (ANY* "/environments" [] (environments-resource))
-  (ANY* "/environments/:id" [id] (environment-resource id))
-  (ANY* "/logins/:id" [id] (login-resource (param->int id)))
-  (ANY* "/scan-vpcs" [] (scan-vpc-resource))
-  (POST* "/orgs" [] (orgs-resource))
-  (ANY* "/orgs/:subdomain" [subdomain] (org-resource subdomain))
-  (GET* "/orgs/subdomain/:subdomain" [subdomain] (subdomain-resource subdomain))
-  (ANY* "/bastions" [] (bastions-resource))
-  (ANY* "/bastions/launch" [] (launch-bastions-resource))
-  (ANY* "/bastions/:id" [id] (bastion-resource id))
-  (ANY* "/bastions/:id/test-check" [id] (test-check-resource id))
-  (ANY* "/discovery" [] (discovery-resource))
-  (ANY* "/checks" [] (checks-resource))
-  (ANY* "/checks/:id" [id] (check-resource id))
+        {:exceptions {:exception-handler robustify-errors}
+         ;:validation-errors {:error-handler robustify-errors}
+         :coercion   (fn [_] (assoc mw/default-coercion-matchers
+                               :proto pb/proto-walker))}
+        (swagger-docs "/api/swagger.json"
+                      {:info {:title       "Opsee API"
+                              :description "Own your availability."
+                              }})
+        (swagger-ui "/api/swagger" :swagger-docs "/api/swagger.json")
+        ;; TODO: Split out request methods and document with swagger metadata
+        (GET*    "/health_check" [] "A ok")
+        (ANY*    "/signups/send-activation" [] (signup-resource))
+        (GET*    "/activations/:id" [id] (activation-resource id))
+        (POST*   "/activations/:id/activate" [id] (activation-resource id))
+        (POST*   "/verifications/:id/activate" [id] (activation-resource id))
+        (ANY*    "/authenticate/password" [] (authenticate-resource))
+        (ANY*    "/environments" [] (environments-resource))
+        (ANY*    "/environments/:id" [id] (environment-resource id))
+        (ANY*    "/logins/:id" [id] (login-resource (param->int id)))
+        (ANY*    "/scan-vpcs" [] (scan-vpc-resource))
+        (POST*   "/orgs" [] (orgs-resource))
+        (ANY*    "/orgs/:subdomain" [subdomain] (org-resource subdomain))
+        (GET*    "/orgs/subdomain/:subdomain" [subdomain] (subdomain-resource subdomain))
+        (ANY*    "/bastions" [] (bastions-resource))
+        (ANY*    "/bastions/launch" [] (launch-bastions-resource))
+        (ANY*    "/bastions/:id" [id] (bastion-resource id))
+        (POST*   "/bastions/:id/test-check" [id]
+                 :summary "Tells the bastion instance in question to test out a check and return the response"
+                 :proto [testCheck TestCheckRequest]
+                 :return (pb/proto->schema TestCheckResponse)
+                 (test-check-resource id testCheck))
 
-  ;; DONE
-  (GET* "/signups" []
-    :summary "List signups, including activation id and status."
-    ;:return (sch/maybe [Signup])
-    (signups-resource))
-  (POST* "/signups" [] (signups-resource))
-  (GET* "/instance/:id" [id]
-    :summary "Retrieve instance by ID."
-    :path-params [id :- sch/Str]
-    ;:return (sch/maybe CompositeInstance)
-    (instance-resource id))
-  (GET* "/instances" []
-    :summary "Retrieve a list of instances."
-    (instances-resource))
-  (GET* "/group/:id" [id]
-    :summary "Retrieve a Group by ID."
-    :path-params [id :- sch/Str]
-    ;:return (sch/maybe CompositeGroup)
-    (group-resource id))
-  (GET* "/groups" []
-    :summary "Retrieve a list of groups."
-    (groups-resource)))
+        (ANY*    "/discovery" [] (discovery-resource))
+
+        (POST*   "/checks" []
+                 :summary "Create a check"
+                 :proto [check Check]
+                 :return (pb/proto->schema Check)
+                 (checks-resource check))
+
+        (GET*    "/checks" []
+                 :summary "List all checks"
+                 :return [(pb/proto->schema Check)]
+                 (checks-resource nil))
+
+        (GET*    "/checks/:id" [id]
+                 :summary "Retrieve a check by its ID."
+                 :return (pb/proto->schema Check)
+                 (check-resource id nil))
+
+        (DELETE* "/checks/:id" [id]
+                 :summary "Delete a check by its ID."
+                 (check-resource id nil))
+
+        (PUT*    "/checks/:id" [id]
+                 :summary "Update a check by its ID."
+                 :proto [check Check]
+                 :return (pb/proto->schema Check)
+                 (check-resource id check))
+
+
+        ;; DONE
+        (GET*    "/signups" []
+                 :summary "List signups, including activation id and status."
+                 ;:return (sch/maybe [Signup])
+                 (signups-resource))
+        (POST*   "/signups" [] (signups-resource))
+        (GET*    "/instance/:id" [id]
+                 :summary "Retrieve instance by ID."
+                 :path-params [id :- sch/Str]
+                 ;:return (sch/maybe CompositeInstance)
+                 (instance-resource id))
+        (GET*    "/instances" []
+                 :summary "Retrieve a list of instances."
+                 (instances-resource))
+        (GET*    "/group/:id" [id]
+                 :summary "Retrieve a Group by ID."
+                 :path-params [id :- sch/Str]
+                 ;:return (sch/maybe CompositeGroup)
+                 (group-resource id))
+        (GET*    "/groups" []
+                 :summary "Retrieve a list of groups."
+                 (groups-resource)))
 
 (defn handler [exe message-bus database conf]
   (reset! executor exe)
@@ -856,8 +796,8 @@
     (log-request)
     (log-response)
     (wrap-cors :access-control-allow-origin [#".*"]
-      :access-control-allow-methods [:get :put :post :patch :delete]
-      :access-control-allow-headers ["X-Auth-HMAC"])
+               :access-control-allow-methods [:get :put :post :patch :delete]
+               :access-control-allow-headers ["X-Auth-HMAC"])
     (wrap-options)
     (wrap-params)
     (wrap-trace :header :ui)))
