@@ -32,4 +32,3 @@ select * from checks where customer_id=:customer_id::UUID;
 -- name: delete-check-by-id!
 -- Deletes a check record by id.
 delete from checks where id=:id;
-

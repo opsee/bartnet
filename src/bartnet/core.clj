@@ -39,7 +39,7 @@
                      (reset! ws-server nil)))))
 
 (defn start-server [args]
-  (let [config (parse-string (slurp (first args)) true)
+  (let [config (parse-string (slurp (last args)) true)
         db (sql/pool (:db-spec config))
         bus (bus/message-bus (if (:nsq config)
                                (nsq/message-bus (:nsq config))

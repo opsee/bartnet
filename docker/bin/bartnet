@@ -35,6 +35,8 @@ gen_config()
            "url":"https://api.mailgun.net/v3/mg.opsee.co"},
 "bastion-server":{ "port": 4080 }}
 EOF
+
+    cat $config
 }
 
 usage()
@@ -49,8 +51,8 @@ OPTIONS:
   -a    Adds some default aggressive, nonportable JVM optimization flags.
 
 COMMANDS:
-  start    Start the Riemann server (this is the default)
-  test     Run the configuration tests
+  start    Start the Bartnet server (this is the default)
+  migrate  Migrate the databas
 
   Any unrecognized options (e.g. -XX:+UseParNewGC) will be passed on to java.
 EOF
@@ -72,6 +74,10 @@ for arg in "$@"; do
     test|start)
       COMMAND="server"
       ;;
+    migrate)
+      COMMAND="db"
+      SUBCOMMAND="migrate"
+      ;;
     *)
       CONFIG="$arg"
       unset GEN_CONFIG
@@ -83,4 +89,4 @@ if [ -n "$GEN_CONFIG" ]; then
   gen_config $CONFIG
 fi
 
-exec java $OPTS "$NAMESPACE" "$COMMAND" "$CONFIG"
+exec java $OPTS "$NAMESPACE" "$COMMAND" "$SUBCOMMAND" "$CONFIG"
