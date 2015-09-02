@@ -45,11 +45,10 @@
              (let [proto (-> (TestCheckRequest/newBuilder)
                              (.setMaxHosts 3)
                              (.setDeadline (-> (Timestamp/newBuilder)
-                                               (.setSeconds 1)
-                                               (.setNanos 2)
+                                               (.setSeconds 1441234586)
                                                .build))
                              .build)]
-               (proto->hash proto) => {:max_hosts 3 :deadline {:seconds 1 :nanos 2}}))
+               (proto->hash proto) => {:max_hosts 3 :deadline "2015-09-02T22:56:26Z"}))
        (let [check-proto (-> (HttpCheck/newBuilder)
                              (.setPath "/somewhere/beyond/the/highway")
                              (.addHeaders (-> (Header/newBuilder)

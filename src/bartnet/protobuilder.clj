@@ -3,14 +3,20 @@
             [clj-time.core :as t]
             [clojure.tools.logging :as log]
             [clj-time.coerce :as c]
+            [clj-time.format :as f]
             [schema.utils :as su]
             [ring.swagger.json-schema :as js]
+            [ring.swagger.swagger2 :as rss]
+            [ring.swagger.core :as rsc]
             [bartnet.util :refer [if-and-let]])
   (:import (com.google.protobuf GeneratedMessage$Builder WireFormat$JavaType Descriptors$FieldDescriptor ByteString GeneratedMessage ProtocolMessageEnum Descriptors$Descriptor Descriptors$EnumDescriptor)
            (java.nio ByteBuffer)
            (io.netty.buffer ByteBuf)
            (clojure.lang Reflector)
-           (co.opsee.proto Any)))
+           (co.opsee.proto Any Timestamp)
+           (org.joda.time DateTime)))
+
+(def anytypes ["HttpCheck"])
 
 (defn- byte-string [buf]
   (cond
@@ -62,10 +68,15 @@
 
 (defmulti parse-deadline class)
 (defmethod parse-deadline String [value]
-  (let [[_ dec tim] (re-matches #"([0-9]+)([smhdu])" value)
-        adder (tim->adder tim)
-        date (t/plus (t/now) (adder (Integer/parseInt dec)))]
-    {:seconds (c/to-epoch date) :nanos 0}))
+  (if-let [[_ dec tim] (re-matches #"([0-9]+)([smhdu])" value)]
+    (let [adder (tim->adder tim)
+          date (t/plus (t/now) (adder (Integer/parseInt dec)))]
+      {:seconds (c/to-epoch date) :nanos 0})
+    {:seconds (-> :date-time-no-ms
+                  f/formatters
+                  (f/parse value)
+                  c/to-epoch)
+     :nanos 0}))
 (defmethod parse-deadline :default [value]
   value)
 
@@ -100,6 +111,9 @@
           (.setField builder field (value-converter v builder field)))))
     (.build builder)))
 
+(defn- format-timestamp [^Timestamp t]
+  (f/unparse (f/formatters :date-time-no-ms) (DateTime. (* 1000 (.getSeconds t)))))
+
 (defn- any->hash [^Any any]
   (let [type (.getTypeUrl any)
         clazz (Class/forName (str "co.opsee.proto." type))
@@ -117,8 +131,9 @@
              WireFormat$JavaType/INT value
              WireFormat$JavaType/LONG value
              WireFormat$JavaType/STRING value
-             WireFormat$JavaType/MESSAGE (if (= "Any" (.getName (.getMessageType field)))
-                                           (any->hash value)
+             WireFormat$JavaType/MESSAGE (case (.getName (.getMessageType field))
+                                           "Any" (any->hash value)
+                                           "Timestamp" (format-timestamp value)
                                            (proto->hash value))))
 
 (defn- unpack-repeated-or-single [^Descriptors$FieldDescriptor field value]
@@ -149,11 +164,13 @@
                                                  (array-wrap field))])
 
 (defn- descriptor->schema [^Descriptors$Descriptor descriptor]
-  (into {}
-        (map field->schema-entry)
-        (.getFields descriptor)))
+  (s/schema-with-name
+    (into {}
+          (map field->schema-entry)
+          (.getFields descriptor))
+    (.getName descriptor)))
 
-(defrecord AnyTypeSchema [_]
+(defrecord AnyTypeSchema []
   s/Schema
   (walker [_]
     (let [walker (atom nil)]
@@ -167,8 +184,15 @@
   (explain [_]
     'any))
 
-(defmethod js/json-type AnyTypeSchema [_] {:type "void"})
+(defrecord TimestampSchema []
+  s/Schema
+  (walker [this]
+    (fn [v]
+      (try
+        (parse-deadline v)
+        (catch Exception e (schema.macros/validation-error this v (.getMessage e))))))
 
+  (explain [_] (list 'format :date-time)))
 
 (defn- type->schema [^Descriptors$FieldDescriptor field]
   (case-enum (.getJavaType field)
@@ -181,14 +205,18 @@
              WireFormat$JavaType/LONG s/Int
              WireFormat$JavaType/STRING s/Str
              WireFormat$JavaType/MESSAGE (case (.getName (.getMessageType field))
-                                           "Any" (AnyTypeSchema. nil)
-                                           "Timestamp" (s/either (descriptor->schema (.getMessageType field))
-                                                                 s/Str)
+                                           "Any" (AnyTypeSchema.)
+                                           "Timestamp" (TimestampSchema.)
                                            (descriptor->schema (.getMessageType field)))))
 
 (defn proto->schema [^Class clazz]
   (let [^Descriptors$Descriptor descriptor (Reflector/invokeStaticMethod clazz "getDescriptor" (to-array nil))]
     (descriptor->schema descriptor)))
+
+(defn json-schema-inherit [schema]
+  {:type "object"
+   :allOf [{"$ref" "#/definitions/Any"}
+           {:properties {:value schema}}]})
 
 (defn proto-walker [^Class clazz]
   (let [first (atom 0)]
@@ -206,3 +234,19 @@
                 result
                 (hash->proto clazz data))))))
       (proto->schema clazz))))
+
+(def anyjson {"Any" {:type "object"
+                     :discriminator "type_url"
+                     :properties {:type_url {:type "string"
+                                             :enum anytypes}}
+                     :required ["type_url"]}})
+
+(defn anyschemas []
+  (let [models (rsc/collect-models (map #(->> %
+                                              (str "co.opsee.proto.")
+                                              Class/forName
+                                              proto->schema) anytypes))]
+    (into anyjson (map (fn [[name schemas]]
+                         (if (contains? anytypes name)
+                           [name (json-schema-inherit (rss/transform (first schemas)))]
+                           [name (rss/transform (first schemas))]))) models)))
