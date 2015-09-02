@@ -434,18 +434,30 @@
                       result)))))
         (swagger-ui "/api/swagger" :swagger-docs "/api/swagger.json")
         ;; TODO: Split out request methods and document with swagger metadata
-        (GET*    "/health_check" [] "A ok")
-        (ANY*    "/scan-vpcs" [] (scan-vpc-resource))
-        (ANY*    "/bastions" [] (bastions-resource))
-        (ANY*    "/bastions/launch" [] (launch-bastions-resource))
-        (ANY*    "/bastions/:id" [id] (bastion-resource id))
+        (GET*    "/health_check" []
+                 :no-doc true
+                 "A ok")
+        (ANY*    "/scan-vpcs" []
+                 :no-doc true
+                 (scan-vpc-resource))
+        (ANY*    "/bastions" []
+                 :no-doc true
+                 (bastions-resource))
+        (ANY*    "/bastions/launch" []
+                 :no-doc true
+                 (launch-bastions-resource))
+        (ANY*    "/bastions/:id" [id]
+                 :no-doc true
+                 (bastion-resource id))
         (POST*   "/bastions/:id/test-check" [id]
                  :summary "Tells the bastion instance in question to test out a check and return the response"
                  :proto [testCheck TestCheckRequest]
                  :return (pb/proto->schema TestCheckResponse)
                  (test-check-resource id testCheck))
 
-        (ANY*    "/discovery" [] (discovery-resource))
+        (ANY*    "/discovery" []
+                 :no-doc true
+                 (discovery-resource))
 
         (POST*   "/checks" []
                  :summary "Create a check"
@@ -479,17 +491,21 @@
                  :summary "Retrieve instance by ID."
                  :path-params [id :- sch/Str]
                  ;:return (sch/maybe CompositeInstance)
+                 :no-doc true
                  (instance-resource id))
         (GET*    "/instances" []
                  :summary "Retrieve a list of instances."
+                 :no-doc true
                  (instances-resource))
         (GET*    "/group/:id" [id]
                  :summary "Retrieve a Group by ID."
                  :path-params [id :- sch/Str]
                  ;:return (sch/maybe CompositeGroup)
+                 :no-doc true
                  (group-resource id))
         (GET*    "/groups" []
                  :summary "Retrieve a list of groups."
+                 :no-doc true
                  (groups-resource)))
 
 (defn handler [exe message-bus database conf]
