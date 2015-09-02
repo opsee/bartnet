@@ -10,7 +10,7 @@
         "min-conns":1,
         "init-conns":1
     },
-    "secret":"abc123",
+    "secret":"resources/vape.test.key",
     "thread-util":0.9,
     "max-threads":64,
     "server":

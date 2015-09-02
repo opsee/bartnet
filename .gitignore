@@ -12,3 +12,4 @@ pom.xml.asc
 *.sublime-project
 *.sublime-workspace
 src/co/opsee/proto/*
+schema.sql

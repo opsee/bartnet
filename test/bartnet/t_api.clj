@@ -20,15 +20,16 @@
             [bartnet.auth :as auth]
             [clojure.java.io :as io]
             [bartnet.instance :as instance]
-            [schema.core :as sch])
+            [schema.core :as sch]
+            [bartnet.util :as util])
   (:import [io.aleph.dirigiste Executors]
            (java.util.concurrent ScheduledThreadPoolExecutor)))
 
 (log/info "Testing!")
 
-(def auth-header "HMAC 1--iFplvAUtzi_veq_dMKPfnjtg_SQ=")
-(def auth-header2 "HMAC 2--kJXpzFOo0ZfI_PG069j0iNDAc-o=")
-(def auth-header3 "HMAC 3--NSlzR-VsmftimMosLpXHoG1Z7kM=")
+; this token is for {"id":8,"customer_id":"154ba57a-5188-11e5-8067-9b5f2d96dce1","email":"cliff@leaninto.it","name":"cliff","verified":true,"admin":false,"active":true}
+; it will expire in 10 yrs. hopefully that is long enough so that computers won't exist anymore
+(def auth-header "Bearer eyJhbGciOiJBMTI4R0NNS1ciLCJlbmMiOiJBMTI4R0NNIiwiaXYiOiJXQWlLQ2Z1azk3TlBzM1ZYIiwidGFnIjoiaU56RG1LdjloQmE0TS1YU19YcEpPZyJ9.HqXl4bq3k3E9GQ7FtsWHaQ.SONY24NgxzEZk7c3.yYd7WZX3O8ChDIVFlG--kLr_bDfkNXcR7eAnCyZ-QhFKmlbKGKE9A1-uudKRPuZ05LEAxolOrZ0lPRkW7CM3jdEdYBcUITinztgz-POIdMOXdUjFODpNOVxlcHKtZo2JH1wNdzEobBtAmVbdkl2aNUJMhVSKWbsLV3efvKQ-wVfO3kHDNmYHJlp2DKh0-8yul4UcoDytkEDOfTrpGlZrxStXRNhSf0KhRK11fh3dXvyzj07OEdYuNVbqhtfyycBPUQUJnP1xDZTpDtZ3n7lJaA.OGbujXobjndTRus8wmCqIg")
 
 (def bus (bus/message-bus (autobus/autobus)))
 (def executor (Executors/utilizationExecutor 0.9 10))
@@ -55,239 +56,30 @@
     (start-connection)))
 
 (defn app []
-  (do (api/handler executor bus @db test-config)))
+  (do
+    (auth/set-secret! (util/slurp-bytes (:secret test-config)))
+    (api/handler executor bus @db test-config)))
 
 (defn start-ws-server []
   (do
     (log/info "start server")
+    (auth/set-secret! (util/slurp-bytes (:secret test-config)))
     (reset! ws-server (run-jetty
                         (api/handler executor bus @db test-config)
                         (assoc (:server test-config)
-                          :websockets {"/stream" (websocket/ws-handler scheduler bus @db (:secret test-config))})))
+                          :websockets {"/stream" (websocket/ws-handler scheduler bus)})))
     (log/info "server started")))
 
 (defn stop-ws-server []
   (.stop @ws-server))
 
-(facts "Auth endpoint works"
-       (fact "bounces bad logins"
-             (let [response ((app) (mock/request :post "/authenticate/password"))]
-               (:status response) => 401))
-       (with-state-changes
-         [(before :facts
-                  (doto (do-setup)
-                        login-fixtures))]
-         (fact "sets hmac header on good login"
-               (let [response ((app) (mock/request :post "/authenticate/password" (generate-string {:email "cliff@leaninto.it" :password "cliff"})))]
-                 (:status response) => 201
-                 (get-in response [:headers "X-Auth-HMAC"]) => "1--iFplvAUtzi_veq_dMKPfnjtg_SQ="
-                 (:body response) => (is-json (contains {:token "HMAC 1--iFplvAUtzi_veq_dMKPfnjtg_SQ="}))))))
-(facts "Environments endpoint works"
-       (fact "bounces unauthorized requests"
-             (let [response ((app) (mock/request :get "/environments"))]
-               (:status response) => 401)
-             (let [response ((app) (-> (mock/request :get "/environments")
-                                       (mock/header "Authorization" "blorpbloop")))]
-               (:status response) => 401))
-       (with-state-changes
-         [(before :facts (doto
-                           (do-setup)
-                           login-fixtures))]
-         (fact "lets in authorized requests"
-               (let [response ((app) (-> (mock/request :get "/environments")
-                                         (mock/header "Authorization" auth-header)))]
-               (:status response) => 200
-               (:body response) => "[]"))
-         (fact "creates new environments"
-               (let [response ((app) (-> (mock/request :post "/environments" (generate-string {"name" "New Environment"}))
-                                         (mock/header "Authorization" auth-header)))]
-                 (:status response) => 201
-                 (sql/get-environment-for-login @db (:id (parse-string (:body response) true)) 1) => (just [(contains {:name "New Environment"})]))))
-       (with-state-changes
-         [(before :facts (doto
-                           (do-setup)
-                           login-fixtures
-                           environment-fixtures))]
-         (fact "returns an array of environments"
-               (let [response ((app) (-> (mock/request :get "/environments")
-                                         (mock/header "Authorization" auth-header)))]
-                 (:status response) => 200
-                 (:body response) => (is-json (just [(contains {:id "abc123" :name "Test Env"})
-                                                     (contains {:id "nice123" :name "Test2"})]))))))
-(facts "Environment endpoint works"
-       (with-state-changes
-         [(before :facts (doto
-                           (do-setup)
-                           login-fixtures))]
-         (fact "404's unknown environments"
-               (let [response ((app) (-> (mock/request :get "/environments/abc123")
-                                         (mock/header "Authorization" auth-header)))]
-                 (:status response) => 404)))
-       (with-state-changes
-         [(before :facts (doto
-                           (do-setup)
-                           login-fixtures
-                           environment-fixtures))]
-         (fact "returns known environments"
-               (let [response ((app) (-> (mock/request :get "/environments/abc123")
-                                         (mock/header "Authorization" auth-header)))]
-                 (:status response) => 200
-                 (:body response) => (is-json (contains {:id "abc123" :name "Test Env"}))))
-         (fact "updates environments"
-               (let [response ((app) (-> (mock/request :put "/environments/abc123" (generate-string {:name "Test Update"}))
-                                         (mock/header "Authorization" auth-header)))]
-                 (:status response) => 201
-                 (sql/get-environment-for-login @db "abc123" 1) => (just [(contains {:name "Test Update"})])))))
-(facts "/signups"
-       (with-state-changes
-         [(before :facts (doto
-                           (do-setup)
-                           login-fixtures
-                           signup-fixtures
-                           admin-fixtures))]
-         (fact "signups get created"
-               (let [response ((app) (-> (mock/request :post "/signups" (generate-string
-                                                                          {:email "cliff+newsignup@leaninto.it"
-                                                                           :name "cliff moon"}))))]
-                 (:status response) => 201
-                 (sql/get-signup-by-email @db "cliff+newsignup@leaninto.it") =not=> empty?))
-         (fact "signups don't get duplicated"
-               (let [response ((app) (-> (mock/request :post "/signups" (generate-string
-                                                                          {:email "cliff+signup@leaninto.it"
-                                                                           :name "cliff 2"}))))]
-                 (:status response) => 409
-                 (count (sql/get-signups @db 100 0)) => 1
-                 (:body response) => (is-json (contains {:error #"Conflict"}))))
-         (fact "superusers can list out signups"
-               (let [response ((app) (-> (mock/request :get "/signups")
-                                         (mock/header "Authorization" auth-header)))]
-                 (:status response) => 200
-                 (:body response) => (is-json (just (contains {:email "cliff+signup@leaninto.it"})))
-                 (let [body (parse-string (:body response) true)]
-                   (sch/validate [api/Signup] body) => body)))
-         (fact "superusers can send an activation email"
-               (let [response ((app) (-> (mock/request :post "/signups/send-activation?email=cliff%2Bsignup@leaninto.it")
-                                         (mock/header "Authorization" auth-header)))]
-                 (:status response) => 201
-                 (count (sql/get-unused-activations @db)) => 1))))
-
-(facts "activations endpoint works"
-       (with-state-changes
-         [(before :facts (doto
-                           (do-setup)
-                           login-fixtures
-                           signup-fixtures
-                           admin-fixtures
-                           unverified-fixtures
-                           activation-fixtures))]
-         (fact "activation endpoint turns into a login"
-               (let [response ((app) (-> (mock/request :post "/activations/abc123/activate" (generate-string
-                                                                                              {:password "cliff"}))))]
-                 (:status response) => 201
-                 (:body response) => (is-json (contains {:email "cliff+signup@leaninto.it"}))
-                 (:body response) => (is-json (fn [actual] (string? (:token actual))))))
-         (fact "activation records for existing logins will result in the login being set to verified"
-               (let [response ((app) (-> (mock/request :post "/activations/existing/activate")))]
-                 (:status response) => 201
-                 (:body response) => (is-json (contains {:id 2}))
-                 (sql/get-active-login-by-id @db 2) => (just (contains {:verified true}))))
-         (fact "activations already used will result in a 409 conflict"
-               (let [response ((app) (-> (mock/request :post "/activations/badid/activate" (generate-string
-                                                                                             {:password "cliff"}))))]
-                 (:status response) => 409
-                 (:body response) => (is-json (contains {:error #"invalid activation"}))))))
-(facts "orgs endpoint works"
-  (with-state-changes
-    [(before :facts (doto
-                      (do-setup)
-                      login-fixtures
-                      signup-fixtures))]
-    (facts "about /orgs"
-      (fact "POST creates a new org"
-        (let [response ((app) (-> (mock/request :post "/orgs" (generate-string
-                                                                 {:name "test org"
-                                                                  :subdomain "foo"}))
-                                  (mock/header "Authorization" auth-header)))]
-          (:status response) => 201
-          (:body response) => (is-json (contains {:name "test org"}))))
-      (fact "POST associates the current login with the new org"
-        (let [response ((app) (-> (mock/request :post "/orgs" (generate-string
-                                                                {:name "test org"
-                                                                 :subdomain "foo"}))
-                                (mock/header "Authorization" auth-header3)))]
-          (:status response) => 201
-          (:customer_id (first (sql/get-any-login-by-email @db "cliff+newuser@leaninto.it"))) => "foo")))
-    (facts "about /orgs/subdomain/:subdomain"
-      (fact "GET returns availability for a subdomain"
-        (let [response ((app) (-> (mock/request :get "/orgs/subdomain/cliff")
-                                  (mock/header "Authorization" auth-header)))]
-          (:status response) => 200
-          (:body response) => (is-json (contains {:available false})))
-        (let [response ((app) (-> (mock/request :get "/orgs/subdomain/apples")
-                                (mock/header "Authorization" auth-header)))]
-          (:status response) => 200
-          (:body response) => (is-json (contains {:available true})))))))
-(facts "login endpoint works"
-       (with-state-changes
-         [(before :facts (doto
-                           (do-setup)
-                           login-fixtures
-                           admin-fixtures))]
-         (fact "can retrieve own login"
-               (let [response ((app) (-> (mock/request :get "/logins/2")
-                                         (mock/header "Authorization" auth-header2)))]
-                 (:status response) => 200
-                 (:body response) => (is-json (contains {:id 2}))))
-         (fact "cannot retrieve someone elses login"
-               (let [response ((app) (-> (mock/request :get "/logins/1")
-                                         (mock/header "Authorization" auth-header2)))]
-                 (:status response) => 403))
-         (fact "superuser can retrieve someone elses login"
-               (let [response ((app) (-> (mock/request :get "/logins/2")
-                                         (mock/header "Authorization" auth-header)))]
-                 (:status response) => 200
-                 (:body response) => (is-json (contains {:id 2}))))
-         (fact "user can edit their own name"
-               (let [response ((app) (-> (mock/request :patch "/logins/2" (generate-string {:name "derp"}))
-                                         (mock/header "Authorization" auth-header2)))]
-                 (:status response) => 200
-                 (:body response) => (is-json (contains {:id 2 :name "derp" :verified true}))))
-         (fact "changing email address will change verified status"
-               (let [response ((app) (-> (mock/request :patch "/logins/2" (generate-string {:email "cliff+hello@leaninto.it"}))
-                                         (mock/header "Authorization" auth-header2)))]
-                 (:status response) => 200
-                 (:body response) => (is-json (contains {:id 2 :email "cliff+hello@leaninto.it" :verified false}))
-                 (:body response) =not=> (is-json (contains {:password_hash #""}))))
-         (fact "changing the password without the old one will result in a 403"
-               (let [response ((app) (-> (mock/request :patch "/logins/2" (generate-string {:old_password "nomegusta"
-                                                                                            :new_password "hacker"}))
-                                         (mock/header "Authorization" auth-header2)))]
-                 (:status response) => 403))
-         (fact "changing the password with a matching old one will work"
-               (let [response ((app) (-> (mock/request :patch "/logins/2" (generate-string {:old_password "cliff"
-                                                                                            :new_password "huck"}))
-                                         (mock/header "Authorization" auth-header2)))]
-                 (:status response) => 200
-                 (:password_hash (first (sql/get-active-login-by-id @db 2))) => #(auth/password-match? "huck" %)))
-         (fact "changing to an existing email address will return a 409"
-               (let [response ((app) (-> (mock/request :patch "/logins/2" (generate-string {:email "cliff@leaninto.it"}))
-                                         (mock/header "Authorization" auth-header2)))]
-                 (:status response) => 409
-                 (first (sql/get-active-login-by-id @db 2)) => (contains {:email "cliff+notsuper@leaninto.it"})))
-         (fact "a user can deactivate their account"
-               (let [response ((app) (-> (mock/request :delete "/logins/2")
-                                         (mock/header "Authorization" auth-header2)))]
-                 (:status response) => 204
-                 (sql/get-active-login-by-id @db 2) => empty?))))
 (facts "checks endpoint works"
        (with-redefs [rpc/checker-client mock-checker-client
                      router/get-customer-bastions mock-get-customer-bastions
                      router/get-service mock-get-service]
          (with-state-changes
            [(before :facts (doto
-                             (do-setup)
-                             login-fixtures
-                             environment-fixtures))]
+                             (do-setup)))]
            (fact "empty checks are empty"
                  (let [response ((app) (-> (mock/request :get "/checks")
                                            (mock/header "Authorization" auth-header)))]
@@ -323,7 +115,7 @@
                                                                                                    :protocol "http"}}}))
                                              (mock/header "Authorization" auth-header)))]
                      (:status response) => 201
-                     (sql/get-checks-by-env-id @db "abc123") => (contains (contains {:interval 10}))))))))
+                     (sql/get-checks-by-customer-id @db "154ba57a-5188-11e5-8067-9b5f2d96dce1") => (contains (contains {:interval 10}))))))))
 (facts "check endpoint works"
        (with-redefs [rpc/checker-client mock-checker-client
                      router/get-customer-bastions mock-get-customer-bastions
@@ -331,8 +123,6 @@
          (with-state-changes
            [(before :facts (doto
                              (do-setup)
-                             login-fixtures
-                             environment-fixtures
                              check-fixtures))]
            (fact "checks that don't exist will 404"
                  (let [response ((app) (-> (mock/request :get "/checks/derpderp")
@@ -376,14 +166,13 @@
                    (:status response) => 201)))))
 
 (facts "about /instance/:id"
-  (let [my-instance {:customer_id "cliff" :id "id" :name "my instance" :group_id "sg-123456"}]
+  (let [my-instance {:customer_id "154ba57a-5188-11e5-8067-9b5f2d96dce1" :id "id" :name "my instance" :group_id "sg-123456"}]
     (with-state-changes
       [(before :facts
          (do
            (instance/create-memory-store bus)
            (instance/save-instance! my-instance)
-           (doto (do-setup)
-                  login-fixtures)))]
+           (do-setup)))]
       (fact "GET existing instance returns the instance"
         (let [response ((app) (-> (mock/request :get "/instance/id")
                                 (mock/header "Authorization" auth-header)))]

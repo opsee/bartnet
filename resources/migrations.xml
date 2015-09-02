@@ -291,4 +291,30 @@
       <column name="last_run" type="DATETIME"/>
     </addColumn>
   </changeSet>
+  <changeSet id="21" author="mark">
+    <dropTable tableName="activations" cascadeConstraints="true"/>
+    <dropTable tableName="api_tokens" cascadeConstraints="true"/>
+    <dropTable tableName="environments_logins" cascadeConstraints="true"/>
+    <dropTable tableName="environments" cascadeConstraints="true"/>
+    <dropTable tableName="network_interfaces" cascadeConstraints="true"/>
+    <dropTable tableName="instances" cascadeConstraints="true"/>
+    <dropTable tableName="logins" cascadeConstraints="true"/>
+    <dropTable tableName="orgs" cascadeConstraints="true"/>
+    <dropTable tableName="signups" cascadeConstraints="true"/>
+    <dropTable tableName="teams" cascadeConstraints="true"/>
+    <dropColumn tableName="checks" columnName="environment_id"/>
+    <dropColumn tableName="credentials" columnName="env_id"/>
+    <addColumn tableName="checks">
+      <column name="customer_id" type="UUID"><constraints nullable="false"></constraints></column>
+    </addColumn>
+    <addColumn tableName="credentials">
+      <column name="customer_id" type="UUID"><constraints nullable="false"></constraints></column>
+    </addColumn>
+    <createIndex tableName="checks" indexName="idx_checks_customer_id">
+      <column name="customer_id" type="UUID"></column>
+    </createIndex>
+    <createIndex tableName="credentials" indexName="idx_credentials_customer_id">
+      <column name="customer_id" type="UUID"></column>
+    </createIndex>
+  </changeSet>
 </databaseChangeLog>
