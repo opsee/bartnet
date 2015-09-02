@@ -9,7 +9,7 @@ NAMESPACE="bartnet.core"
 AGGRESSIVE_OPTS="-server -XX:+UseConcMarkSweepGC -XX:+UseParNewGC -XX:+CMSParallelRemarkEnabled -XX:+AggressiveOpts -XX:+UseFastAccessorMethods -XX:+UseCompressedOops -XX:+CMSClassUnloadingEnabled"
 
 if [[ $AWS == 0 ]]; then
-    eval "$(/opt/bin/ec2-env)"
+  eval "$(/opt/bin/ec2-env)"
 fi
 
 gen_config()
@@ -30,7 +30,7 @@ gen_config()
 },
 "secret":"/bartnet/etc/vape.key",
 "thread-util":0.9,
-"max-threads":64,å
+"max-threads":64,
 "server":{ "port": 8080 },
 "ami":{"owner-id":"933693344490", "tag":"stable", "keypair":"bastion-testing", "template-src":{"template-url":"beta/bastion-cf.template"}},
 "mailgun":{"api_key":"key-d45f90c5a3e2ac33a26cd4c30715b71b",
