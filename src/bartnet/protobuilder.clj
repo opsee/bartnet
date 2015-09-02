@@ -112,7 +112,7 @@
     (.build builder)))
 
 (defn- format-timestamp [^Timestamp t]
-  (f/unparse (f/formatters :date-time-no-ms) (DateTime. (:seconds t))))
+  (f/unparse (f/formatters :date-time-no-ms) (DateTime. (* 1000 (.getSeconds t)))))
 
 (defn- any->hash [^Any any]
   (let [type (.getTypeUrl any)
