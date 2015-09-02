@@ -7,10 +7,14 @@
             [clojure.tools.logging :as log]
             [ring.middleware.cors :refer [wrap-cors]]
             [liberator.representation :refer [ring-response]]
+            [ring.swagger.json-schema :as rsj]
+            [ring.swagger.middleware :as rsm]
+            [ring.util.http-response :refer :all]
             [yesql.util :refer [slurp-from-classpath]]
             [amazonica.aws.ec2 :refer [describe-vpcs describe-account-attributes]]
             [ring.middleware.params :refer [wrap-params]]
             [compojure.api.sweet :refer :all]
+            [compojure.api.swagger :as cas]
             [compojure.api.meta :as meta]
             [compojure.api.middleware :as mw]
             [cheshire.core :refer :all]
@@ -25,9 +29,9 @@
             [liberator.core :refer [resource defresource]])
   (:import (java.sql BatchUpdateException)
            [java.util Base64]
-           (java.sql BatchUpdateException)
-           (co.opsee.proto TestCheckRequest TestCheckResponse CheckResourceRequest Check)
-           (java.io ByteArrayInputStream InputStream)))
+           (co.opsee.proto TestCheckRequest TestCheckResponse CheckResourceRequest Check Timestamp)
+           (java.io ByteArrayInputStream)
+           (bartnet.protobuilder AnyTypeSchema TimestampSchema)))
 
 ;; preamble enables spiffy protobuf coercion
 
@@ -36,6 +40,12 @@
       (update-in [:lets] into [value (meta/src-coerce! (resolve clazz) :body-params :proto)])
       (assoc-in [:parameters :parameters :body] (pb/proto->schema (resolve clazz)))))
 
+(defmethod rsj/json-type TimestampSchema [_]
+  {:type "string" :format "date-time"})
+(defmethod rsj/json-type AnyTypeSchema [_]
+  {"$ref" "#/definitions/Any"})
+
+;; Schemata
 
 (defn build-group [customer-id id]
   (let [group (instance/get-group! customer-id id)]
@@ -82,9 +92,6 @@
 (def db (atom nil))
 (def bus (atom nil))
 (def client (atom nil))
-
-(defn param->int [n]
-  (Integer/parseInt n))
 
 (defmethod liberator.representation/render-map-generic "application/json" [data _]
   (generate-string data))
@@ -406,10 +413,25 @@
          ;:validation-errors {:error-handler robustify-errors}
          :coercion   (fn [_] (assoc mw/default-coercion-matchers
                                :proto pb/proto-walker))}
-        (swagger-docs "/api/swagger.json"
-                      {:info {:title       "Opsee API"
-                              :description "Own your availability."
-                              }})
+        ;(swagger-docs "/api/swagger.json"
+        ;              {:info {:title       "Opsee API"
+        ;                      :description "Own your availability."}
+        ;               :definitions {"HttpCheck" {:type "object"}}})
+        (routes
+          (GET* "/api/swagger.json" {:as req}
+                :no-doc true
+                :name ::swagger
+                (let [runtime-info (rsm/get-swagger-data req)
+                      base-path {:basePath (cas/base-path req)}
+                      options (:ring-swagger (mw/get-options req))]
+                  (ok
+                    (let [swagger (merge runtime-info base-path)
+                          result (merge-with merge
+                                             (ring.swagger.swagger2/swagger-json swagger options)
+                                             {:info {:title "Opsee API"
+                                                     :description "Be More Opsee"}
+                                              :definitions (pb/anyschemas)})]
+                      result)))))
         (swagger-ui "/api/swagger" :swagger-docs "/api/swagger.json")
         ;; TODO: Split out request methods and document with swagger metadata
         (GET*    "/health_check" [] "A ok")
