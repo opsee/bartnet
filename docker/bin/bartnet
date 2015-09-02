@@ -10,6 +10,7 @@ AGGRESSIVE_OPTS="-server -XX:+UseConcMarkSweepGC -XX:+UseParNewGC -XX:+CMSParall
 
 if [[ $AWS == 0 ]]; then
   eval "$(/opt/bin/ec2-env)"
+  /opt/bin/s3kms get -b opsee-keys -o dev/vape.key > /bartnet/etc/vape.key
 fi
 
 gen_config()
