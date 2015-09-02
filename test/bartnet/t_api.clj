@@ -141,7 +141,7 @@
                  (let [response ((app) (-> (mock/request :delete "/checks/checkid123")
                                            (mock/header "Authorization" auth-header)))]
                    (:status response) => 204
-                   (sql/get-check-by-id @db "checkid123") => empty?
+                   (sql/get-check-by-id @db {:id "checkid123" :customer_id "154ba57a-5188-11e5-8067-9b5f2d96dce1"}) => empty?
                    (log/info "sdfsfdasdfadsf")
                    (log/info "gotsdfsdfsdf")))
            (fact "checks get updated"
@@ -149,7 +149,7 @@
                                            (mock/header "Authorization" auth-header)))]
                    (:status response) => 200
                    (:body response) => (is-json (contains {:interval 100}))
-                   (sql/get-check-by-id @db "checkid123") => (just (contains {:interval 100}))))
+                   (sql/get-check-by-id @db {:id "checkid123" :customer_id "154ba57a-5188-11e5-8067-9b5f2d96dce1"}) => (just (contains {:interval 100}))))
            (fact "new checks get saved"
                  (let [response ((app) (-> (mock/request :post "/checks" (generate-string
                                                                            {:interval 10
