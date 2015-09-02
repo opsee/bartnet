@@ -23,12 +23,12 @@ update checks set customer_id = :customer_id::UUID,
 
 -- name: get-check-by-id
 -- Retrieves a health check record.
-select * from checks where id=:id;
+select * from checks where id=:id and customer_id=:customer_id::UUID;
 
 -- name: get-checks-by-customer-id
 -- Retrieves a list of health checks by env id.
 select * from checks where customer_id=:customer_id::UUID;
 
--- name: delete-check-by-id!
+-- name: delete-check-by-id
 -- Deletes a check record by id.
-delete from checks where id=:id;
+delete from checks where id=:id and customer_id=:customer_id::UUID;

@@ -197,9 +197,10 @@
 
 (defn check-exists? [id]
   (fn [ctx]
-    (let [login (:login ctx)]
-      (if-let [check (first (sql/get-check-by-id @db id))]
-        {:check (dissoc (resolve-lastrun (:customer_id login) (resolve-target check)) :customer_id)}))))
+    (let [login (:login ctx)
+          customer-id (:customer_id login)]
+      (if-let [check (first (sql/get-check-by-id @db {:id id :customer_id customer-id}))]
+        {:check (dissoc (resolve-lastrun customer-id (resolve-target check)) :customer_id)}))))
 
 (defn update-check! [id pb-check]
   (fn [ctx]
@@ -210,7 +211,7 @@
       (let [merged (merge old-check (assoc (resolve-target updated-check) :id id))]
         (log/info merged)
         (if (sql/update-check! @db (assoc merged :customer_id customer-id))
-          (let [final-check (dissoc (resolve-target (first (sql/get-check-by-id @db id))) :customer_id)
+          (let [final-check (dissoc (resolve-target (first (sql/get-check-by-id @db {:id id :customer_id customer-id}))) :customer_id)
                 _ (log/info "final-check" final-check)
                 check (pb/hash->proto Check final-check)
                 checks (-> (CheckResourceRequest/newBuilder)
@@ -223,15 +224,16 @@
 (defn delete-check! [id]
   (fn [ctx]
     (let [login (:login ctx)
-          check (first (sql/get-check-by-id @db id))]
+          customer-id (:customer_id login)
+          check (first (sql/get-check-by-id @db {:id id :customer_id customer-id}))]
       (do
-        (sql/delete-check-by-id! @db id)
+        (sql/delete-check-by-id! @db {:id id :customer_id customer-id})
         (let [req (-> (CheckResourceRequest/newBuilder)
                       (.addChecks (-> (Check/newBuilder)
                                       (.setId id)
                                       .build))
                       .build)]
-          (all-bastions (:customer_id login) #(rpc/delete-check % req)))))))
+          (all-bastions customer-id #(rpc/delete-check % req)))))))
 
 (defn create-check! [^Check check]
   (fn [ctx]
