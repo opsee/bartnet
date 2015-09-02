@@ -14,7 +14,9 @@
             [bartnet.util :refer :all]
             [ring.adapter.jetty9 :refer :all]
             [cheshire.core :refer :all]
-            [clj-disco.core :as disco])
+            [clj-disco.core :as disco]
+            [bartnet.auth :as auth]
+            [bartnet.util :as util])
   (:import [java.util.concurrent ScheduledThreadPoolExecutor]
            [io.aleph.dirigiste Executors]))
 
@@ -22,11 +24,13 @@
 
 (defn- start-ws-server [executor scheduler db bus config]
   (if-not @ws-server
-    (reset! ws-server
-            (run-jetty
-              (api/handler executor bus db config)
-              (assoc (:server config)
-                :websockets {"/stream" (websocket/ws-handler scheduler bus db (:secret config))})))))
+    (do
+      (auth/set-secret! (util/slurp-bytes (:secret config)))
+      (reset! ws-server
+              (run-jetty
+                (api/handler executor bus db config)
+                (assoc (:server config)
+                  :websockets {"/stream" (websocket/ws-handler scheduler bus)}))))))
 
 (defn stop-server []
   (do

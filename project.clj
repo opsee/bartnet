@@ -34,7 +34,6 @@
                  [com.google.protobuf/protobuf-java "3.0.0-alpha-3.1"]
                  [gloss "0.2.5"]
                  [com.github.brainlag/nsq-client "1.0.0.BETA" :exclusions [com.fasterxml.jackson.core/jackson-databind]]
-                 [org.mindrot/jbcrypt "0.3m"]
                  [io.grpc/grpc-all "0.7.2"]
                  [org.postgresql/postgresql "9.3-1102-jdbc41"]
                  [c3p0/c3p0 "0.9.1.2"]
@@ -53,4 +52,5 @@
                  [org.clojure/core.match "0.3.0-alpha4"]
                  [manifold "0.1.0"]
                  [com.taoensso/carmine "2.10.0"]
-                 [clj-disco "0.0.1"]])
+                 [clj-disco "0.0.1"]
+                 [org.bitbucket.b_c/jose4j "0.4.4"]])

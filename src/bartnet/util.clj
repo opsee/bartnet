@@ -19,3 +19,10 @@
           deshadower (zipmap shadowed-syms (repeatedly gensym))]
       `(let ~(vec (apply concat (map (fn [[k v]] [v k]) deshadower)))
          ~(if-and-let* bindings then-clause else-clause deshadower)))))
+
+(defn slurp-bytes
+  "Slurp the bytes from a slurpable thing"
+  [x]
+  (with-open [out (java.io.ByteArrayOutputStream.)]
+    (clojure.java.io/copy (clojure.java.io/input-stream x) out)
+    (.toByteArray out)))
