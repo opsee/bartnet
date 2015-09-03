@@ -308,10 +308,11 @@
       (log/info "resp" response)
       {:test-results response})))
 
-(defn launch-bastions! [ctx]
-  (let [login (:login ctx)
-        launch-cmd (json-body ctx)]
-    {:regions (launch/launch-bastions @executor @bus (:customer_id login) launch-cmd (:ami @config))}))
+(defn launch-bastions! [launch-cmd]
+  (fn [ctx]
+    (let [login (:login ctx)
+          launch-cmd (json-body ctx)]
+      {:regions (launch/launch-bastions @executor @bus (:customer_id login) launch-cmd (:ami @config))})))
 
 (defresource instance-resource [id]
              :available-media-types ["application/json"]
@@ -339,11 +340,11 @@
              :authorized? (authorized?)
              :handle-ok get-groups)
 
-(defresource launch-bastions-resource []
+(defresource launch-bastions-resource [launch-cmd]
              :available-media-types ["application/json"]
              :allowed-methods [:post]
              :authorized? (authorized?)
-             :post! launch-bastions!
+             :post! (launch-bastions! launch-cmd)
              :handle-created :regions)
 
 (defresource bastion-resource [id]
@@ -408,6 +409,31 @@
                  "Access-Control-Max-Age"       "1728000"}}
       (handler request))))
 
+(def LaunchVpc "A VPC for launching"
+  (sch/schema-with-name
+    {:id sch/Str
+     (sch/optional-key :instance_id) (sch/maybe sch/Str)}
+  "LaunchVpc"))
+
+(def LaunchRegion "An ec2 region for launching"
+  (sch/schema-with-name
+    {:region (sch/enum "ap-northeast-1" "ap-southeast-1" "ap-southeast-2"
+                       "eu-central-1" "eu-west-1"
+                       "sa-east-1"
+                       "us-east-1" "us-west-1" "us-west-2")
+     :vpcs [LaunchVpc]}
+    "LaunchRegion"))
+
+(def LaunchCmd "A schema for launching bastions"
+  (sch/schema-with-name
+    {:access-key sch/Str
+     :secrey-key sch/Str
+     :regions [LaunchRegion]
+     :instance-size (sch/enum "t2.micro" "t2.small" "t2.medium" "t2.large"
+                              "m4.large" "m4.xlarge" "m4.2xlarge" "m4.4xlarge" "m4.10xlarge"
+                              "m3.medium" "m3.large" "m3.xlarge" "m3.2xlarge")}
+    "LaunchCmd"))
+
 (defapi bartnet-api
         {:exceptions {:exception-handler robustify-errors}
          ;:validation-errors {:error-handler robustify-errors}
@@ -443,9 +469,13 @@
         (ANY*    "/bastions" []
                  :no-doc true
                  (bastions-resource))
-        (ANY*    "/bastions/launch" []
-                 :no-doc true
-                 (launch-bastions-resource))
+
+        (POST*   "/bastions/launch" []
+                 :summary "Launch bastions in the given VPC's."
+                 :body [launch-cmd LaunchCmd]
+                 :return [LaunchCmd]
+                 (launch-bastions-resource launch-cmd))
+
         (ANY*    "/bastions/:id" [id]
                  :no-doc true
                  (bastion-resource id))
