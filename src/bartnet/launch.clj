@@ -13,6 +13,7 @@
             [clojure.tools.logging :as log]
             [clj-time.format :as f]
             [clj-yaml.core :as yaml]
+            [clj-http.client :as http]
             [clojure.string :as str]
             [clojure.pprint :refer [pprint]]
             [clojure.core.match :refer [match]])
@@ -20,6 +21,8 @@
            [java.util Base64 Date]))
 
 (def formatter (f/formatters :date-time))
+
+(def auth-endpoint "https://vape.opsy.co/bastions")
 
 (def beta-map (reduce #(assoc %1 %2 (buckets/url-to %2 "beta/bastion-cf.template")) {} buckets/regions))
 
@@ -38,6 +41,12 @@
   (let [{images :images} (describe-images creds :owners [owner-id] :filters [{:name "tag:release" :values [tag]}])]
     (first (sort-by :name #(compare %2 %1) images))))
 
+(defn get-bastion-creds [customer-id]
+  (let [response (http/post auth-endpoint {:content-type :json :accept :json :body (generate-string {:customer_id customer-id})})]
+    (case (:status response)
+      200 (parse-string (:body response) keyword)
+      (throw (Exception. "failed to get bastion credentials from vape")))))
+
 (defn attributes->state [attributes]
   (case [(get attributes :ResourceStatus) (get attributes :ResourceType)]
     ["CREATE_COMPLETE" "AWS::CloudFormation::Stack"] "complete"
@@ -50,7 +59,7 @@
                      (str (name k) "=\"" v "\""))
                    env)))
 
-(defn generate-user-data [customer-id env] ;ca cert key]
+(defn generate-user-data [customer-id bastion-creds] ;ca cert key]
   (str
     "#cloud-config\n"
     (yaml/generate-string
@@ -58,7 +67,9 @@
                       :permissions "0644"
                       :owner "root"
                       :content (generate-env-shell
-                                 {:CUSTOMER_ID customer-id})}]})))
+                                 {:CUSTOMER_ID customer-id
+                                  :BASTION_ID (:id bastion-creds)
+                                  :VPN_PASSWORD (:password bastion-creds)})}]})))
                      ;                         :CA_PATH "/etc/opsee/ca.pem"
                      ;                         :CERT_PATH "/etc/opsee/cert.pem"
                      ;                         :KEY_PATH "/etc/opsee/key.pem"}))}
@@ -105,7 +116,8 @@
             {queue-arn :QueueArn} (sqs/get-queue-attributes creds {:queue-url queue-url :attribute-names ["All"]})
             policy (render-resource "templates/sqs_policy.mustache" {:policy-id id :queue-arn queue-arn :topic-arn topic-arn})
             _ (sqs/set-queue-attributes creds queue-url {"Policy" policy})
-            {subscription-arn :SubscriptionArn} (sns/subscribe creds topic-arn "sqs" queue-arn)]
+            {subscription-arn :SubscriptionArn} (sns/subscribe creds topic-arn "sqs" queue-arn)
+            bastion-creds (get-bastion-creds customer-id)]
         (log/info queue-url endpoint template-map)
         (log/info "subscribe" topic-arn "sqs" queue-arn)
         (log/info "launching stack with " image-id vpc-id customer-id)
@@ -115,10 +127,10 @@
                   :parameters [{:parameter-key "ImageId" :parameter-value image-id}
                                {:parameter-key "InstanceType" :parameter-value instance-type}
                                {:parameter-key "UserData" :parameter-value (encode-user-data
-                                                                             (generate-user-data customer-id {}))}
+                                                                             (generate-user-data customer-id bastion-creds))}
                                {:parameter-key "VpcId" :parameter-value vpc-id}
                                {:parameter-key "KeyName" :parameter-value keypair}]
-                  :tags [{:key "Name" :value (str customer-id " Opsee Bastion")}]
+                  :tags [{:key "Name" :value (str "Opsee Bastion " customer-id)}]
                   :notification-arns [topic-arn]} template-map))
         (loop [{messages :messages} (sqs/receive-message creds {:queue-url queue-url})]
           (if
