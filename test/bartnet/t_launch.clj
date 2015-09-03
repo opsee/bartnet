@@ -5,10 +5,14 @@
         [clj-http.fake]))
 
 (def expected-userdata
-  (str "#cloud-config\nwrite_files:\n"
+  (str "#cloud-config\n"
+       "write_files:\n"
        "- path: /etc/opsee/bastion-env.sh\n"
-       "  permissions: '0644'\n  owner: root\n  content: |-\n"
-       "    CUSTOMER_ID=\"custy1\"\n    BASTION_ID=\"dorpydorp\"\n"
+       "  permissions: '0644'\n"
+       "  owner: root\n"
+       "  content: |-\n"
+       "    CUSTOMER_ID=\"custy1\"\n"
+       "    BASTION_ID=\"dorpydorp\"\n"
        "    VPN_PASSWORD=\"doopydoop\"\n"))
 
 (with-fake-routes {
