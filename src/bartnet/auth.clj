@@ -24,4 +24,4 @@
       (if-let [login (token->login token)]
         [true, {:login login}])
       (catch Exception e
-        (log/info "invalid token" e)))))
+        (log/info "invalid token:" token "exception:" e)))))
