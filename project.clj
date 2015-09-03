@@ -6,6 +6,7 @@
   :main ^:skip-aot bartnet.core
   :profiles {:uberjar {:aot :all}
              :dev {:dependencies [[midje "1.6.3"]
+                                  [clj-http-fake "1.0.1"]
                                   [ring/ring-mock "0.2.0"]]
                    :jvm-opts ["-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005"]
                    :plugins [[lein-midje "3.0.0"]]}}
