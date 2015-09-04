@@ -397,6 +397,11 @@
              :post! scan-vpcs
              :handle-created :regions)
 
+(defn vary-origin [handler]
+  (fn [request]
+    (let [resp (handler request)]
+      (assoc-in resp [:headers "Vary"] "origin"))))
+
 (defn wrap-options [handler]
   (fn [request]
     (if (= :options (:request-method request))
@@ -518,8 +523,11 @@
     bartnet-api
     (log-request)
     (log-response)
-    (wrap-cors :access-control-allow-origin [#".*"]
+    (wrap-cors :access-control-allow-origin [#"https?://localhost(:\d+)?"
+                                             #"https?://opsee\.com"
+                                             #"https?://opsee\.co"
+                                             #"https?://opsy\.co"]
                :access-control-allow-methods [:get :put :post :patch :delete])
-    (wrap-options)
+    (vary-origin)
     (wrap-params)
     (wrap-trace :header :ui)))
