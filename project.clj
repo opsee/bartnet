@@ -16,6 +16,7 @@
   :repositories [["snapshots" {:url "s3p://opsee-maven-snapshots/snapshot"
                                :username :env
                                :passphrase :env}]]
+  :repl-options {:timeout 120000}
   :dependencies [[org.clojure/clojure "1.7.0"]
                  [liberator "0.13"]
                  [compojure "1.3.4"]

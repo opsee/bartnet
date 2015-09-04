@@ -13,7 +13,7 @@
            (java.nio ByteBuffer)
            (io.netty.buffer ByteBuf)
            (clojure.lang Reflector)
-           (co.opsee.proto Any Timestamp)
+           (co.opsee.proto Any Timestamp BastionProto)
            (org.joda.time DateTime)))
 
 (def anytypes ["HttpCheck"])
@@ -158,10 +158,15 @@
     (s/maybe [(type->schema field)])
     (type->schema field)))
 
+(defn- required-field? [^Descriptors$FieldDescriptor field]
+  (-> field
+      .getOptions
+      (.getExtension BastionProto/isRequired)))
+
 (defn- field->schema-entry [^Descriptors$FieldDescriptor field]
-  [(s/optional-key (keyword (.getName field))) (if (.isOptional field)
-                                                 (s/maybe (array-wrap field))
-                                                 (array-wrap field))])
+  (if (required-field? field)
+    [(keyword (.getName field)) (array-wrap field)]
+    [(s/optional-key (keyword (.getName field))) (s/maybe (array-wrap field))]))
 
 (defn- descriptor->schema [^Descriptors$Descriptor descriptor]
   (s/schema-with-name
@@ -176,13 +181,20 @@
     (let [walker (atom nil)]
       (reset! walker s/subschema-walker)
       (fn [v]
-        (let [name (:type_url v)]
-          (if-and-let [clazz (Class/forName (str "co.opsee.proto." name))
-                       schema (proto->schema clazz)]
-                      {:type_url name
-                       :value ((s/start-walker @walker schema) (:value v))})))))
+        (if-let [name (:type_url v)]
+          (try
+            (let [clazz (Class/forName (str "co.opsee.proto." name))
+                  schema (proto->schema clazz)
+                  out-value ((s/start-walker @walker schema) (:value v))
+                  error-out (su/error-val out-value)]
+              (if error-out
+                (su/error [:value error-out])
+                {:type_url name :value out-value}))
+            (catch Exception _ (su/error [:type_url 'invalid-type-url])))
+          (su/error [:type_url 'missing-required-key])))))
   (explain [_]
-    'any))
+    {:type_url 'valid-check-type
+     :value 'valid-check}))
 
 (defrecord TimestampSchema []
   s/Schema
