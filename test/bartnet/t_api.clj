@@ -145,7 +145,17 @@
                    (log/info "sdfsfdasdfadsf")
                    (log/info "gotsdfsdfsdf")))
            (fact "checks get updated"
-                 (let [response ((app) (-> (mock/request :put "/checks/checkid123" (generate-string {:interval 100}))
+                 (let [response ((app) (-> (mock/request :put "/checks/checkid123" (generate-string
+                                                                                     {:interval 100
+                                                                                       :target {:name "goobernetty"
+                                                                                                :type "sg"
+                                                                                                :id "sg123"}
+                                                                                       :check_spec {:type_url "HttpCheck"
+                                                                                                    :value {:name "doop"
+                                                                                                            :path "/health"
+                                                                                                            :port 80
+                                                                                                            :verb "POST"
+                                                                                                            :protocol "http"}}}))
                                            (mock/header "Authorization" auth-header)))]
                    (:status response) => 200
                    (:body response) => (is-json (contains {:interval 100}))
