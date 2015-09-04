@@ -101,10 +101,11 @@
                                      :state state}))
         (catch Exception e (pprint msg) (log/error e "exception on parse")))))
 
-(defn launcher [creds id bus client image-id instance-type vpc-id url-map customer-id keypair template-src]
+(defn launcher [creds bastion-creds bus client image-id instance-type vpc-id url-map customer-id keypair template-src]
   (fn []
     (try
-      (let [endpoint (keyword (:endpoint creds))
+      (let [id (:id bastion-creds)
+            endpoint (keyword (:endpoint creds))
             template-map (if-let [res (:resource template-src)]
                            {:template-body (-> res
                                              io/resource
@@ -116,8 +117,7 @@
             {queue-arn :QueueArn} (sqs/get-queue-attributes creds {:queue-url queue-url :attribute-names ["All"]})
             policy (render-resource "templates/sqs_policy.mustache" {:policy-id id :queue-arn queue-arn :topic-arn topic-arn})
             _ (sqs/set-queue-attributes creds queue-url {"Policy" policy})
-            {subscription-arn :SubscriptionArn} (sns/subscribe creds topic-arn "sqs" queue-arn)
-            bastion-creds (get-bastion-creds customer-id)]
+            {subscription-arn :SubscriptionArn} (sns/subscribe creds topic-arn "sqs" queue-arn)]
         (log/info queue-url endpoint template-map)
         (log/info "subscribe" topic-arn "sqs" queue-arn)
         (log/info "launching stack with " image-id vpc-id customer-id)
@@ -170,12 +170,12 @@
               {image-id :image-id} (get-latest-stable-image creds owner-id tag)
               vpcs (for [vpc (:vpcs region-obj)]
                      (do (log/info vpc)
-                         (let [id (identifiers/generate)
+                         (let [bastion-creds (get-bastion-creds customer-id)
                                vpc-id (:id vpc)]
                            (.submit
                              executor
-                             (launcher creds id bus client image-id instance-size vpc-id beta-map customer-id keypair template-src))
-                           (assoc vpc :instance_id id))))]
+                             (launcher creds bastion-creds bus client image-id instance-size vpc-id beta-map customer-id keypair template-src))
+                           (assoc vpc :instance_id (:id bastion-creds)))))]
           (assoc region-obj :vpcs vpcs)))))
 
 
