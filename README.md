@@ -26,4 +26,8 @@ Secondly, you need AWS API keys for our snapshot jars.  Set the env variables th
 
 ```docker run p 8080:8080 bartnet```
 
-You can then test against the Bartnet API on port 8080.
+You can then test against the Bartnet API on port 8080. For requests that require authentication (p much all of them), you'll have to send an Authorization header with a bearer token like so:
+
+```Authorization: Bearer thetokengoeshere```
+
+As long as the server is started with the vape key at resources/vape.test.key, you can use the token in test/bartnet/t_api.clj. It's good for a while.
