@@ -3,14 +3,11 @@
             [cheshire.core :refer :all]
             [clojure.string :as str]
             [manifold.deferred :as d])
-  (:import (clojure.lang IPersistentMap)
-           (org.cliffc.high_scale_lib NonBlockingHashMap)))
+  (:import (clojure.lang IPersistentMap)))
 
+(def firehose-sigil "_")
 
-
-(defrecord BusMessage [^Integer id
-                       ^Integer reply_to
-                       ^String customer_id
+(defrecord BusMessage [^String customer_id
                        ^String type
                        ^String body])
 
@@ -32,9 +29,6 @@
   (session-id [this] "Calculates a session id that is unique to this client."))
 
 (defprotocol MessageBus
-  (publish-with-reply [this ^ClientAdapter client customer_id topic msg]
-    "Publish a message and return a deferred value that the client can dereference
-    to get at the eventual reply message.")
   (publish [this ^ClientAdapter client customer_id topic msg]
     "Publishes a message to the bus for delivery. The client is checked for proper
     permissions before the message gets published.")
@@ -63,35 +57,10 @@
   (publish! [this topic msg])
   (subscribe! [this topic ^MessageClient client]))
 
-(defprotocol ReplyListener
-  (get-reply [this customer_id msg-id]))
-
 (defrecord DefaultClient []
   MessageClient
   (deliver-to [_ topic msg] (log/info "msg undeliverable" msg))
   (session-id [_] nil))
-
-(defrecord KeyPair [customer_id reply_id])
-
-(defn- get-or-put-deferred [replies customer_id msg-id]
-  (let [maybe-reply (d/deferred)]
-    (if-let [mapped-reply (.putIfAbsent replies (->KeyPair customer_id msg-id) maybe-reply)]
-      mapped-reply
-      maybe-reply)))
-
-(defn reply-client []
-  (let [replies (NonBlockingHashMap.)]
-    (reify
-      MessageClient
-      (deliver-to [_ _ msg]
-        (let [msg-id (:reply_to msg)
-              customer_id (:customer_id msg)
-              reply (get-or-put-deferred replies customer_id msg-id)]
-          (d/success! reply msg)))
-      (session-id [_] nil)
-      ReplyListener
-      (get-reply [this customer_id msg-id]
-        (get-or-put-deferred replies customer_id msg-id)))))
 
 (defrecord ClientAdapter [client topic->consumer counter permissions]
   MessageClient
@@ -151,70 +120,61 @@
   (swap! (:counter client) inc))
 
 (defn message-bus [bus]
-  (let [replies (reply-client)
-        reply-consumer (subscribe! bus "replies" replies)]
-    (reify MessageBus
+  (reify MessageBus
 
-      (publish [this client customer_id t msg-noid]
-        (let [msg (merge msg-noid {:id (id-inc client)
-                                   :customer_id customer_id
-                                   :version 1})]
-          (if (= "subscribe" (:type msg))
-            (let [id (:id msg)
-                  body (parse-string (:body msg) true)
-                  subscribe-to (split-list (get-in body [:subscribe_to]))
-                  unsubscribe-from (split-list (get-in body [:unsubscribe_from]))]
-              (log/info "subscribing to" subscribe-to unsubscribe-from)
-              (subscribe this client customer_id (flatten [subscribe-to]))
-              (unsubscribe this client customer_id (flatten [unsubscribe-from]))
-              (let [subscriptions (str/join "," (topics-for-client client))]
-                (deliver-to (:client client) "subscribe" (map->BusMessage {:id (id-inc client)
-                                                                           :reply_to id
-                                                                           :type "subscribe"
-                                                                           :body (generate-string {:attributes {:subscriptions subscriptions}
-                                                                                                   :state "ok"})}))))
-            (let [topic (str/join "." [customer_id t])
-                  firehose (str "*." t)]
-              (log/info "trying to publish to" topic)
-              (when (has-permissions? client topic)
-                (log/info "publishing to" topic)
-                (log/info "publishing to" firehose)
-                (log/info msg)
-                (publish! bus topic msg)
-                (publish! bus firehose msg))))
-          (:id msg)))
+    (publish [this client customer_id t msg-noid]
+      (let [msg (merge msg-noid {:id (id-inc client)
+                                 :customer_id customer_id
+                                 :version 1})]
+        (if (= "subscribe" (:type msg))
+          (let [id (:id msg)
+                body (parse-string (:body msg) true)
+                subscribe-to (split-list (get-in body [:subscribe_to]))
+                unsubscribe-from (split-list (get-in body [:unsubscribe_from]))]
+            (log/info "subscribing to" subscribe-to unsubscribe-from)
+            (subscribe this client customer_id (flatten [subscribe-to]))
+            (unsubscribe this client customer_id (flatten [unsubscribe-from]))
+            (let [subscriptions (str/join "," (topics-for-client client))]
+              (deliver-to (:client client) "subscribe" (map->BusMessage {:type "subscribe"
+                                                                         :body (generate-string {:attributes {:subscriptions subscriptions}
+                                                                                                 :state "ok"})}))))
+          (let [topic (str/join "." [customer_id t])
+                firehose (str firehose-sigil "." t)]
+            (log/info "trying to publish to" topic)
+            (when (has-permissions? client topic)
+              (log/info "publishing to" topic)
+              (log/info "publishing to" firehose)
+              (log/info msg)
+              (publish! bus topic msg)
+              (publish! bus firehose msg))))
+        (:id msg)))
 
-      (publish-with-reply [this client customer_id t msg-noid]
-        (let [id (publish this client customer_id t msg-noid)]
-          (get-reply replies customer_id id)))
+    (register [_ client customer-ids]
+      (client-adapter client (flatten [customer-ids])))
 
-      (register [_ client customer-ids]
-        (client-adapter client (flatten [customer-ids])))
+    (subscribe [_ client customer_id t]
+      (log/info "subscribe" t)
+      (let [topics (map #(str/join "." [customer_id %]) (flatten [t]))]
+        (log/info "topics" topics)
+        (when-not (empty? topics)
+          (doseq [topic topics]
+            (log/info "sub for" topic)
+            (when (has-permissions? client topic)
 
-      (subscribe [_ client customer_id t]
-        (log/info "subscribe" t)
-        (let [topics (map #(str/join "." [customer_id %]) (flatten [t]))]
-          (log/info "topics" topics)
-          (when-not (empty? topics)
-            (doseq [topic topics]
-              (log/info "sub for" topic)
-              (when (has-permissions? client topic)
+              (let [consumer (subscribe! bus topic client)]
+                (log/info "consuming from" topic)
+                (add-consumer client topic consumer)))))))
 
-                (let [consumer (subscribe! bus topic client)]
-                  (log/info "consuming from" topic)
-                  (add-consumer client topic consumer)))))))
+    (unsubscribe [_ client customer_id t]
+      (let [topics (map #(str/join "." [customer_id %]) (flatten [t]))]
+        (when-not (empty? topics)
+          (log/info topics)
+          (doseq [[topic-name consumer] (consumers-for-client client topics)]
+            (log/info topic-name consumer)
+            (rm-consumer client topic-name)
+            (stop! consumer)))))
 
-      (unsubscribe [_ client customer_id t]
-        (let [topics (map #(str/join "." [customer_id %]) (flatten [t]))]
-          (when-not (empty? topics)
-            (log/info topics)
-            (doseq [[topic-name consumer] (consumers-for-client client topics)]
-              (log/info topic-name consumer)
-              (rm-consumer client topic-name)
-              (stop! consumer)))))
-
-      (close [_ client]
-        (stop! reply-consumer)
-        (doseq [[topic-name consumer] (consumers-for-client client)]
-          (rm-consumer client topic-name)
-          (stop! consumer))))))
+    (close [_ client]
+      (doseq [[topic-name consumer] (consumers-for-client client)]
+        (rm-consumer client topic-name)
+        (stop! consumer)))))
