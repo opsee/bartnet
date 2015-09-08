@@ -35,7 +35,7 @@
                  [io.netty/netty-all "4.1.0.Beta5"]
                  [com.google.protobuf/protobuf-java "3.0.0-alpha-3.1"]
                  [gloss "0.2.5"]
-                 [com.github.brainlag/nsq-client "1.0.0.BETA" :exclusions [com.fasterxml.jackson.core/jackson-databind]]
+                 [com.github.brainlag/nsq-client "1.0.0-SNAPSHOT" :exclusions [com.fasterxml.jackson.core/jackson-databind]]
                  [io.grpc/grpc-all "0.7.2"]
                  [org.postgresql/postgresql "9.3-1102-jdbc41"]
                  [c3p0/c3p0 "0.9.1.2"]

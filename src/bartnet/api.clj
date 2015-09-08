@@ -432,7 +432,7 @@
 (def LaunchCmd "A schema for launching bastions"
   (sch/schema-with-name
     {:access-key sch/Str
-     :secrey-key sch/Str
+     :secret-key sch/Str
      :regions [LaunchRegion]
      :instance-size (sch/enum "t2.micro" "t2.small" "t2.medium" "t2.large"
                               "m4.large" "m4.xlarge" "m4.2xlarge" "m4.4xlarge" "m4.10xlarge"
@@ -556,7 +556,8 @@
     (wrap-cors :access-control-allow-origin [#"https?://localhost(:\d+)?"
                                              #"https?://opsee\.com"
                                              #"https?://opsee\.co"
-                                             #"https?://opsy\.co"]
+                                             #"https?://opsy\.co"
+                                             #"null"]
                :access-control-allow-methods [:get :put :post :patch :delete])
     (vary-origin)
     (wrap-params)

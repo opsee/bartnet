@@ -27,7 +27,7 @@ test:
     - docker run --link postgresql:postgresql --link redis:redis -e LEIN_USERNAME=$LEIN_USERNAME -e LEIN_PASSPHRASE=$LEIN_PASSPHRASE -v ~/.m2:/root/.m2 -v `pwd`:/build quay.io/opsee/build-clj
     - lein docker
     - docker run -d -p 8080:8080 quay.io/opsee/bartnet; sleep 20
-    - test "$(curl -s --retry 10 --retry-delay 5 http://localhost:8080/health_check)" = "A ok"
+    - ./test_liveness.sh
 deployment:
   hub:
     branch: master

@@ -36,6 +36,7 @@ gen_config()
 "ami":{"owner-id":"933693344490", "tag":"stable", "keypair":"bastion-testing", "template-src":{"template-url":"beta/bastion-cf.template"}},
 "mailgun":{"api_key":"key-d45f90c5a3e2ac33a26cd4c30715b71b",
            "url":"https://api.mailgun.net/v3/mg.opsee.co"},
+"nsq": {"lookup":{"host":"nsqlookupd-1.opsy.co","port":4161},"producer":{"host":"nsqd.opsy.co","port":4150}},
 "bastion-server":{ "port": 4080 }}
 EOF
 
