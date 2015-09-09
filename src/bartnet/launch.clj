@@ -17,7 +17,7 @@
             [clojure.string :as str]
             [clojure.pprint :refer [pprint]]
             [clojure.core.match :refer [match]])
-  (:import [java.util.concurrent ExecutorService]
+  (:import [java.util.concurrent ExecutorService TimeUnit]
            [java.util Base64 Date]))
 
 (def formatter (f/formatters :date-time))
@@ -25,6 +25,8 @@
 (def auth-endpoint "https://vape.opsy.co/bastions")
 
 (def beta-map (reduce #(assoc %1 %2 (buckets/url-to %2 "beta/bastion-cf.template")) {} buckets/regions))
+
+(def beat-delay 10)
 
 (def cf-parser
   (insta/parser
@@ -101,7 +103,12 @@
                                      :state state}))
         (catch Exception e (pprint msg) (log/error e "exception on parse")))))
 
-(defn launcher [creds bastion-creds bus client image-id instance-type vpc-id url-map customer-id keypair template-src]
+(defn launch-heartbeat [bus client customer-id instance-id]
+  (fn []
+    (bus/publish bus client customer-id "launch-bastion" (bus/make-msg "LaunchEvent" {:instance_id instance-id
+                                                                                      :state "launching"}))))
+
+(defn launcher [creds bastion-creds bus client image-id instance-type vpc-id customer-id keypair template-src executor]
   (fn []
     (try
       (let [id (:id bastion-creds)
@@ -115,6 +122,7 @@
             {topic-arn :topic-arn} (sns/create-topic creds {:name (str "opsee-bastion-build-sns-" id)})
             {queue-url :queue-url} (sqs/create-queue creds {:queue-name (str "opsee-bastion-build-sqs-" id)})
             {queue-arn :QueueArn} (sqs/get-queue-attributes creds {:queue-url queue-url :attribute-names ["All"]})
+            launch-beater (.scheduleAtFixedRate executor (launch-heartbeat bus client customer-id id) beat-delay beat-delay TimeUnit/SECONDS)
             policy (render-resource "templates/sqs_policy.mustache" {:policy-id id :queue-arn queue-arn :topic-arn topic-arn})
             _ (sqs/set-queue-attributes creds queue-url {"Policy" policy})
             {subscription-arn :SubscriptionArn} (sns/subscribe creds topic-arn "sqs" queue-arn)]
@@ -148,11 +156,12 @@
         (log/info "exiting" id)
         (bus/publish bus client customer-id "launch-bastion"
                      (bus/make-msg "LaunchEvent" {:state "ok" :attributes {:status :success}}))
+        (.cancel launch-beater)
         (sqs/delete-queue creds queue-url)
         (sns/delete-topic creds topic-arn))
       (catch Exception ex (log/error ex "Exception in thread")))))
 
-(defn launch-bastions [^ExecutorService executor bus customer-id msg options]
+(defn launch-bastions [^ExecutorService executor scheduler bus customer-id msg options]
   (let [access-key (:access-key msg)
         secret-key (:secret-key msg)
         regions (:regions msg)
@@ -174,7 +183,10 @@
                                vpc-id (:id vpc)]
                            (.submit
                              executor
-                             (launcher creds bastion-creds bus client image-id instance-size vpc-id beta-map customer-id keypair template-src))
+                             (launcher creds bastion-creds bus
+                                       client image-id instance-size
+                                       vpc-id customer-id keypair
+                                       template-src scheduler))
                            (assoc vpc :instance_id (:id bastion-creds)))))]
           (assoc region-obj :vpcs vpcs)))))
 

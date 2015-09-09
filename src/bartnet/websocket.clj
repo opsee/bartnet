@@ -43,7 +43,9 @@
         (log/info "sent msg")
         client)
       (send! ws (generate-string {:command "authenticate"
-                                  :state "unauthenticated"})))))
+                                  :state "access-denied"})))
+    (send! ws (generate-string {:command "authenticate"
+                                :state "bad-token"}))))
 
 
 
@@ -66,7 +68,7 @@
                   (if (= "authenticate" (:command msg))
                     (if-let [ca (register-ws-connection msg bus ws)]
                       (.put client-adapters ws ca))
-                    (send! ws (generate-string (assoc msg :state "unauthenticated")))))))
+                    (send! ws (generate-string (assoc msg :state "access-denied")))))))
    :on-closed (fn [ws status-code reason]
                 (log/info "Websocket closing because:" reason)
                 (when-let [client (.remove client-adapters ws)]

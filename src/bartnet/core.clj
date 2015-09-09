@@ -28,7 +28,7 @@
       (auth/set-secret! (util/slurp-bytes (:secret config)))
       (reset! ws-server
               (run-jetty
-                (api/handler executor bus db config)
+                (api/handler executor scheduler bus db config)
                 (assoc (:server config)
                   :websockets {"/stream" (websocket/ws-handler scheduler bus)}))))))
 
