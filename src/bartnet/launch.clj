@@ -1,6 +1,5 @@
 (ns bartnet.launch
-  (:require [bartnet.identifiers :as identifiers]
-            [bartnet.s3-buckets :as buckets]
+  (:require [bartnet.s3-buckets :as buckets]
             [bartnet.bus :as bus]
             [cheshire.core :refer :all]
             [instaparse.core :as insta]
@@ -17,8 +16,8 @@
             [clojure.string :as str]
             [clojure.pprint :refer [pprint]]
             [clojure.core.match :refer [match]])
-  (:import [java.util.concurrent ExecutorService TimeUnit]
-           [java.util Base64 Date]))
+  (:import [java.util.concurrent ExecutorService TimeUnit ScheduledFuture]
+           [java.util Base64]))
 
 (def formatter (f/formatters :date-time))
 
@@ -27,6 +26,8 @@
 (def beta-map (reduce #(assoc %1 %2 (buckets/url-to %2 "beta/bastion-cf.template")) {} buckets/regions))
 
 (def beat-delay 10)
+
+(def slack-url "https://hooks.slack.com/services/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")
 
 (def cf-parser
   (insta/parser
@@ -72,19 +73,6 @@
                                  {:CUSTOMER_ID customer-id
                                   :BASTION_ID (:id bastion-creds)
                                   :VPN_PASSWORD (:password bastion-creds)})}]})))
-                     ;                         :CA_PATH "/etc/opsee/ca.pem"
-                     ;                         :CERT_PATH "/etc/opsee/cert.pem"
-                     ;                         :KEY_PATH "/etc/opsee/key.pem"}))}
-                     ;{:path "/etc/opsee/ca.pem"
-                     ; :permissions 0644
-                     ; :owner "root"
-                     ; :contents ca}
-                     ;{:path "/etc/opsee/cert.pem"
-                     ; :permissions 0644
-                     ; :owner "root"
-                     ; :contents cert}
-                     ;{:path "/etc/opsee/key.pem"
-                     ; :perm}]})))
 
 (defn parse-cloudformation-msg [instance-id msg]
   (if-let [msg-str (:Message msg)]
@@ -98,20 +86,23 @@
                                                                            (str/join "" strings))))
                          {} parsed)
             state (attributes->state attributes)]
-        (bus/make-msg "LaunchEvent" {:attributes attributes
-                                     :instance_id instance-id
-                                     :state state}))
+        {:attributes attributes
+         :instance_id instance-id
+         :state state})
         (catch Exception e (pprint msg) (log/error e "exception on parse")))))
 
 (defn launch-heartbeat [bus client customer-id instance-id]
   (fn []
     (bus/publish bus client customer-id "launch-bastion" (bus/make-msg "LaunchEvent" {:instance_id instance-id
                                                                                       :state "launching"}))))
+(defn send-slack-error-msg [msg]
+  (http/post slack-url {:form-params {:payload (generate-string {:text (str "error while launching bastion " msg)})}}))
 
 (defn launcher [creds bastion-creds bus client image-id instance-type vpc-id customer-id keypair template-src executor]
   (fn []
     (try
       (let [id (:id bastion-creds)
+            state (atom nil)
             endpoint (keyword (:endpoint creds))
             template-map (if-let [res (:resource template-src)]
                            {:template-body (-> res
@@ -148,18 +139,23 @@
                           msg (parse-cloudformation-msg id (parse-string msg-body true))]]
                 (do
                   (sqs/delete-message creds (assoc message :queue-url queue-url))
-                  (bus/publish bus client customer-id "launch-bastion" msg)
+                  (bus/publish bus client customer-id "launch-bastion" (bus/make-msg "LaunchEvent" msg))
                   (log/info (get-in msg [:attributes :ResourceType]) (get-in msg [:attributes :ResourceStatus]))
+                  (reset! state (:state msg))
                   (contains? #{"complete" "failed"} (:state msg)))))
             (recur (sqs/receive-message creds {:queue-url queue-url
                                              :wait-time-seconds 20}))))
         (log/info "exiting" id)
         (bus/publish bus client customer-id "launch-bastion"
                      (bus/make-msg "LaunchEvent" {:state "ok" :attributes {:status :success}}))
-        (.cancel launch-beater)
+        (.cancel launch-beater false)
+        (sns/delete-topic creds topic-arn)
         (sqs/delete-queue creds queue-url)
-        (sns/delete-topic creds topic-arn))
-      (catch Exception ex (log/error ex "Exception in thread")))))
+        (if (= "failed" @state)
+          (send-slack-error-msg (str "CF LAUNCH FAILED " customer-id))))
+      (catch Exception ex (do
+                            (log/error ex "Exception in thread")
+                            (send-slack-error-msg (.getMessage ex)))))))
 
 (defn launch-bastions [^ExecutorService executor scheduler bus customer-id msg options]
   (let [access-key (:access-key msg)
