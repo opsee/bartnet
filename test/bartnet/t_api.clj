@@ -58,14 +58,14 @@
 (defn app []
   (do
     (auth/set-secret! (util/slurp-bytes (:secret test-config)))
-    (api/handler executor bus @db test-config)))
+    (api/handler executor scheduler bus @db test-config)))
 
 (defn start-ws-server []
   (do
     (log/info "start server")
     (auth/set-secret! (util/slurp-bytes (:secret test-config)))
     (reset! ws-server (run-jetty
-                        (api/handler executor bus @db test-config)
+                        (api/handler executor scheduler bus @db test-config)
                         (assoc (:server test-config)
                           :websockets {"/stream" (websocket/ws-handler scheduler bus)})))
     (log/info "server started")))

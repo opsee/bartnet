@@ -88,6 +88,7 @@
     {:instances (instance/list-instances! customer-id)}))
 
 (def executor (atom nil))
+(def scheduler (atom nil))
 (def config (atom nil))
 (def db (atom nil))
 (def bus (atom nil))
@@ -312,7 +313,7 @@
   (fn [ctx]
     (let [login (:login ctx)
           launch-cmd (json-body ctx)]
-      {:regions (launch/launch-bastions @executor @bus (:customer_id login) launch-cmd (:ami @config))})))
+      {:regions (launch/launch-bastions @executor @scheduler @bus (:customer_id login) launch-cmd (:ami @config))})))
 
 (defresource instance-resource [id]
              :available-media-types ["application/json"]
@@ -543,8 +544,9 @@
                  :no-doc true
                  (groups-resource)))
 
-(defn handler [exe message-bus database conf]
+(defn handler [exe sched message-bus database conf]
   (reset! executor exe)
+  (reset! scheduler sched)
   (reset! bus message-bus)
   (reset! db database)
   (reset! config conf)
