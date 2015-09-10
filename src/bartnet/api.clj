@@ -11,7 +11,7 @@
             [ring.swagger.middleware :as rsm]
             [ring.util.http-response :refer :all]
             [yesql.util :refer [slurp-from-classpath]]
-            [amazonica.aws.ec2 :refer [describe-vpcs describe-account-attributes]]
+            [amazonica.aws.ec2 :refer [describe-vpcs describe-account-attributes describe-instances]]
             [ring.middleware.params :refer [wrap-params]]
             [compojure.api.sweet :refer :all]
             [compojure.api.swagger :as cas]
@@ -134,7 +134,6 @@
   (if (instance? BatchUpdateException ex)
     (log-and-error (.getNextException ex))
     (log-and-error ex)))
-
 
 (defn json-body [ctx]
   (if-let [body (get-in ctx [:request :strbody])]
@@ -277,15 +276,22 @@
                         (.equalsIgnoreCase "EC2" (:attribute-value %)))
                    (:attribute-values supported))))))
 
-(defn scan-vpcs [ctx]
-  (let [creds (json-body ctx)]
-    {:regions (for [region (:regions creds)]
-                (let [cd (assoc creds :endpoint region)
-                      vpcs (describe-vpcs cd)
-                      attrs (describe-account-attributes cd)]
-                  {:region      region
-                   :ec2-classic (ec2-classic? attrs)
-                   :vpcs        (:vpcs vpcs)}))}))
+(defn scan-vpcs [req]
+  (fn [ctx]
+    (let [attrs (describe-account-attributes (assoc req :endpoint "us-west-1"))]
+      {:regions (for [region (:regions req)
+                      :let [cd (assoc req :endpoint region)
+                            vpcs (describe-vpcs cd)]]
+                  {:region     region
+                   :ec2-class  (ec2-classic? attrs)
+                   :vpcs       (for [vpc (:vpcs vpcs)
+                                     :let [reservations (describe-instances cd {:filters [{:name "vpc-id"
+                                                                                           :values [(:vpc-id vpc)]}]})
+                                           count (reduce +
+                                                         (map (fn [res]
+                                                                (count (:instances res)))
+                                                              (:reservations reservations)))]]
+                                 (assoc vpc :count count))})})))
 
 (defn find-group [id]
   (fn [ctx]
@@ -393,10 +399,10 @@
              :handle-created :checks
              :handle-ok list-checks)
 
-(defresource scan-vpc-resource []
+(defresource scan-vpc-resource [req]
              :available-media-types ["application/json"]
              :allowed-methods [:post]
-             :post! scan-vpcs
+             :post! (scan-vpcs req)
              :handle-created :regions)
 
 (defn vary-origin [handler]
@@ -415,6 +421,11 @@
                  "Access-Control-Max-Age"       "1728000"}}
       (handler request))))
 
+(def EC2Region (sch/enum "ap-northeast-1" "ap-southeast-1" "ap-southeast-2"
+                         "eu-central-1" "eu-west-1"
+                         "sa-east-1"
+                         "us-east-1" "us-west-1" "us-west-2"))
+
 (def LaunchVpc "A VPC for launching"
   (sch/schema-with-name
     {:id sch/Str
@@ -423,10 +434,7 @@
 
 (def LaunchRegion "An ec2 region for launching"
   (sch/schema-with-name
-    {:region (sch/enum "ap-northeast-1" "ap-southeast-1" "ap-southeast-2"
-                       "eu-central-1" "eu-west-1"
-                       "sa-east-1"
-                       "us-east-1" "us-west-1" "us-west-2")
+    {:region EC2Region
      :vpcs [LaunchVpc]}
     "LaunchRegion"))
 
@@ -439,6 +447,42 @@
                               "m4.large" "m4.xlarge" "m4.2xlarge" "m4.4xlarge" "m4.10xlarge"
                               "m3.medium" "m3.large" "m3.xlarge" "m3.2xlarge")}
     "LaunchCmd"))
+
+(def ScanVpcsRequest
+  (sch/schema-with-name
+    {:access-key sch/Str
+     :secret-key sch/Str
+     :regions [EC2Region]}
+    "ScanVpcsRequest"))
+
+(def Tag
+  (sch/schema-with-name
+    {:key sch/Str
+     :value sch/Str}
+    "Tag"))
+
+(def ScanVpc
+  (sch/schema-with-name
+    {:state sch/Str
+     :vpc-id sch/Str
+     :tags [Tag]
+     :cidr-block sch/Str
+     :dhcp-options-id sch/Str
+     :instance-tenancy sch/Str
+     :is-default sch/Bool}
+    "ScanVpc"))
+
+(def ScanVpcsRegion
+  (sch/schema-with-name
+    {:region EC2Region
+     :ec2-class sch/Bool
+     :vpcs [ScanVpc]}
+    "ScanVpcsRegion"))
+
+(def ScanVpcsResponse
+  (sch/schema-with-name
+    {:regions [ScanVpcsRegion]}
+    "ScanVpcsResponse"))
 
 (defapi bartnet-api
         {:exceptions {:exception-handler robustify-errors}
@@ -469,9 +513,13 @@
         (GET*    "/health_check" []
                  :no-doc true
                  "A ok")
-        (ANY*    "/scan-vpcs" []
-                 :no-doc true
-                 (scan-vpc-resource))
+
+        (POST*   "/scan-vpcs" []
+                 :summary "Scans the regions requested for any VPC's and instance counts."
+                 :body [vpc-req ScanVpcsRequest]
+                 :return [ScanVpcsResponse]
+                 (scan-vpc-resource vpc-req))
+
         (ANY*    "/bastions" []
                  :no-doc true
                  (bastions-resource))
