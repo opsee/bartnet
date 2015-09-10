@@ -40,8 +40,8 @@
 
       (subscribe! [_ topic client]
         (let [consumer (->
-                         (NSQConsumer. lookup topic (identifiers/generate) (delivery client topic))
-                         (.start))]
+                        (NSQConsumer. lookup topic (identifiers/generate) (delivery client topic))
+                        (.start))]
           (reify Consumer
             (stop! [_]
               (.shutdown consumer))))))))

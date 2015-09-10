@@ -38,4 +38,4 @@
   (disco/with-etcd
     (let [client @disco/client]
       (host-port
-        (etcd/get client (service-path customer_id instance_id service-name))))))
+       (etcd/get client (service-path customer_id instance_id service-name))))))

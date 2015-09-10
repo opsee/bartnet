@@ -6,9 +6,9 @@
                :us-east-1 :us-west-1 :us-west-2})
 
 (def bastion-cf-buckets (reduce
-                          #(assoc %1 %2 (str "opsee-bastion-cf-" (name %2)))
-                          {}
-                          regions))
+                         #(assoc %1 %2 (str "opsee-bastion-cf-" (name %2)))
+                         {}
+                         regions))
 
 (defn url-to [region path]
   (let [bucket-name ((keyword region) bastion-cf-buckets)]

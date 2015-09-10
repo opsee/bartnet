@@ -11,12 +11,12 @@
 
 (defn token->login [token]
   (->
-    (doto
-      (JsonWebEncryption.)
-      (.setKey @secret)
-      (.setCompactSerialization token))
-    (.getPayload)
-    (parse-string keyword)))
+   (doto
+    (JsonWebEncryption.)
+     (.setKey @secret)
+     (.setCompactSerialization token))
+   (.getPayload)
+   (parse-string keyword)))
 
 (defn authorized? [token]
   (if token

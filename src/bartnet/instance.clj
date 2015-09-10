@@ -122,7 +122,7 @@
     (save! this instance))
   (group-get! [_ customer-id id]
     (assoc (.get instances (key-for :group-meta customer-id id))
-      :instances (seq (.get instances (key-for :group customer-id id)))))
+           :instances (seq (.get instances (key-for :group customer-id id)))))
   (group-save! [_ customer-id group]
     (.put instances (key-for :group-meta customer-id (:group_id group)) group))
   (group-list! [_ customer-id]
@@ -168,7 +168,7 @@
     (with-redis
       (car/expire (instance->ikey instance) ttl)
       ; TODO: Expire instances from group and expire empty groups from group list.
-      )
+)
     instance)
   (group-get! [_ customer-id id]
     (let [group-meta (with-redis (car/get (gmetakey customer-id id)))
@@ -191,7 +191,7 @@
 
 (defn save-instance!
   ([instance ttl]
-    (save! @instance-store instance ttl))
+   (save! @instance-store instance ttl))
   ([instance]
    (save! @instance-store instance)))
 
@@ -202,10 +202,8 @@
   (group-save! @instance-store customer_id group))
 
 (defn- filter-instance-attributes [attrs]
-  {
-   :created (:LaunchTime attrs)
-   :instanceSize (:InstanceType attrs)
-   })
+  {:created (:LaunchTime attrs)
+   :instanceSize (:InstanceType attrs)})
 
 (defn- message->instance [msg instance-attributes]
   (let [instance-id (:InstanceID instance-attributes)
@@ -215,8 +213,8 @@
      :id          instance-id
      :customer_id customer-id
      :groups      (map (fn [g] {:group_name (:GroupName g)
-                          :group_id (:GroupID g)})
-                    (:SecurityGroups instance-attributes))
+                                :group_id (:GroupID g)})
+                       (:SecurityGroups instance-attributes))
      :meta        (filter-instance-attributes instance-attributes)}))
 
 (defn instance-message-client []
