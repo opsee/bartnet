@@ -23,9 +23,9 @@
       (subscribe! [_ topic client]
         (let [stream (bus/subscribe bus topic)]
           (s/consume
-            (fn [msg]
-              (bbus/deliver-to client topic msg))
-            stream)
+           (fn [msg]
+             (bbus/deliver-to client topic msg))
+           stream)
           (reify Consumer
             (stop! [_]
               (s/close! stream))))))))

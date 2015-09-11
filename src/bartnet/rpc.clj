@@ -50,18 +50,18 @@
 
 (defn checker-client [{:keys [host port]}]
   (let [channel (->
-                  (NettyChannelBuilder/forAddress host port)
-                  (.negotiationType NegotiationType/PLAINTEXT)
-                  .build)
+                 (NettyChannelBuilder/forAddress host port)
+                 (.negotiationType NegotiationType/PLAINTEXT)
+                 .build)
         stub (CheckerGrpc/newBlockingStub channel)]
     (->RealCheckerClient channel stub)))
 
 (defn all-bastions [customer-id action]
   (doall
-    (for [bastion (router/get-customer-bastions customer-id)
-          :let [addr (router/get-service customer-id bastion "checker")
-                client (checker-client addr)
-                result (action client)]]
-      (do
-        (shutdown client)
-        result))))
+   (for [bastion (router/get-customer-bastions customer-id)
+         :let [addr (router/get-service customer-id bastion "checker")
+               client (checker-client addr)
+               result (action client)]]
+     (do
+       (shutdown client)
+       result))))

@@ -28,9 +28,9 @@
       (auth/set-secret! (util/slurp-bytes (:secret config)))
       (reset! ws-server
               (run-jetty
-                (api/handler executor scheduler bus db config)
-                (assoc (:server config)
-                  :websockets {"/stream" (websocket/ws-handler scheduler bus)}))))))
+               (api/handler executor scheduler bus db config)
+               (assoc (:server config)
+                      :websockets {"/stream" (websocket/ws-handler scheduler bus)}))))))
 
 (defn stop-server []
   (do
@@ -54,10 +54,10 @@
     (start-ws-server executor scheduler db bus config)))
 
 (.addShutdownHook
-  (Runtime/getRuntime)
-  (Thread. (fn []
-             (println "Shutting down...")
-             (stop-server))))
+ (Runtime/getRuntime)
+ (Thread. (fn []
+            (println "Shutting down...")
+            (stop-server))))
 
 (defn -main [& args]
   (let [cmd (first args)

@@ -37,11 +37,11 @@
   (letfn [(enum-ordinal [e] `(let [^Enum e# ~e] (.ordinal e#)))]
     `(case ~(enum-ordinal e)
        ~@(concat
-           (mapcat (fn [[test result]]
-                     [(eval (enum-ordinal test)) result])
-                   (partition 2 clauses))
-           (when (odd? (count clauses))
-             (list (last clauses)))))))
+          (mapcat (fn [[test result]]
+                    [(eval (enum-ordinal test)) result])
+                  (partition 2 clauses))
+          (when (odd? (count clauses))
+            (list (last clauses)))))))
 
 (declare hash->proto)
 (declare proto->hash)
@@ -58,13 +58,12 @@
         proto (hash->proto clazz (:value hash))]
     {:type_url (:type_url hash) :value (.toByteArray proto)}))
 
-
 (defn tim->adder [tim]
   (case tim "d" t/days
-            "h" t/hours
-            "m" t/minutes
-            "s" t/seconds
-            "u" t/millis))
+        "h" t/hours
+        "m" t/minutes
+        "s" t/seconds
+        "u" t/millis))
 
 (defmulti parse-deadline class)
 (defmethod parse-deadline String [value]
@@ -102,8 +101,8 @@
 (defn hash->proto [proto msg]
   (let [builder (into-builder proto)
         descriptor (.getDescriptorForType builder)]
-    (doseq[[k v] msg
-          :let [name (name k)]]
+    (doseq [[k v] msg
+            :let [name (name k)]]
       (when-let [field (.findFieldByName descriptor name)]
         (if (.isRepeated field)
           (doseq [va (flatten [v])]
@@ -170,10 +169,10 @@
 
 (defn- descriptor->schema [^Descriptors$Descriptor descriptor]
   (s/schema-with-name
-    (into {}
-          (map field->schema-entry)
-          (.getFields descriptor))
-    (.getName descriptor)))
+   (into {}
+         (map field->schema-entry)
+         (.getFields descriptor))
+   (.getName descriptor)))
 
 (defrecord AnyTypeSchema []
   s/Schema
@@ -233,19 +232,19 @@
 (defn proto-walker [^Class clazz]
   (let [first (atom 0)]
     (s/start-walker
-      (fn [schema]
-        (let [walk (s/walker schema)]
-          (fn [data]
-            (let [count (swap! first inc)
-                  result (walk data)]
-              (log/debugf "%s | checking %s against %s\n",
-                      (if (su/error? result) "FAIL" "PASS")
-                      data (s/explain schema))
-              (if (or (su/error? result)
-                      (< 1 count))
-                result
-                (hash->proto clazz data))))))
-      (proto->schema clazz))))
+     (fn [schema]
+       (let [walk (s/walker schema)]
+         (fn [data]
+           (let [count (swap! first inc)
+                 result (walk data)]
+             (log/debugf "%s | checking %s against %s\n",
+                         (if (su/error? result) "FAIL" "PASS")
+                         data (s/explain schema))
+             (if (or (su/error? result)
+                     (< 1 count))
+               result
+               (hash->proto clazz data))))))
+     (proto->schema clazz))))
 
 (def anyjson {"Any" {:type "object"
                      :discriminator "type_url"

@@ -31,8 +31,7 @@
                (.getName (first headers)) => "Accept"
                (seq (.getValuesList (first headers))) => (contains ["application/json"])
                (.getName (last headers)) => "Cache-Control"
-               (seq (.getValuesList (last headers))) => ["today" "tomorrow"]
-             )))
+               (seq (.getValuesList (last headers))) => ["today" "tomorrow"])))
 
 (facts "Proto to hash"
        (fact "converts flat proto to hash"
@@ -79,6 +78,4 @@
                                                                          :values ["application/json" "text/plain"]}
                                                                         {:name "Cache-Control"
                                                                          :values ["whenever dude"]}]}}}))))
-
-
 

@@ -10,7 +10,6 @@
            (bartnet.bus MessageClient)
            (java.util Date)))
 
-
 (def client-adapters (NonBlockingHashMap.))
 (def customer-ids (NonBlockingHashMap.))
 
@@ -33,21 +32,19 @@
   (if-and-let [token (get-in msg [:attributes :token])
                auth-resp (auth/authorized? token)
                [authorized {login :login}] auth-resp]
-    (if authorized
-      (let [client (bus/register bus (ws-message-client ws) (:customer_id login))]
-        (log/info "authorizing client")
-        (.put customer-ids ws (:customer_id login))
-        (send! ws (generate-string {:command "authenticate"
-                                    :state "ok"
-                                    :attributes login}))
-        (log/info "sent msg")
-        client)
-      (send! ws (generate-string {:command "authenticate"
-                                  :state "access-denied"})))
-    (send! ws (generate-string {:command "authenticate"
-                                :state "bad-token"}))))
-
-
+              (if authorized
+                (let [client (bus/register bus (ws-message-client ws) (:customer_id login))]
+                  (log/info "authorizing client")
+                  (.put customer-ids ws (:customer_id login))
+                  (send! ws (generate-string {:command "authenticate"
+                                              :state "ok"
+                                              :attributes login}))
+                  (log/info "sent msg")
+                  client)
+                (send! ws (generate-string {:command "authenticate"
+                                            :state "access-denied"})))
+              (send! ws (generate-string {:command "authenticate"
+                                          :state "bad-token"}))))
 
 (defn bus-msg [in]
   (if (= (:command in) "subscribe")

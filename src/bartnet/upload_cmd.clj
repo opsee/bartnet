@@ -8,8 +8,6 @@
   (:import (java.io File)
            (com.amazonaws.services.s3.model CannedAccessControlList)))
 
-
-
 (def upload-options
   [["-p" "--path PATH" "the local path to the file that must be uploaded"]
    ["-r" "--remote REMOTE" "the remote path where the file must uploaded"
@@ -41,15 +39,15 @@
 
 (defn do-upload [creds resource-path s3-path deploy-regions]
   (dorun
-    (for [region deploy-regions
-          :let [bucket (region bastion-cf-buckets)]]
-      (do
-        (log/info "uploading to " region)
-        (put-object (assoc creds :region region)
-                    :bucket-name bucket
-                    :key s3-path
-                    :canned-acl CannedAccessControlList/PublicRead
-                    :file (File. resource-path))))))
+   (for [region deploy-regions
+         :let [bucket (region bastion-cf-buckets)]]
+     (do
+       (log/info "uploading to " region)
+       (put-object (assoc creds :region region)
+                   :bucket-name bucket
+                   :key s3-path
+                   :canned-acl CannedAccessControlList/PublicRead
+                   :file (File. resource-path))))))
 
 (defn upload [args]
   (let [{:keys [options arguments errors summary]} (cli/parse-opts args upload-options)]

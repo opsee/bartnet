@@ -20,12 +20,12 @@
 
 (defn build-jdbc-url [config]
   (str
-    "jdbc:"
-    (:subprotocol config)
-    ":"
-    (if-let [host (:host config)]
-      (str "//" host (if-let [port (:port config)] (str ":" port)) "/"))
-    (:subname config)))
+   "jdbc:"
+   (:subprotocol config)
+   ":"
+   (if-let [host (:host config)]
+     (str "//" host (if-let [port (:port config)] (str ":" port)) "/"))
+   (:subname config)))
 
 (defn pool
   [config]

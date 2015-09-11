@@ -19,7 +19,6 @@
   (map->BusMessage {:type type
                     :body body}))
 
-
 ; Message clients right now are either websockets or bastions, but will be other things
 ; too, eventually.  Any particular client will need to have its own implementation
 ; of message delivery.
@@ -96,9 +95,9 @@
   ([^ClientAdapter client topics]
    (let [consumers @(:topic->consumer client)]
      (map
-       (fn [topic-name]
-         [topic-name ((keyword topic-name) consumers)])
-       topics))))
+      (fn [topic-name]
+        [topic-name ((keyword topic-name) consumers)])
+      topics))))
 
 (defn- add-consumer [^ClientAdapter client topic-name consumer]
   (swap! (:topic->consumer client) assoc topic-name consumer))

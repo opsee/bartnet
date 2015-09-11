@@ -31,7 +31,7 @@
 
 (def cf-parser
   (insta/parser
-    "message = line+
+   "message = line+
      line = key <'='> value <'\\n'>
      key = #'[a-zA-Z]+'
      value = <'\\''> (#'(?s).')* <'\\''>"))
@@ -58,21 +58,21 @@
 
 (defn generate-env-shell [env]
   (str/join "\n" (map
-                   (fn [[k v]]
-                     (str (name k) "=\"" v "\""))
-                   env)))
+                  (fn [[k v]]
+                    (str (name k) "=\"" v "\""))
+                  env)))
 
 (defn generate-user-data [customer-id bastion-creds] ;ca cert key]
   (str
-    "#cloud-config\n"
-    (yaml/generate-string
-      {:write_files [{:path "/etc/opsee/bastion-env.sh"
-                      :permissions "0644"
-                      :owner "root"
-                      :content (generate-env-shell
-                                 {:CUSTOMER_ID customer-id
-                                  :BASTION_ID (:id bastion-creds)
-                                  :VPN_PASSWORD (:password bastion-creds)})}]})))
+   "#cloud-config\n"
+   (yaml/generate-string
+    {:write_files [{:path "/etc/opsee/bastion-env.sh"
+                    :permissions "0644"
+                    :owner "root"
+                    :content (generate-env-shell
+                              {:CUSTOMER_ID customer-id
+                               :BASTION_ID (:id bastion-creds)
+                               :VPN_PASSWORD (:password bastion-creds)})}]})))
 
 (defn parse-cloudformation-msg [instance-id msg]
   (if-let [msg-str (:Message msg)]
@@ -82,14 +82,14 @@
                                  (match token
                                    :message obj
                                    [:line [:key key] [:value & strings]] (assoc obj
-                                                                           (keyword key)
-                                                                           (str/join "" strings))))
-                         {} parsed)
+                                                                                (keyword key)
+                                                                                (str/join "" strings))))
+                               {} parsed)
             state (attributes->state attributes)]
         {:attributes attributes
          :instance_id instance-id
          :state state})
-        (catch Exception e (pprint msg) (log/error e "exception on parse")))))
+      (catch Exception e (pprint msg) (log/error e "exception on parse")))))
 
 (defn launch-heartbeat [bus client customer-id instance-id]
   (fn []
@@ -106,9 +106,9 @@
             endpoint (keyword (:endpoint creds))
             template-map (if-let [res (:resource template-src)]
                            {:template-body (-> res
-                                             io/resource
-                                             io/file
-                                             slurp)}
+                                               io/resource
+                                               io/file
+                                               slurp)}
                            {:template-url (buckets/url-to endpoint (:template-url template-src))})
             {topic-arn :topic-arn} (sns/create-topic creds {:name (str "opsee-bastion-build-sns-" id)})
             {queue-url :queue-url} (sqs/create-queue creds {:queue-name (str "opsee-bastion-build-sqs-" id)})
@@ -121,30 +121,30 @@
         (log/info "subscribe" topic-arn "sqs" queue-arn)
         (log/info "launching stack with " image-id vpc-id customer-id)
         (create-stack creds
-          (merge {:stack-name (str "opsee-bastion-" id)
-                  :capabilities ["CAPABILITY_IAM"]
-                  :parameters [{:parameter-key "ImageId" :parameter-value image-id}
-                               {:parameter-key "InstanceType" :parameter-value instance-type}
-                               {:parameter-key "UserData" :parameter-value (encode-user-data
-                                                                             (generate-user-data customer-id bastion-creds))}
-                               {:parameter-key "VpcId" :parameter-value vpc-id}
-                               {:parameter-key "KeyName" :parameter-value keypair}]
-                  :tags [{:key "Name" :value (str "Opsee Bastion " customer-id)}]
-                  :notification-arns [topic-arn]} template-map))
+                      (merge {:stack-name (str "opsee-bastion-" id)
+                              :capabilities ["CAPABILITY_IAM"]
+                              :parameters [{:parameter-key "ImageId" :parameter-value image-id}
+                                           {:parameter-key "InstanceType" :parameter-value instance-type}
+                                           {:parameter-key "UserData" :parameter-value (encode-user-data
+                                                                                        (generate-user-data customer-id bastion-creds))}
+                                           {:parameter-key "VpcId" :parameter-value vpc-id}
+                                           {:parameter-key "KeyName" :parameter-value keypair}]
+                              :tags [{:key "Name" :value (str "Opsee Bastion " customer-id)}]
+                              :notification-arns [topic-arn]} template-map))
         (loop [{messages :messages} (sqs/receive-message creds {:queue-url queue-url})]
           (if
-            (not-any? #(true? %)
-              (for [message messages
-                    :let [msg-body (:body message)
-                          msg (parse-cloudformation-msg id (parse-string msg-body true))]]
-                (do
-                  (sqs/delete-message creds (assoc message :queue-url queue-url))
-                  (bus/publish bus client customer-id "launch-bastion" (bus/make-msg "LaunchEvent" msg))
-                  (log/info (get-in msg [:attributes :ResourceType]) (get-in msg [:attributes :ResourceStatus]))
-                  (reset! state (:state msg))
-                  (contains? #{"complete" "failed"} (:state msg)))))
+           (not-any? #(true? %)
+                     (for [message messages
+                           :let [msg-body (:body message)
+                                 msg (parse-cloudformation-msg id (parse-string msg-body true))]]
+                       (do
+                         (sqs/delete-message creds (assoc message :queue-url queue-url))
+                         (bus/publish bus client customer-id "launch-bastion" (bus/make-msg "LaunchEvent" msg))
+                         (log/info (get-in msg [:attributes :ResourceType]) (get-in msg [:attributes :ResourceStatus]))
+                         (reset! state (:state msg))
+                         (contains? #{"complete" "failed"} (:state msg)))))
             (recur (sqs/receive-message creds {:queue-url queue-url
-                                             :wait-time-seconds 20}))))
+                                               :wait-time-seconds 20}))))
         (log/info "exiting" id)
         (bus/publish bus client customer-id "launch-bastion"
                      (bus/make-msg "LaunchEvent" {:state "ok" :attributes {:status :success}}))
@@ -169,21 +169,20 @@
         client (bus/register bus (bus/publishing-client) customer-id)]
     (log/info regions)
     (for [region-obj regions]
-        (let [creds {:access-key access-key
-                     :secret-key secret-key
-                     :endpoint (:region region-obj)}
-              {image-id :image-id} (get-latest-stable-image creds owner-id tag)
-              vpcs (for [vpc (:vpcs region-obj)]
-                     (do (log/info vpc)
-                         (let [bastion-creds (get-bastion-creds customer-id)
-                               vpc-id (:id vpc)]
-                           (.submit
-                             executor
-                             (launcher creds bastion-creds bus
-                                       client image-id instance-size
-                                       vpc-id customer-id keypair
-                                       template-src scheduler))
-                           (assoc vpc :instance_id (:id bastion-creds)))))]
-          (assoc region-obj :vpcs vpcs)))))
-
+      (let [creds {:access-key access-key
+                   :secret-key secret-key
+                   :endpoint (:region region-obj)}
+            {image-id :image-id} (get-latest-stable-image creds owner-id tag)
+            vpcs (for [vpc (:vpcs region-obj)]
+                   (do (log/info vpc)
+                       (let [bastion-creds (get-bastion-creds customer-id)
+                             vpc-id (:id vpc)]
+                         (.submit
+                          executor
+                          (launcher creds bastion-creds bus
+                                    client image-id instance-size
+                                    vpc-id customer-id keypair
+                                    template-src scheduler))
+                         (assoc vpc :instance_id (:id bastion-creds)))))]
+        (assoc region-obj :vpcs vpcs)))))
 

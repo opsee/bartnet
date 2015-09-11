@@ -17,8 +17,7 @@
     :parse-fn #(Integer/parseInt %)]])
 
 (def migrate-options
-  [
-   ["-n" "--dry-run" "output the DDL to stdout, don't run it"
+  [["-n" "--dry-run" "output the DDL to stdout, don't run it"
     :default false
     :parse-fn #(Boolean/valueOf %)]
    ["-c" "--count COUNT" "only apply the next N change sets"

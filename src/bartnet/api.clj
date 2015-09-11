@@ -11,7 +11,7 @@
             [ring.swagger.middleware :as rsm]
             [ring.util.http-response :refer :all]
             [yesql.util :refer [slurp-from-classpath]]
-            [amazonica.aws.ec2 :refer [describe-vpcs describe-account-attributes]]
+            [amazonica.aws.ec2 :refer [describe-vpcs describe-account-attributes describe-instances]]
             [ring.middleware.params :refer [wrap-params]]
             [compojure.api.sweet :refer :all]
             [compojure.api.swagger :as cas]
@@ -49,29 +49,25 @@
 
 (defn build-group [customer-id id]
   (let [group (instance/get-group! customer-id id)]
-    {
-     :name        (:group_name group)
+    {:name        (:group_name group)
      :customer_id customer-id
      :id          (:group_id group)
-     :instances   (:instances group)
-     }))
+     :instances   (:instances group)}))
 
 (defn build-composite-group [customer-id id]
   (let [group (build-group customer-id id)]
     (merge group
            (let [instances (:instances group)]
              (assoc (dissoc group :instances)
-               :instances (map #(instance/get-instance! customer-id %) instances))))))
+                    :instances (map #(instance/get-instance! customer-id %) instances))))))
 
 (defn build-composite-instance [instance]
   (let [group-hints (:groups instance)
         instance (dissoc instance :groups)
         customer-id (:customer_id instance)]
     (merge instance
-           {
-            ;:checks (map build-check (sql/get-checks-by-customer-id @db customer-id))
-            :groups (map (fn [g] (build-group customer-id (:group_id g))) group-hints)
-            })))
+           {;:checks (map build-check (sql/get-checks-by-customer-id @db customer-id))
+            :groups (map (fn [g] (build-group customer-id (:group_id g))) group-hints)})))
 
 (defn find-instance [id]
   (fn [ctx]
@@ -106,8 +102,8 @@
     (if-let [body-rdr (:body request)]
       (let [body (slurp body-rdr)
             req' (assoc request
-                   :strbody body
-                   :body (ByteArrayInputStream. (.getBytes body)))
+                        :strbody body
+                        :body (ByteArrayInputStream. (.getBytes body)))
             req'' (if-not (get-in req' [:headers "Content-Type"])
                     (assoc-in req' [:headers "Content-Type"] "application/json"))]
         (log/info "request:" req'')
@@ -127,14 +123,12 @@
 (defn log-and-error [ex]
   (log/error ex "problem encountered")
   {:status  500
-   :headers {"Content-Type" "application/json"}`
-   :body    (generate-string {:error (.getMessage ex)})})
+   :headers {"Content-Type" "application/json"} `:body    (generate-string {:error (.getMessage ex)})})
 
 (defn robustify-errors [^Exception ex]
   (if (instance? BatchUpdateException ex)
     (log-and-error (.getNextException ex))
     (log-and-error ex)))
-
 
 (defn json-body [ctx]
   (if-let [body (get-in ctx [:request :strbody])]
@@ -270,22 +264,33 @@
 (defn ec2-classic? [attrs]
   (let [ttr (:account-attributes attrs)
         supported (first (filter
-                           #(= "supported-platforms" (:attribute-name %))
-                           ttr))]
+                          #(= "supported-platforms" (:attribute-name %))
+                          ttr))]
     (not (empty? (filter
-                   #(or (.equalsIgnoreCase "EC2-Classic" (:attribute-value %))
-                        (.equalsIgnoreCase "EC2" (:attribute-value %)))
-                   (:attribute-values supported))))))
+                  #(or (.equalsIgnoreCase "EC2-Classic" (:attribute-value %))
+                       (.equalsIgnoreCase "EC2" (:attribute-value %)))
+                  (:attribute-values supported))))))
 
-(defn scan-vpcs [ctx]
-  (let [creds (json-body ctx)]
-    {:regions (for [region (:regions creds)]
-                (let [cd (assoc creds :endpoint region)
-                      vpcs (describe-vpcs cd)
-                      attrs (describe-account-attributes cd)]
-                  {:region      region
-                   :ec2-classic (ec2-classic? attrs)
-                   :vpcs        (:vpcs vpcs)}))}))
+(defn scan-vpcs [req]
+  (fn [ctx]
+    {:regions (for [region (:regions req)
+                    :let [cd {:access-key (:access-key req)
+                              :secret-key (:secret-key req)
+                              :endpoint region}
+                          vpcs (describe-vpcs cd)
+                          attrs (describe-account-attributes cd)]]
+                {:region      region
+                 :ec2-classic (ec2-classic? attrs)
+                 :vpcs        (for [vpc (:vpcs vpcs)
+                                    :let [reservations (describe-instances cd :filters [{:name "vpc-id"
+                                                                                         :values [(:vpc-id vpc)]}])
+                                          count (reduce +
+                                                        (map (fn [res]
+                                                               (count (filter #(not= "terminated"
+                                                                                     (get-in % [:state :name]))
+                                                                              (:instances res))))
+                                                             (:reservations reservations)))]]
+                                (assoc vpc :count count))})}))
 
 (defn find-group [id]
   (fn [ctx]
@@ -316,88 +321,88 @@
       {:regions (launch/launch-bastions @executor @scheduler @bus (:customer_id login) launch-cmd (:ami @config))})))
 
 (defresource instance-resource [id]
-             :available-media-types ["application/json"]
-             :allowed-methods [:get]
-             :authorized? (authorized?)
-             :exists? (find-instance id)
-             :handle-ok :instance)
+  :available-media-types ["application/json"]
+  :allowed-methods [:get]
+  :authorized? (authorized?)
+  :exists? (find-instance id)
+  :handle-ok :instance)
 
 (defresource instances-resource []
-             :available-media-types ["application/json"]
-             :allowed-methods [:get]
-             :authorized? (authorized?)
-             :handle-ok get-instances)
+  :available-media-types ["application/json"]
+  :allowed-methods [:get]
+  :authorized? (authorized?)
+  :handle-ok get-instances)
 
 (defresource group-resource [id]
-             :available-media-types ["application/json"]
-             :allowed-methods [:get]
-             :authorized? (authorized?)
-             :exists? (find-group id)
-             :handle-ok :group)
+  :available-media-types ["application/json"]
+  :allowed-methods [:get]
+  :authorized? (authorized?)
+  :exists? (find-group id)
+  :handle-ok :group)
 
 (defresource groups-resource []
-             :available-media-types ["application/json"]
-             :allowed-methods [:get]
-             :authorized? (authorized?)
-             :handle-ok get-groups)
+  :available-media-types ["application/json"]
+  :allowed-methods [:get]
+  :authorized? (authorized?)
+  :handle-ok get-groups)
 
 (defresource launch-bastions-resource [launch-cmd]
-             :available-media-types ["application/json"]
-             :allowed-methods [:post]
-             :authorized? (authorized?)
-             :post! (launch-bastions! launch-cmd)
-             :handle-created :regions)
+  :available-media-types ["application/json"]
+  :allowed-methods [:post]
+  :authorized? (authorized?)
+  :post! (launch-bastions! launch-cmd)
+  :handle-created :regions)
 
 (defresource bastion-resource [id]
-             :available-media-types ["application/json"]
-             :allowed-methods [:post]
-             :authorized? (authorized?)
-             :post! (cmd-bastion! id)
-             :handle-created :msg)
+  :available-media-types ["application/json"]
+  :allowed-methods [:post]
+  :authorized? (authorized?)
+  :post! (cmd-bastion! id)
+  :handle-created :msg)
 
 (defresource bastions-resource []
-             :available-media-types ["application/json"]
-             :allowed-methods [:get]
-             :authorized? (authorized?)
-             :handle-ok list-bastions)
+  :available-media-types ["application/json"]
+  :allowed-methods [:get]
+  :authorized? (authorized?)
+  :handle-ok list-bastions)
 
 (defresource test-check-resource [id testCheck]
-             :available-media-types ["application/json"]
-             :allowed-methods [:post]
-             :authorized? (authorized?)
-             :post! (test-check! id testCheck)
-             :handle-created (fn [ctx] (pb/proto->hash (:test-results ctx))))
+  :available-media-types ["application/json"]
+  :allowed-methods [:post]
+  :authorized? (authorized?)
+  :post! (test-check! id testCheck)
+  :handle-created (fn [ctx] (pb/proto->hash (:test-results ctx))))
 
 (defresource discovery-resource []
-             :available-media-types ["application/json"]
-             :allowed-methods [:get])
+  :available-media-types ["application/json"]
+  :allowed-methods [:get])
 
 (defresource check-resource [id check]
-             :as-response (fn [data _] {:body data})
-             :available-media-types ["application/json"]
-             :allowed-methods [:get :put :delete]
-             :authorized? (authorized?)
-             :exists? (check-exists? id)
-             :put! (update-check! id check)
-             :new? false
-             :respond-with-entity? respond-with-entity?
-             :delete! (delete-check! id)
-             :handle-ok :check)
+  :as-response (fn [data _] {:body data})
+  :available-media-types ["application/json"]
+  :allowed-methods [:get :put :delete]
+  :authorized? (authorized?)
+  :exists? (check-exists? id)
+  :put! (update-check! id check)
+  :new? false
+  :respond-with-entity? respond-with-entity?
+  :delete! (delete-check! id)
+  :handle-ok :check)
 
 (defresource checks-resource [checks]
-             :as-response (fn [data _] {:body data})
-             :available-media-types ["application/json"]
-             :allowed-methods [:get :post]
-             :authorized? (authorized?)
-             :post! (create-check! checks)
-             :handle-created :checks
-             :handle-ok list-checks)
+  :as-response (fn [data _] {:body data})
+  :available-media-types ["application/json"]
+  :allowed-methods [:get :post]
+  :authorized? (authorized?)
+  :post! (create-check! checks)
+  :handle-created :checks
+  :handle-ok list-checks)
 
-(defresource scan-vpc-resource []
-             :available-media-types ["application/json"]
-             :allowed-methods [:post]
-             :post! scan-vpcs
-             :handle-created :regions)
+(defresource scan-vpc-resource [req]
+  :available-media-types ["application/json"]
+  :allowed-methods [:post]
+  :post! (scan-vpcs req)
+  :handle-created :regions)
 
 (defn vary-origin [handler]
   (fn [request]
@@ -415,134 +420,173 @@
                  "Access-Control-Max-Age"       "1728000"}}
       (handler request))))
 
+(def EC2Region (sch/enum "ap-northeast-1" "ap-southeast-1" "ap-southeast-2"
+                         "eu-central-1" "eu-west-1"
+                         "sa-east-1"
+                         "us-east-1" "us-west-1" "us-west-2"))
+
 (def LaunchVpc "A VPC for launching"
   (sch/schema-with-name
-    {:id sch/Str
-     (sch/optional-key :instance_id) (sch/maybe sch/Str)}
-  "LaunchVpc"))
+   {:id sch/Str
+    (sch/optional-key :instance_id) (sch/maybe sch/Str)}
+   "LaunchVpc"))
 
 (def LaunchRegion "An ec2 region for launching"
   (sch/schema-with-name
-    {:region (sch/enum "ap-northeast-1" "ap-southeast-1" "ap-southeast-2"
-                       "eu-central-1" "eu-west-1"
-                       "sa-east-1"
-                       "us-east-1" "us-west-1" "us-west-2")
-     :vpcs [LaunchVpc]}
-    "LaunchRegion"))
+   {:region EC2Region
+    :vpcs [LaunchVpc]}
+   "LaunchRegion"))
 
 (def LaunchCmd "A schema for launching bastions"
   (sch/schema-with-name
-    {:access-key sch/Str
-     :secret-key sch/Str
-     :regions [LaunchRegion]
-     :instance-size (sch/enum "t2.micro" "t2.small" "t2.medium" "t2.large"
-                              "m4.large" "m4.xlarge" "m4.2xlarge" "m4.4xlarge" "m4.10xlarge"
-                              "m3.medium" "m3.large" "m3.xlarge" "m3.2xlarge")}
-    "LaunchCmd"))
+   {:access-key sch/Str
+    :secret-key sch/Str
+    :regions [LaunchRegion]
+    :instance-size (sch/enum "t2.micro" "t2.small" "t2.medium" "t2.large"
+                             "m4.large" "m4.xlarge" "m4.2xlarge" "m4.4xlarge" "m4.10xlarge"
+                             "m3.medium" "m3.large" "m3.xlarge" "m3.2xlarge")}
+   "LaunchCmd"))
+
+(def ScanVpcsRequest
+  (sch/schema-with-name
+   {:access-key sch/Str
+    :secret-key sch/Str
+    :regions [EC2Region]}
+   "ScanVpcsRequest"))
+
+(def Tag
+  (sch/schema-with-name
+   {:key sch/Str
+    :value sch/Str}
+   "Tag"))
+
+(def ScanVpc
+  (sch/schema-with-name
+   {:state sch/Str
+    :vpc-id sch/Str
+    :tags [Tag]
+    :cidr-block sch/Str
+    :dhcp-options-id sch/Str
+    :instance-tenancy sch/Str
+    :is-default sch/Bool}
+   "ScanVpc"))
+
+(def ScanVpcsRegion
+  (sch/schema-with-name
+   {:region EC2Region
+    :ec2-class sch/Bool
+    :vpcs [ScanVpc]}
+   "ScanVpcsRegion"))
+
+(def ScanVpcsResponse
+  (sch/schema-with-name
+   {:regions [ScanVpcsRegion]}
+   "ScanVpcsResponse"))
 
 (defapi bartnet-api
-        {:exceptions {:exception-handler robustify-errors}
+  {:exceptions {:exception-handler robustify-errors}
          ;:validation-errors {:error-handler robustify-errors}
-         :coercion   (fn [_] (assoc mw/default-coercion-matchers
-                               :proto pb/proto-walker))}
+   :coercion   (fn [_] (assoc mw/default-coercion-matchers
+                              :proto pb/proto-walker))}
         ;(swagger-docs "/api/swagger.json"
         ;              {:info {:title       "Opsee API"
         ;                      :description "Own your availability."}
         ;               :definitions {"HttpCheck" {:type "object"}}})
-        (routes
-          (GET* "/api/swagger.json" {:as req}
-                :no-doc true
-                :name ::swagger
-                (let [runtime-info (rsm/get-swagger-data req)
-                      base-path {:basePath (cas/base-path req)}
-                      options (:ring-swagger (mw/get-options req))]
-                  (ok
-                    (let [swagger (merge runtime-info base-path)
-                          result (merge-with merge
-                                             (ring.swagger.swagger2/swagger-json swagger options)
-                                             {:info {:title "Opsee API"
-                                                     :description "Be More Opsee"}
-                                              :definitions (pb/anyschemas)})]
-                      result)))))
-        (swagger-ui "/api/swagger" :swagger-docs "/api/swagger.json")
+  (routes
+   (GET* "/api/swagger.json" {:as req}
+         :no-doc true
+         :name ::swagger
+         (let [runtime-info (rsm/get-swagger-data req)
+               base-path {:basePath (cas/base-path req)}
+               options (:ring-swagger (mw/get-options req))]
+           (ok
+            (let [swagger (merge runtime-info base-path)
+                  result (merge-with merge
+                                     (ring.swagger.swagger2/swagger-json swagger options)
+                                     {:info {:title "Opsee API"
+                                             :description "Be More Opsee"}
+                                      :definitions (pb/anyschemas)})]
+              result)))))
+  (swagger-ui "/api/swagger" :swagger-docs "/api/swagger.json")
         ;; TODO: Split out request methods and document with swagger metadata
-        (GET*    "/health_check" []
-                 :no-doc true
-                 "A ok")
-        (ANY*    "/scan-vpcs" []
-                 :no-doc true
-                 (scan-vpc-resource))
-        (ANY*    "/bastions" []
-                 :no-doc true
-                 (bastions-resource))
+  (GET*    "/health_check" []
+           :no-doc true
+           "A ok")
 
-        (POST*   "/bastions/launch" []
-                 :summary "Launch bastions in the given VPC's."
-                 :body [launch-cmd LaunchCmd]
-                 :return [LaunchCmd]
-                 (launch-bastions-resource launch-cmd))
+  (POST*   "/scan-vpcs" []
+           :summary "Scans the regions requested for any VPC's and instance counts."
+           :body [vpc-req ScanVpcsRequest]
+           :return [ScanVpcsResponse]
+           (scan-vpc-resource vpc-req))
 
-        (ANY*    "/bastions/:id" [id]
-                 :no-doc true
-                 (bastion-resource id))
-        (POST*   "/bastions/:id/test-check" [id]
-                 :summary "Tells the bastion instance in question to test out a check and return the response"
-                 :proto [testCheck TestCheckRequest]
-                 :return (pb/proto->schema TestCheckResponse)
-                 (test-check-resource id testCheck))
+  (ANY*    "/bastions" []
+           :no-doc true
+           (bastions-resource))
 
-        (ANY*    "/discovery" []
-                 :no-doc true
-                 (discovery-resource))
+  (POST*   "/bastions/launch" []
+           :summary "Launch bastions in the given VPC's."
+           :body [launch-cmd LaunchCmd]
+           :return [LaunchCmd]
+           (launch-bastions-resource launch-cmd))
 
-        (POST*   "/checks" []
-                 :summary "Create a check"
-                 :proto [check Check]
-                 :return (pb/proto->schema Check)
-                 (checks-resource check))
+  (ANY*    "/bastions/:id" [id]
+           :no-doc true
+           (bastion-resource id))
+  (POST*   "/bastions/:id/test-check" [id]
+           :summary "Tells the bastion instance in question to test out a check and return the response"
+           :proto [testCheck TestCheckRequest]
+           :return (pb/proto->schema TestCheckResponse)
+           (test-check-resource id testCheck))
 
-        (GET*    "/checks" []
-                 :summary "List all checks"
-                 :return [(pb/proto->schema Check)]
-                 (checks-resource nil))
+  (ANY*    "/discovery" []
+           :no-doc true
+           (discovery-resource))
 
-        (GET*    "/checks/:id" [id]
-                 :summary "Retrieve a check by its ID."
-                 :return (pb/proto->schema Check)
-                 (check-resource id nil))
+  (POST*   "/checks" []
+           :summary "Create a check"
+           :proto [check Check]
+           :return (pb/proto->schema Check)
+           (checks-resource check))
 
-        (DELETE* "/checks/:id" [id]
-                 :summary "Delete a check by its ID."
-                 (check-resource id nil))
+  (GET*    "/checks" []
+           :summary "List all checks"
+           :return [(pb/proto->schema Check)]
+           (checks-resource nil))
 
-        (PUT*    "/checks/:id" [id]
-                 :summary "Update a check by its ID."
-                 :proto [check Check]
-                 :return (pb/proto->schema Check)
-                 (check-resource id check))
+  (GET*    "/checks/:id" [id]
+           :summary "Retrieve a check by its ID."
+           :return (pb/proto->schema Check)
+           (check-resource id nil))
 
+  (DELETE* "/checks/:id" [id]
+           :summary "Delete a check by its ID."
+           (check-resource id nil))
 
-        ;; DONE
-        (GET*    "/instance/:id" [id]
-                 :summary "Retrieve instance by ID."
-                 :path-params [id :- sch/Str]
+  (PUT*    "/checks/:id" [id]
+           :summary "Update a check by its ID."
+           :proto [check Check]
+           :return (pb/proto->schema Check)
+           (check-resource id check));; DONE
+  (GET*    "/instance/:id" [id]
+           :summary "Retrieve instance by ID."
+           :path-params [id :- sch/Str]
                  ;:return (sch/maybe CompositeInstance)
-                 :no-doc true
-                 (instance-resource id))
-        (GET*    "/instances" []
-                 :summary "Retrieve a list of instances."
-                 :no-doc true
-                 (instances-resource))
-        (GET*    "/group/:id" [id]
-                 :summary "Retrieve a Group by ID."
-                 :path-params [id :- sch/Str]
+           :no-doc true
+           (instance-resource id))
+  (GET*    "/instances" []
+           :summary "Retrieve a list of instances."
+           :no-doc true
+           (instances-resource))
+  (GET*    "/group/:id" [id]
+           :summary "Retrieve a Group by ID."
+           :path-params [id :- sch/Str]
                  ;:return (sch/maybe CompositeGroup)
-                 :no-doc true
-                 (group-resource id))
-        (GET*    "/groups" []
-                 :summary "Retrieve a list of groups."
-                 :no-doc true
-                 (groups-resource)))
+           :no-doc true
+           (group-resource id))
+  (GET*    "/groups" []
+           :summary "Retrieve a list of groups."
+           :no-doc true
+           (groups-resource)))
 
 (defn handler [exe sched message-bus database conf]
   (reset! executor exe)
@@ -552,15 +596,15 @@
   (reset! config conf)
   (reset! client (bus/register @bus (bus/publishing-client) "*"))
   (->
-    bartnet-api
-    (log-request)
-    (log-response)
-    (wrap-cors :access-control-allow-origin [#"https?://localhost(:\d+)?"
-                                             #"https?://opsee\.com"
-                                             #"https?://opsee\.co"
-                                             #"https?://opsy\.co"
-                                             #"null"]
-               :access-control-allow-methods [:get :put :post :patch :delete])
-    (vary-origin)
-    (wrap-params)
-    (wrap-trace :header :ui)))
+   bartnet-api
+   (log-request)
+   (log-response)
+   (wrap-cors :access-control-allow-origin [#"https?://localhost(:\d+)?"
+                                            #"https?://opsee\.com"
+                                            #"https?://opsee\.co"
+                                            #"https?://opsy\.co"
+                                            #"null"]
+              :access-control-allow-methods [:get :put :post :patch :delete])
+   (vary-origin)
+   (wrap-params)
+   (wrap-trace :header :ui)))
