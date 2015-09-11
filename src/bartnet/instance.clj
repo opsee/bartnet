@@ -232,7 +232,8 @@
 (defn connect-bus [bus]
   (log/info "Connecting instance store to message bus.")
   (let [client (bus/register bus (instance-message-client) [bus/firehose-sigil])]
-    (bus/subscribe bus client bus/firehose-sigil '("discovery"))))
+    ;(bus/subscribe bus client bus/firehose-sigil '("discovery"))
+    ))
 
 (defn create-memory-store
   ([bus coll]
