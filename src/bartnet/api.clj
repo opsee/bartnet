@@ -273,20 +273,24 @@
 
 (defn scan-vpcs [req]
   (fn [ctx]
-    (let [attrs (describe-account-attributes (assoc req :endpoint "us-west-1"))]
-      {:regions (for [region (:regions req)
-                      :let [cd (assoc req :endpoint region)
-                            vpcs (describe-vpcs cd)]]
-                  {:region     region
-                   :ec2-class  (ec2-classic? attrs)
-                   :vpcs       (for [vpc (:vpcs vpcs)
-                                     :let [reservations (describe-instances cd {:filters [{:name "vpc-id"
-                                                                                           :values [(:vpc-id vpc)]}]})
-                                           count (reduce +
-                                                         (map (fn [res]
-                                                                (count (:instances res)))
-                                                              (:reservations reservations)))]]
-                                 (assoc vpc :count count))})})))
+    {:regions (for [region (:regions req)
+                    :let [cd {:access-key (:access-key req)
+                              :secret-key (:secret-key req)
+                              :endpoint region}
+                          vpcs (describe-vpcs cd)
+                          attrs (describe-account-attributes cd)]]
+                {:region      region
+                 :ec2-classic (ec2-classic? attrs)
+                 :vpcs        (for [vpc (:vpcs vpcs)
+                                    :let [reservations (describe-instances cd :filters [{:name "vpc-id"
+                                                                                         :values [(:vpc-id vpc)]}])
+                                          count (reduce +
+                                                        (map (fn [res]
+                                                               (count (filter #(not= "terminated"
+                                                                                     (get-in % [:state :name]))
+                                                                              (:instances res))))
+                                                             (:reservations reservations)))]]
+                                (assoc vpc :count count))})}))
 
 (defn find-group [id]
   (fn [ctx]
