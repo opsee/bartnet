@@ -11,9 +11,9 @@
        "  permissions: '0644'\n"
        "  owner: root\n"
        "  content: |-\n"
-       "    CUSTOMER_ID=\"custy1\"\n"
-       "    BASTION_ID=\"dorpydorp\"\n"
-       "    VPN_PASSWORD=\"doopydoop\"\n"))
+       "    CUSTOMER_ID=custy1\n"
+       "    BASTION_ID=dorpydorp\n"
+       "    VPN_PASSWORD=doopydoop\n"))
 
 (with-fake-routes {"https://vape.opsy.co/bastions" {:post (fn [request] {:status 200 :headers {} :body "{\"id\":\"dorpydorp\",\"password\":\"doopydoop\"}"})}}
                   ;; Exact string match:
