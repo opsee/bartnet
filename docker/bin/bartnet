@@ -8,9 +8,6 @@ OPTS="-cp /bartnet/lib/bartnet.jar"
 NAMESPACE="bartnet.core"
 AGGRESSIVE_OPTS="-server -XX:+UseConcMarkSweepGC -XX:+UseParNewGC -XX:+CMSParallelRemarkEnabled -XX:+AggressiveOpts -XX:+UseFastAccessorMethods -XX:+UseCompressedOops -XX:+CMSClassUnloadingEnabled"
 
-ETCD_HOST="$(ifconfig docker0 | awk '/\<inet\>/ { print $2}')"
-ETCD_PORT=2379
-
 if [[ $AWS == 0 ]]; then
   eval "$(/opt/bin/ec2-env)"
   /opt/bin/s3kms get -b opsee-keys -o dev/vape.key > /bartnet/etc/vape.key
