@@ -58,10 +58,10 @@
 
 (defn all-bastions [customer-id action]
   (doall
-   (for [bastion (router/get-customer-bastions customer-id)
-         :let [addr (router/get-service customer-id bastion "checker")
-               client (checker-client addr)
-               result (action client)]]
-     (do
-       (shutdown client)
-       result))))
+   (for [bastion (router/get-customer-bastions customer-id)]
+     (if-let [addr (router/get-service customer-id bastion "checker")]
+       (let [client (checker-client addr)
+             result (action client)]
+         (do
+           (shutdown client)
+           result))))))

@@ -19,8 +19,9 @@
   (str/join "/" [(instance-path customer_id instance_id) service-name]))
 
 (defn- host-port [v]
-  (let [[host port] (str/split v #":")]
-    {:host host :port (Integer/parseInt port)}))
+  (when v
+    (let [[host port] (str/split v #":")]
+      {:host host :port (Integer/parseInt port)})))
 
 (defn get-customer-bastions [customer_id]
   (disco/with-etcd
