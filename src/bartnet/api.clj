@@ -534,7 +534,7 @@
            :summary "Retrieve a list of security groups."
            :no-doc true
            (groups-resource {:type type}))
-  (GET*    "/groups/:id/instances" [id]
+  (GET*    "/group/:id" [id]
            :summary "Retrieve a list of instances belonging to a group."
            :no-doc true
            (groups-resource {:group_id id})))
