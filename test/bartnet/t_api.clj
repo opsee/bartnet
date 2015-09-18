@@ -182,26 +182,6 @@
                                            (mock/header "Authorization" auth-header)))]
                    (:status response) => 201)))))
 
-;(facts "about /instance/:id"
-;       (let [my-instance {:customer_id "154ba57a-5188-11e5-8067-9b5f2d96dce1" :id "id" :name "my instance" :group_id "sg-123456"}]
-;         (with-state-changes
-;           [(before :facts
-;                    (do
-;                      (instance/create-memory-store bus)
-;                      (instance/save-instance! my-instance)
-;                      (do-setup)))]
-;           (fact "GET existing instance returns the instance"
-;                 (let [response ((app) (-> (mock/request :get "/instance/id")
-;                                           (mock/header "Authorization" auth-header)))]
-;                   (:status response) => 200
-;                   (:body (contains my-instance))))
-;           (fact "GET unknown instance returns 404"
-;                 (let [response ((app) (-> (mock/request :get "/instance/foo")
-;                                           (mock/header "Authorization" auth-header)))]
-;                   (:status response) => 404))
-;           (fact "GET requires authentication"
-;                 (let [response ((app) (-> (mock/request :get "/instance/id")))]
-;                   (:status response) => 401)))))
 (facts "VPC scanning without EC2-Classic"
        (with-redefs [amazonica.aws.ec2/describe-account-attributes (fn [creds]
                                                                      (case (:endpoint creds)
