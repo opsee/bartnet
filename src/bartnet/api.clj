@@ -526,6 +526,14 @@
            :summary "Retrieve a list of instances by type."
            :no-doc true
            (instances-resource {:type type}))
+  (GET*    "/instance/ec2/:id" [id]
+           :summary "Retrieve a single ec2 instance."
+           :no-doc true
+           (instances-resource {:type "ec2" :instance_id id}))
+  (GET*    "/instance/rds/:id" [id]
+           :summary "Retrieve a single rds instance."
+           :no-doc true
+           (instances-resource {:type "rds" :instance_id id}))
   (GET*    "/groups" []
            :summary "Retrieve a list of groups."
            :no-doc true
@@ -534,10 +542,18 @@
            :summary "Retrieve a list of security groups."
            :no-doc true
            (groups-resource {:type type}))
-  (GET*    "/group/:id" [id]
-           :summary "Retrieve a list of instances belonging to a group."
+  (GET*    "/group/security/:id" [id]
+           :summary "Retrieve a list of instances belonging to a security group."
            :no-doc true
-           (instances-resource {:group_id id})))
+           (instances-resource {:group_id id :type "security"}))
+  (GET*    "/group/rds-security/:id" [id]
+           :summary "Retrieve a list of instances belonging to an rds security group."
+           :no-doc true
+           (instances-resource {:group_id id :type "rds-security"}))
+  (GET*    "/group/elb/:id" [id]
+           :summary "Retrieve a list of instances belonging to an elb."
+           :no-doc true
+           (instances-resource {:group_id id :type "elb"})))
 
 (defn handler [exe sched message-bus database conf]
   (reset! executor exe)
