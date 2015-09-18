@@ -13,8 +13,8 @@
       200 (parse-string (:body response) keyword)
       (throw (Exception. "failed to get instances from the instance store")))))
 
-(def list-instances! [options]
+(defn list-instances! [options]
   (request instance-endpoint options))
 
-(def list-groups! [options]
+(defn list-groups! [options]
   (request group-endpoint options))
