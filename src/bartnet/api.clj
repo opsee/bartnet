@@ -47,42 +47,6 @@
 
 ;; Schemata
 
-(defn build-group [customer-id id]
-  (let [group (instance/get-group! customer-id id)]
-    {:name        (:group_name group)
-     :customer_id customer-id
-     :id          (:group_id group)
-     :instances   (:instances group)}))
-
-(defn build-composite-group [customer-id id]
-  (let [group (build-group customer-id id)]
-    (merge group
-           (let [instances (:instances group)]
-             (assoc (dissoc group :instances)
-                    :instances (map #(instance/get-instance! customer-id %) instances))))))
-
-(defn build-composite-instance [instance]
-  (let [group-hints (:groups instance)
-        instance (dissoc instance :groups)
-        customer-id (:customer_id instance)]
-    (merge instance
-           {;:checks (map build-check (sql/get-checks-by-customer-id @db customer-id))
-            :groups (map (fn [g] (build-group customer-id (:group_id g))) group-hints)})))
-
-(defn find-instance [id]
-  (fn [ctx]
-    (log/info "find-instance was called")
-    (let [login (:login ctx)
-          customer-id (:customer_id login)
-          instance (instance/get-instance! customer-id id)]
-      (log/info "login: " login " customer_id: " customer-id " instance: " instance)
-      (when instance
-        {:instance (build-composite-instance instance)}))))
-
-(defn get-instances [ctx]
-  (let [customer-id (get-in ctx [:login :customer_id])]
-    {:instances (instance/list-instances! customer-id)}))
-
 (def executor (atom nil))
 (def scheduler (atom nil))
 (def config (atom nil))
@@ -291,18 +255,19 @@
                                                                               (:instances res))))
                                                              (:reservations reservations)))]]
                                 (assoc vpc :count count))})}))
-
-(defn find-group [id]
+(defn get-groups [opts]
   (fn [ctx]
-    (let [login (:login ctx)
-          customer-id (:customer_id login)
-          group (build-composite-group customer-id id)]
-      (when group
-        {:group group}))))
+    (let [customer-id (get-in ctx [:login :customer_id])]
+      {:groups (instance/list-groups! (if opts
+                                        (assoc opts :customer_id customer-id)
+                                        {:customer_id customer-id}))})))
 
-(defn get-groups [ctx]
-  (let [customer-id (get-in ctx [:login :customer_id])]
-    {:groups (instance/list-groups! customer-id)}))
+(defn get-instances [opts]
+  (fn [ctx]
+    (let [customer-id (get-in ctx [:login :customer_id])]
+      {:instances (instance/list-instances! (if opts
+                                              (assoc opts :customer_id customer-id)
+                                              {:customer_id customer-id}))})))
 
 (defn test-check! [instance_id testCheck]
   (fn [ctx]
@@ -320,31 +285,17 @@
           launch-cmd (json-body ctx)]
       {:regions (launch/launch-bastions @executor @scheduler @bus (:customer_id login) launch-cmd (:ami @config))})))
 
-(defresource instance-resource [id]
+(defresource instances-resource [opts]
   :available-media-types ["application/json"]
   :allowed-methods [:get]
   :authorized? (authorized?)
-  :exists? (find-instance id)
-  :handle-ok :instance)
+  :handle-ok (get-instances opts))
 
-(defresource instances-resource []
+(defresource groups-resource [opts]
   :available-media-types ["application/json"]
   :allowed-methods [:get]
   :authorized? (authorized?)
-  :handle-ok get-instances)
-
-(defresource group-resource [id]
-  :available-media-types ["application/json"]
-  :allowed-methods [:get]
-  :authorized? (authorized?)
-  :exists? (find-group id)
-  :handle-ok :group)
-
-(defresource groups-resource []
-  :available-media-types ["application/json"]
-  :allowed-methods [:get]
-  :authorized? (authorized?)
-  :handle-ok get-groups)
+  :handle-ok (get-groups opts))
 
 (defresource launch-bastions-resource [launch-cmd]
   :available-media-types ["application/json"]
@@ -567,26 +518,26 @@
            :proto [check Check]
            :return (pb/proto->schema Check)
            (check-resource id check));; DONE
-  (GET*    "/instance/:id" [id]
-           :summary "Retrieve instance by ID."
-           :path-params [id :- sch/Str]
-                 ;:return (sch/maybe CompositeInstance)
-           :no-doc true
-           (instance-resource id))
   (GET*    "/instances" []
            :summary "Retrieve a list of instances."
            :no-doc true
-           (instances-resource))
-  (GET*    "/group/:id" [id]
-           :summary "Retrieve a Group by ID."
-           :path-params [id :- sch/Str]
-                 ;:return (sch/maybe CompositeGroup)
+           (instances-resource nil))
+  (GET*    "/instances/:type" [type]
+           :summary "Retrieve a list of instances by type."
            :no-doc true
-           (group-resource id))
+           (instances-resource {:type type}))
   (GET*    "/groups" []
            :summary "Retrieve a list of groups."
            :no-doc true
-           (groups-resource)))
+           (groups-resource nil))
+  (GET*    "/groups/:type" [type]
+           :summary "Retrieve a list of security groups."
+           :no-doc true
+           (groups-resource {:type type}))
+  (GET*    "/group/:id" [id]
+           :summary "Retrieve a list of instances belonging to a group."
+           :no-doc true
+           (groups-resource {:group_id id})))
 
 (defn handler [exe sched message-bus database conf]
   (reset! executor exe)
