@@ -537,7 +537,7 @@
   (GET*    "/group/:id" [id]
            :summary "Retrieve a list of instances belonging to a group."
            :no-doc true
-           (groups-resource {:group_id id})))
+           (instances-resource {:group_id id})))
 
 (defn handler [exe sched message-bus database conf]
   (reset! executor exe)
