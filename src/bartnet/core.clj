@@ -3,7 +3,6 @@
   (:require [clojure.tools.logging :as log]
             [clojure.tools.cli :refer [parse-opts]]
             [bartnet.api :as api]
-            [bartnet.instance :as instance]
             [bartnet.db-cmd :as db-cmd]
             [bartnet.upload-cmd :as upload-cmd]
             [bartnet.bus :as bus]
@@ -45,12 +44,7 @@
                                (nsq/message-bus (:nsq config))
                                (autobus/autobus)))
         executor (Executors/utilizationExecutor (:thread-util config) (:max-threads config))
-        scheduler (ScheduledThreadPoolExecutor. 10)
-        redis-conn (disco/get-service-endpoint "bartnet-redis")]
-    (if redis-conn
-      (instance/create-redis-store bus redis-conn)
-      ;; XXX: Maybe we want to hard fail instead or make this configurable?
-      (instance/create-memory-store bus))
+        scheduler (ScheduledThreadPoolExecutor. 10)]
     (start-ws-server executor scheduler db bus config)))
 
 (.addShutdownHook
