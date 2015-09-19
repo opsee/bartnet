@@ -92,7 +92,7 @@
                                     "dynamodb:Scan",
                                     "dynamodb:DescribeTable",
                                     "dynamodb:ListTables",
-                                    "ec2:Describe*",
+                                    "ec2:*",
                                     "elasticache:Describe*",
                                     "elasticbeanstalk:Check*",
                                     "elasticbeanstalk:Describe*",
