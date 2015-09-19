@@ -569,7 +569,7 @@
    (wrap-cors :access-control-allow-origin [#"https?://localhost(:\d+)?"
                                             #"https?://opsee\.com"
                                             #"https?://opsee\.co"
-                                            #"https?://opsy\.co"
+                                            #"https?://staging.opsy\.co"
                                             #"null"]
               :access-control-allow-methods [:get :put :post :patch :delete])
    (vary-origin)
