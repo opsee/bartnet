@@ -26,7 +26,6 @@ ENV AWS_SESSION_TOKEN=""
 ENV ENVIRONMENT="dev"
 
 EXPOSE 8080
-EXPOSE 4080
 
 ENTRYPOINT ["/bartnet/bin/bartnet"]
 CMD ["start"]
