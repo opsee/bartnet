@@ -60,8 +60,8 @@
   (doall
    (for [bastion (router/get-customer-bastions customer-id)]
      (if-let [addr (router/get-service customer-id bastion "checker")]
-       (let [client (checker-client addr)
-             result (action client)]
-         (do
-           (shutdown client)
-           result))))))
+       (let [client (checker-client addr)]
+         (try
+           (action client)
+           (catch Exception ex (log/warn ex "Error talking to bastion " bastion))
+           (finally (shutdown client))))))))
