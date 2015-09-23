@@ -12,6 +12,7 @@
        "  owner: root\n"
        "  content: |-\n"
        "    CUSTOMER_ID=custy1\n"
+       "    BASTION_VERSION=stable\n"
        "    BASTION_ID=dorpydorp\n"
        "    VPN_PASSWORD=doopydoop\n"))
 
