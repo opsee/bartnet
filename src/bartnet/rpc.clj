@@ -56,6 +56,20 @@
         stub (CheckerGrpc/newBlockingStub channel)]
     (->RealCheckerClient channel stub)))
 
+(defn try-bastions [customer-id action]
+  (loop [bastions (router/get-customer-bastions customer-id)]
+    (let [bastion (first bastions)]
+      (if-let [addr (router/get-service customer-id bastion "checker")]
+        (let [client (checker-client addr)]
+          (if-let [result (try
+                            (action client)
+                            (catch Exception ex (if (rest bastions)
+                                                  nil
+                                                  (throw ex)))
+                            (finally (shutdown client)))]
+            result
+            (recur (rest bastions))))))))
+
 (defn all-bastions [customer-id action]
   (doall
    (for [bastion (router/get-customer-bastions customer-id)]
