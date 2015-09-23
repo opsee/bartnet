@@ -71,6 +71,11 @@
                     :owner "root"
                     :content (generate-env-shell
                               {:CUSTOMER_ID customer-id
+                               ; It's possible at some point that we want to make this configurable.
+                               ; At that point we'll want to associate a customer with a specific
+                               ; bastion version and expose a mechanism to change that version.
+                               ; Until then, always launch with the stable version.
+                               :BASTION_VERSION "stable"
                                :BASTION_ID (:id bastion-creds)
                                :VPN_PASSWORD (:password bastion-creds)})}]})))
 
