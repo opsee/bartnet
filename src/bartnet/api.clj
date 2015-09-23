@@ -269,20 +269,16 @@
                                               (assoc opts :customer_id customer-id)
                                               {:customer_id customer-id}))})))
 
-(defn test-check! [instance_id testCheck]
+(defn test-check! [testCheck]
   (fn [ctx]
     (let [login (:login ctx)
-          addr (router/get-service (:customer_id login) instance_id "checker")
-          _ (log/info "addr" addr)
-          client (rpc/checker-client addr)
-          response (rpc/test-check client testCheck)]
+          response (rpc/try-bastions (:customer_id login) #(rpc/test-check % testCheck))]
       (log/info "resp" response)
       {:test-results response})))
 
 (defn launch-bastions! [launch-cmd]
   (fn [ctx]
-    (let [login (:login ctx)
-          launch-cmd (json-body ctx)]
+    (let [login (:login ctx)]
       {:regions (launch/launch-bastions @executor @scheduler @bus (:customer_id login) launch-cmd (:ami @config))})))
 
 (defresource instances-resource [opts]
@@ -317,11 +313,11 @@
   :authorized? (authorized?)
   :handle-ok list-bastions)
 
-(defresource test-check-resource [id testCheck]
+(defresource test-check-resource [testCheck]
   :available-media-types ["application/json"]
   :allowed-methods [:post]
   :authorized? (authorized?)
-  :post! (test-check! id testCheck)
+  :post! (test-check! testCheck)
   :handle-created (fn [ctx] (pb/proto->hash (:test-results ctx))))
 
 (defresource discovery-resource []
@@ -480,14 +476,11 @@
            :return [LaunchCmd]
            (launch-bastions-resource launch-cmd))
 
-  (ANY*    "/bastions/:id" [id]
-           :no-doc true
-           (bastion-resource id))
-  (POST*   "/bastions/:id/test-check" [id]
-           :summary "Tells the bastion instance in question to test out a check and return the response"
+  (POST*   "/bastions/test-check" []
+           :summary "Tells the bastion to test out a check and return the response"
            :proto [testCheck TestCheckRequest]
            :return (pb/proto->schema TestCheckResponse)
-           (test-check-resource id testCheck))
+           (test-check-resource testCheck))
 
   (ANY*    "/discovery" []
            :no-doc true
