@@ -7,6 +7,7 @@
             [bartnet.upload-cmd :as upload-cmd]
             [bartnet.bus :as bus]
             [bartnet.autobus :as autobus]
+            [opsee.middleware.config :refer [config]]
             [bartnet.nsq :as nsq]
             [bartnet.websocket :as websocket]
             [bartnet.sql :as sql]
@@ -38,14 +39,14 @@
                      (reset! ws-server nil)))))
 
 (defn start-server [args]
-  (let [config (parse-string (slurp (last args)) true)
-        db (sql/pool (:db-spec config))
-        bus (bus/message-bus (if (:nsq config)
-                               (nsq/message-bus (:nsq config))
+  (let [conf (config (last args))
+        db (sql/pool (:db-spec conf))
+        bus (bus/message-bus (if (:nsq conf)
+                               (nsq/message-bus (:nsq conf))
                                (autobus/autobus)))
-        executor (Executors/utilizationExecutor (:thread-util config) (:max-threads config))
+        executor (Executors/utilizationExecutor (:thread-util conf) (:max-threads conf))
         scheduler (ScheduledThreadPoolExecutor. 10)]
-    (start-ws-server executor scheduler db bus config)))
+    (start-ws-server executor scheduler db bus conf)))
 
 (.addShutdownHook
  (Runtime/getRuntime)

@@ -1,34 +1,42 @@
 {
-    "db-spec":
-    {
-        "classname":"org.postgresql.Driver",
-        "subprotocol":"postgresql",
-        "subname":"postgres",
-        "user":"cliff",
-        "password":"",
-        "host":"postgres",
-        "port":5432,
-        "max-conns":6,
-        "min-conns":1,
-        "init-conns":1
-    },
-    "secret":"/bartnet/etc/vape.key",
-    "thread-util":0.9,
-    "max-threads":64,
-    "server":
-    {
-        "port":8080
-    },
-    "bastion-server":
-    {
-        "port":4080
-    },
-    "ami":{
-        "owner-id":"933693344490",
-        "tag":"stable"
-    },
-    "mailgun":{
-        "api_key":"key-d45f90c5a3e2ac33a26cd4c30715b71b",
-        "url":"https://api.mailgun.net/v3/mg.opsee.co"
+  "db-spec": {
+    "classname": "org.postgresql.Driver",
+    "subprotocol": "postgresql",
+    "host": "{{DB_HOST}}",
+    "port": "{{DB_PORT}}",
+    "subname": "{{DB_NAME}}",
+    "user": "{{DB_USER}}",
+    "password": "{{DB_PASS}",
+    "max-conns": 6,
+    "min-conns": 1,
+    "init-conns": 1
+  },
+  "secret": "/bartnet/etc/vape.key",
+  "thread-util": 0.9,
+  "max-threads": 64,
+  "server": {
+    "port": 8080
+  },
+  "ami": {
+    "owner-id": "933693344490",
+    "tag": "stable",
+    "keypair": "bastion-testing",
+    "template-src": {
+      "template-url": "beta/bastion-cf.template"
     }
+  },
+  "mailgun": {
+    "api_key": "{{MAILGUN_KEY}}",
+    "url": "https://api.mailgun.net/v3/mg.opsee.co"
+  },
+  "nsq": {
+    "lookup": {
+      "host": "{{NSQ_LOOKUP_HOST}}",
+      "port": {{NSQ_LOOKUP_PORT}}
+    },
+    "producer": {
+      "host": "{{NSQ_PRODUCE_HOST}}",
+      "port": {{NSQ_PRODUCE_PORT}}
+    }
+  }
 }

@@ -1,6 +1,7 @@
 (ns bartnet.db-cmd
   (:require [clojure.tools.cli :as cli]
             [clojure.string :as str]
+            [opsee.middleware.config :refer [config]]
             [clojure.tools.logging :as log]
             [cheshire.core :refer :all]
             [bartnet.sql :as sql])
@@ -90,8 +91,8 @@
       (:help options) (exit 0 (usage-cmd summary))
       (not= (count arguments) 1) (exit 1 (usage-cmd summary))
       errors (exit 1 (error-msg errors)))
-    (let [config (parse-string (slurp (first arguments)) true)
-          pool (sql/pool (:db-spec config))]
+    (let [conf (config (first arguments))
+          pool (sql/pool (:db-spec conf))]
       (cmd pool options))))
 
 (defn db-cmd [args]
