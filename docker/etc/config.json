@@ -32,11 +32,11 @@
   "nsq": {
     "lookup": {
       "host": "{{NSQ_LOOKUP_HOST}}",
-      "port": {{NSQ_LOOKUP_PORT}}
+      "port": "{{NSQ_LOOKUP_PORT}}"
     },
     "producer": {
       "host": "{{NSQ_PRODUCE_HOST}}",
-      "port": {{NSQ_PRODUCE_PORT}}
+      "port": "{{NSQ_PRODUCE_PORT}}"
     }
   }
 }
