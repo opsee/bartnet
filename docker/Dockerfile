@@ -13,6 +13,20 @@ COPY lib/* /bartnet/lib/
 COPY bin/* /bartnet/bin/
 COPY etc/* /bartnet/etc/
 
+ENV NSQ_LOOKUP=""
+ENV NSQ_PRODUCE=""
+ENV DB_NAME="postgres"
+ENV DB_HOST="postgres"
+ENV DB_USER="postgres"
+ENV DB_PASS=""
+ENV AWS_ACCESS_KEY_ID=""
+ENV AWS_SECRET_ACCESS_KEY=""
+ENV AWS_REGION="us-west-1"
+ENV AWS_DEFAULT_REGION=""
+ENV AWS_INSTANCE_ID=""
+ENV AWS_SESSION_TOKEN=""
+ENV ENVIRONMENT="dev"
+
 EXPOSE 8080
 
 ENTRYPOINT ["/bartnet/bin/bartnet"]
