@@ -11,58 +11,17 @@ AGGRESSIVE_OPTS="-server -XX:+UseConcMarkSweepGC -XX:+UseParNewGC -XX:+CMSParall
 if [[ $AWS == 0 ]]; then
   eval "$(/opt/bin/ec2-env)"
   /opt/bin/s3kms get -b opsee-keys -o dev/vape.key > /bartnet/etc/vape.key
+  /opt/bin/s3kms get -b opsee-keys -o dev/bartnetenv > /bartnet/etc/bartnetenv
+else
+  openssl rand 16 > /bartnet/etc/vape.key
+  cat > /bartnet/etc/bartnetenv << EOF
+NSQ_PRODUCE_HOST=nsqd.opsy.co
+NSQ_PRODUCE_PORT=4150
+NSQ_LOOKUP_HOST=nsqlookupd.opsy.co
+NSQ_LOOKUP_PORT=4161
+EOF
 fi
 
-gen_config()
-{
-  local config=$1
-  cat > $config << EOF
-{"db-spec":{
-    "classname":"org.postgresql.Driver",
-    "subprotocol":"postgresql",
-    "host":"${DB_PORT_5432_TCP_ADDR:-${DB_HOST}}",
-    "port":"5432",
-    "subname":"${DB_NAME}",
-    "user":"${DB_USER}",
-    "password":"${DB_PASS}",
-    "max-conns":6,
-    "min-conns":1,
-    "init-conns":1
-},
-"secret":"/bartnet/etc/vape.key",
-"thread-util":0.9,
-"max-threads":64,
-"server":{ "port": 8080 },
-"ami":{"owner-id":"933693344490", "tag":"stable", "keypair":"bastion-testing", "template-src":{"template-url":"beta/bastion-cf.template"}},
-"mailgun":{"api_key":"key-d45f90c5a3e2ac33a26cd4c30715b71b",
-           "url":"https://api.mailgun.net/v3/mg.opsee.co"},
-"nsq": {"lookup":{"host":"nsqlookupd.opsy.co","port":4161},"producer":{"host":"nsqd.opsy.co","port":4150}},
-"bastion-server":{ "port": 4080 }}
-EOF
-
-    cat $config
-}
-
-usage()
-{
-  cat << EOF
-usage: $0 [-a] [java options ...] [command] [config-file]
-
-Runs Riemann with the given configuration file.
-
-OPTIONS:
-  -h    Show this message
-  -a    Adds some default aggressive, nonportable JVM optimization flags.
-
-COMMANDS:
-  start    Start the Bartnet server (this is the default)
-  migrate  Migrate the databas
-
-  Any unrecognized options (e.g. -XX:+UseParNewGC) will be passed on to java.
-EOF
-}
-
-GEN_CONFIG=1
 for arg in "$@"; do
   case $arg in
     "-a")
@@ -89,8 +48,4 @@ for arg in "$@"; do
   esac
 done
 
-if [ -n "$GEN_CONFIG" ]; then
-  gen_config $CONFIG
-fi
-
-exec java $OPTS "$NAMESPACE" "$COMMAND" "$SUBCOMMAND" "$CONFIG"
+env $(cat /bartnet/etc/bartnetenv | xargs) java $OPTS "$NAMESPACE" "$COMMAND" "$SUBCOMMAND" "$CONFIG"
