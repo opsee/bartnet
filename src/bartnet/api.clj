@@ -126,11 +126,10 @@
   ([]
    (authorized? :user)))
 
-(defn list-bastions []
-  (fn [ctx]
-    (let [login (:login ctx)
-          instance-ids (router/get-customer-bastions (:customer_id login))]
-      {:bastions instance-ids})))
+(defn list-bastions [ctx]
+  (let [login (:login ctx)
+        instance-ids (router/get-customer-bastions (:customer_id login))]
+    {:bastions instance-ids}))
 
 (defn send-msg [bus id cmd body] {})
 
