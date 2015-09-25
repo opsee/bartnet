@@ -15,7 +15,8 @@
             [cheshire.core :refer :all]
             [clj-disco.core :as disco]
             [bartnet.auth :as auth]
-            [bartnet.util :as util])
+            [bartnet.util :as util]
+            [bartnet.instance :as instance])
   (:import [java.util.concurrent ScheduledThreadPoolExecutor]
            [io.aleph.dirigiste Executors]))
 
@@ -24,6 +25,7 @@
 (defn- start-ws-server [executor scheduler db bus config]
   (if-not @ws-server
     (do
+      (reset! instance/store-host "https://fieri.opsy.co")
       (auth/set-secret! (util/slurp-bytes (:secret config)))
       (reset! ws-server
               (run-jetty
