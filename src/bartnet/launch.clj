@@ -15,7 +15,8 @@
             [clj-http.client :as http]
             [clojure.string :as str]
             [clojure.pprint :refer [pprint]]
-            [clojure.core.match :refer [match]])
+            [clojure.core.match :refer [match]]
+            [bartnet.instance :as instance])
   (:import [java.util.concurrent ExecutorService TimeUnit ScheduledFuture]
            [java.util Base64]))
 
@@ -103,10 +104,11 @@
 (defn send-slack-error-msg [msg]
   (http/post slack-url {:form-params {:payload (generate-string {:text (str "error while launching bastion " msg)})}}))
 
-(defn launcher [creds bastion-creds bus client image-id instance-type vpc-id customer-id keypair template-src executor]
+(defn launcher [creds bastion-creds bus client image-id instance-type vpc-id login keypair template-src executor]
   (fn []
     (try
       (let [id (:id bastion-creds)
+            customer-id (:customer_id login)
             state (atom nil)
             endpoint (keyword (:endpoint creds))
             template-map (if-let [res (:resource template-src)]
@@ -157,16 +159,29 @@
         (sns/delete-topic creds topic-arn)
         (sqs/delete-queue creds queue-url)
         (if (= "failed" @state)
-          (send-slack-error-msg (str "CF LAUNCH FAILED " customer-id))))
+          (send-slack-error-msg (str "BASTION LAUNCH FAILED - user-email: " (:email login)
+                                     " customer-id: " customer-id
+                                     " user-id " (:id login)))
+          (instance/discover! {:access_key (:access-key creds)
+                               :secret_key (:secret-key creds)
+                               :region (:endpoin creds)
+                               :customer_id customer-id
+                               :email (:email login)})))
       (catch Exception ex (do
                             (log/error ex "Exception in thread")
-                            (send-slack-error-msg (.getMessage ex)))))))
+                            (send-slack-error-msg
+                             (str "BASTION LAUNCH EXCEPTION: "
+                                  (.getMessage ex)
+                                  " - user-email: " (:email login)
+                                  " customer-id: " (:customer_id login)
+                                  " user-id " (:id login))))))))
 
-(defn launch-bastions [^ExecutorService executor scheduler bus customer-id msg options]
+(defn launch-bastions [^ExecutorService executor scheduler bus login msg options]
   (let [access-key (:access-key msg)
         secret-key (:secret-key msg)
         regions (:regions msg)
         instance-size (:instance-size msg)
+        customer-id (:customer_id login)
         owner-id (:owner-id options)
         tag (:tag options)
         keypair (:keypair options)
@@ -186,7 +201,7 @@
                           executor
                           (launcher creds bastion-creds bus
                                     client image-id instance-size
-                                    vpc-id customer-id keypair
+                                    vpc-id login keypair
                                     template-src scheduler))
                          (assoc vpc :instance_id (:id bastion-creds)))))]
         (assoc region-obj :vpcs vpcs)))))

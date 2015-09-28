@@ -254,19 +254,13 @@
                                                                               (:instances res))))
                                                              (:reservations reservations)))]]
                                 (assoc vpc :count count))})}))
-(defn get-groups [opts]
-  (fn [ctx]
-    (let [customer-id (get-in ctx [:login :customer_id])]
-      {:groups (instance/list-groups! (if opts
-                                        (assoc opts :customer_id customer-id)
-                                        {:customer_id customer-id}))})))
 
-(defn get-instances [opts]
+(defn call-instance-store! [meth opts]
   (fn [ctx]
     (let [customer-id (get-in ctx [:login :customer_id])]
-      {:instances (instance/list-instances! (if opts
-                                              (assoc opts :customer_id customer-id)
-                                              {:customer_id customer-id}))})))
+      (meth (if opts
+              (assoc opts :customer_id customer-id)
+              {:customer_id customer-id})))))
 
 (defn test-check! [testCheck]
   (fn [ctx]
@@ -278,19 +272,25 @@
 (defn launch-bastions! [launch-cmd]
   (fn [ctx]
     (let [login (:login ctx)]
-      {:regions (launch/launch-bastions @executor @scheduler @bus (:customer_id login) launch-cmd (:ami @config))})))
+      {:regions (launch/launch-bastions @executor @scheduler @bus login launch-cmd (:ami @config))})))
 
 (defresource instances-resource [opts]
   :available-media-types ["application/json"]
   :allowed-methods [:get]
   :authorized? (authorized?)
-  :handle-ok (get-instances opts))
+  :handle-ok (call-instance-store! instance/list-instances! opts))
 
 (defresource groups-resource [opts]
   :available-media-types ["application/json"]
   :allowed-methods [:get]
   :authorized? (authorized?)
-  :handle-ok (get-groups opts))
+  :handle-ok (call-instance-store! instance/list-groups! opts))
+
+(defresource customers-resource []
+  :available-media-types ["application/json"]
+  :allowed-methods [:get]
+  :authorized? (authorized?)
+  :handle-ok (call-instance-store! instance/get-customer! nil))
 
 (defresource launch-bastions-resource [launch-cmd]
   :available-media-types ["application/json"]
@@ -318,10 +318,6 @@
   :authorized? (authorized?)
   :post! (test-check! testCheck)
   :handle-created (fn [ctx] (pb/proto->hash (:test-results ctx))))
-
-(defresource discovery-resource []
-  :available-media-types ["application/json"]
-  :allowed-methods [:get])
 
 (defresource check-resource [id check]
   :as-response (fn [data _] {:body data})
@@ -481,10 +477,6 @@
            :return (pb/proto->schema TestCheckResponse)
            (test-check-resource testCheck))
 
-  (ANY*    "/discovery" []
-           :no-doc true
-           (discovery-resource))
-
   (POST*   "/checks" []
            :summary "Create a check"
            :proto [check Check]
@@ -510,42 +502,41 @@
            :proto [check Check]
            :return (pb/proto->schema Check)
            (check-resource id check));; DONE
+
   (GET*    "/instances" []
            :summary "Retrieve a list of instances."
            :no-doc true
            (instances-resource nil))
+
   (GET*    "/instances/:type" [type]
            :summary "Retrieve a list of instances by type."
            :no-doc true
            (instances-resource {:type type}))
-  (GET*    "/instance/ec2/:id" [id]
+
+  (GET*    "/instance/:type/:id" [type id]
            :summary "Retrieve a single ec2 instance."
            :no-doc true
-           (instances-resource {:type "ec2" :instance_id id}))
-  (GET*    "/instance/rds/:id" [id]
-           :summary "Retrieve a single rds instance."
-           :no-doc true
-           (instances-resource {:type "rds" :instance_id id}))
+           (instances-resource {:type type :id id}))
+
   (GET*    "/groups" []
            :summary "Retrieve a list of groups."
            :no-doc true
            (groups-resource nil))
+
   (GET*    "/groups/:type" [type]
            :summary "Retrieve a list of security groups."
            :no-doc true
            (groups-resource {:type type}))
-  (GET*    "/group/security/:id" [id]
+
+  (GET*    "/group/:type/:id" [type id]
            :summary "Retrieve a list of instances belonging to a security group."
            :no-doc true
-           (instances-resource {:group_id id :type "security"}))
-  (GET*    "/group/rds-security/:id" [id]
-           :summary "Retrieve a list of instances belonging to an rds security group."
+           (groups-resource {:id id :type type}))
+
+  (GET*    "/customer" []
+           :summary "Retrieve a customer from the instance store."
            :no-doc true
-           (instances-resource {:group_id id :type "rds-security"}))
-  (GET*    "/group/elb/:id" [id]
-           :summary "Retrieve a list of instances belonging to an elb."
-           :no-doc true
-           (instances-resource {:group_id id :type "elb"})))
+           (customers-resource)))
 
 (defn handler [exe sched message-bus database conf]
   (reset! executor exe)
