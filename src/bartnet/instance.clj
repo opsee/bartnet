@@ -7,7 +7,7 @@
 (def store-host (atom nil))
 
 (defn- request [method customer-id endpoint body]
-  (let [opts {"Customer-Id" customer-id :content-type :json :accept :json :body body}
+  (let [opts {:headers {"Customer-Id" customer-id} :content-type :json :accept :json :body body}
         response (method (join "/" [@store-host endpoint]) opts)
         status (:status response)]
     (cond
