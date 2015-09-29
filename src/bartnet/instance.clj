@@ -42,4 +42,4 @@
   (get "customer" options))
 
 (defn discover! [options]
-  (post "discovery" options))
+  (post "onboard" options))
