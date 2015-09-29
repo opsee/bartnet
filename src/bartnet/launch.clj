@@ -166,7 +166,7 @@
                                :secret_key (:secret-key creds)
                                :region (:endpoin creds)
                                :customer_id customer-id
-                               :email (:email login)})))
+                               :user_id (:id login)})))
       (catch Exception ex (do
                             (log/error ex "Exception in thread")
                             (send-slack-error-msg
