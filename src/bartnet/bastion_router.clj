@@ -1,11 +1,13 @@
 (ns bartnet.bastion-router
-  (:require [verschlimmbesserung.core :as etcd]
+  (:require [cheshire.core :refer [parse-string]]
+            [verschlimmbesserung.core :as etcd]
             [clj-disco.core :as disco]
             [clojure.string :as str]))
 
 ;; piggybacks off of the disco connection
 
-; /opsee.co/routes/customer_id/instance_id/svcname=ip:port
+; /opsee.co/routes/customer_id/instance_id
+; { "name": { name: "", port: "", host: "" } }
 
 (def base-path "/opsee.co/routes")
 
@@ -20,8 +22,8 @@
 
 (defn- host-port [v]
   (when v
-    (let [[host port] (str/split v #":")]
-      {:host host :port (Integer/parseInt port)})))
+    (let [m (parse-string v)]
+      (update-in m [:port] #(Integer/parseInt %)))))
 
 (defn get-customer-bastions [customer_id]
   (disco/with-etcd
