@@ -20,7 +20,7 @@
 
 (defn- host-port [v]
   (when v
-    {:port (Integer/parseInt (get v "port"))
+    {:port (get v "port")
      :host (get v "hostname")}))
 
 (defn get-customer-bastions [customer_id]
