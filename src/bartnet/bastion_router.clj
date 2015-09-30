@@ -23,7 +23,8 @@
 (defn- host-port [v]
   (when v
     (let [m (parse-string v)]
-      (update-in m [:port] #(Integer/parseInt %)))))
+      (update-in m [:port] #(Integer/parseInt %))
+      (assoc m :host (:hostname m)))))
 
 (defn get-customer-bastions [customer_id]
   (disco/with-etcd
