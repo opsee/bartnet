@@ -26,7 +26,7 @@
 (defn get-customer-bastions [customer_id]
   (disco/with-etcd
     (let [client @disco/client]
-      (keys (etcd/get client (customer-path customer_id))))))
+      (keys (etcd/get client (customer-path customer_id) {:recursive? true})))))
 
 (defn get-bastion-service [portmap service-name]
   (when portmap
