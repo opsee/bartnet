@@ -10,8 +10,8 @@
 
 (def portmap-json (generate-string
                     {
-                     :checker {:hostname "host" :port "4000" :name "checker"}
-                     :monitor {:hostname "host" :port "4001" :name "monitor"}
+                     :checker {:hostname "host" :port 4000 :name "checker"}
+                     :monitor {:hostname "host" :port 4001 :name "monitor"}
                      }))
 
 (facts "router can return services"
