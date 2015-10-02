@@ -164,7 +164,7 @@
                                      " user-id " (:id login)))
           (instance/discover! {:access_key (:access-key creds)
                                :secret_key (:secret-key creds)
-                               :region (:endpoin creds)
+                               :region (:endpoint creds)
                                :customer_id customer-id
                                :user_id (:id login)})))
       (catch Exception ex (do
