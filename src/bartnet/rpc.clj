@@ -57,18 +57,22 @@
     (->RealCheckerClient channel stub)))
 
 (defn try-bastions [customer-id action]
-  (loop [bastions (router/get-customer-bastions customer-id)]
-    (let [bastion (first bastions)]
-      (if-let [addr (router/get-service customer-id bastion "checker")]
-        (let [client (checker-client addr)]
-          (if-let [result (try
-                            (action client)
-                            (catch Exception ex (if (rest bastions)
-                                                  nil
-                                                  (throw ex)))
-                            (finally (shutdown client)))]
-            result
-            (recur (rest bastions))))))))
+  (let [exception (atom nil)]
+    (loop [bastions (router/get-customer-bastions customer-id)]
+      (if-let [bastion (first bastions)]
+        (if-let [addr (router/get-service customer-id bastion "checker")]
+          (let [client (checker-client addr)]
+            (if-let [result (try
+                              (action client)
+                              (catch Exception ex
+                                (reset! exception ex)
+                                nil)
+                              (finally (shutdown client)))]
+              result
+              (recur (rest bastions)))))
+        (if @exception
+          (throw (Exception. "Error occurred talking to bastion." @exception))
+          (throw (Exception. "No bastions could be reached.")))))))
 
 (defn all-bastions [customer-id action]
   (doall
