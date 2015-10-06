@@ -15,11 +15,10 @@
        "    BASTION_VERSION=stable\n"
        "    BASTION_ID=dorpydorp\n"
        "    VPN_PASSWORD=doopydoop\n"
-       "- path: /etc/coreos/update.conf\n"
-       "  permissions: '0644'\n"
-       "  owner: root\n"
-       "  content: |-\n"
-       "    GROUP=alpha\n"))
+       "coreos:\n"
+       "  update:\n"
+       "    reboot_strategy: etcd-lock\n"
+       "    group: alpha\n"))
 
 (with-fake-routes {"https://vape.opsy.co/bastions" {:post (fn [request] {:status 200 :headers {} :body "{\"id\":\"dorpydorp\",\"password\":\"doopydoop\"}"})}}
                   ;; Exact string match:
