@@ -16,9 +16,7 @@
        "    BASTION_ID=dorpydorp\n"
        "    VPN_PASSWORD=doopydoop\n"
        "coreos:\n"
-       "  update:\n"
-       "    reboot_strategy: etcd-lock\n"
-       "    group: alpha\n"))
+       "  update: {reboot-strategy: etcd-lock, group: alpha}\n"))
 
 (with-fake-routes {"https://vape.opsy.co/bastions" {:post (fn [request] {:status 200 :headers {} :body "{\"id\":\"dorpydorp\",\"password\":\"doopydoop\"}"})}}
                   ;; Exact string match:
