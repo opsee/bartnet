@@ -79,7 +79,9 @@
                                :BASTION_VERSION "stable"
                                :BASTION_ID (:id bastion-creds)
                                :VPN_PASSWORD (:password bastion-creds)})}]
-     :coreos {:update {:reboot-strategy "etcd-lock" :group "alpha"}}})))
+     :coreos {:update
+              {:reboot-strategy "etcd-lock"
+               :group "alpha"}}})))
 
 (defn parse-cloudformation-msg [instance-id msg]
   (if-let [msg-str (:Message msg)]
