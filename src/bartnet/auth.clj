@@ -22,7 +22,7 @@
   (if token
     (try
       (if-let [login (token->login token)]
-        (log/info "customer_id" (:customer_id login))
-        [true, {:login login}])
+        (do (log/info "customer_id" (:customer_id login))
+            [true, {:login login}]))
       (catch Exception e
         (log/info "invalid token:" token "exception:" e)))))
