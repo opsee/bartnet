@@ -17,6 +17,7 @@
             [compojure.api.swagger :as cas]
             [compojure.api.meta :as meta]
             [compojure.api.middleware :as mw]
+            [compojure.route :as rt]
             [cheshire.core :refer :all]
             [clojure.string :as str]
             [bartnet.identifiers :as identifiers]
@@ -28,8 +29,7 @@
             [liberator.dev :refer [wrap-trace]]
             [liberator.core :refer [resource defresource]])
   (:import (java.sql BatchUpdateException)
-           [java.util Base64]
-           (co.opsee.proto TestCheckRequest TestCheckResponse CheckResourceRequest Check Timestamp)
+           (co.opsee.proto TestCheckRequest TestCheckResponse CheckResourceRequest Check)
            (java.io ByteArrayInputStream)
            (bartnet.protobuilder AnyTypeSchema TimestampSchema)))
 
@@ -427,13 +427,8 @@
 
 (defapi bartnet-api
   {:exceptions {:exception-handler robustify-errors}
-         ;:validation-errors {:error-handler robustify-errors}
    :coercion   (fn [_] (assoc mw/default-coercion-matchers
                               :proto pb/proto-walker))}
-        ;(swagger-docs "/api/swagger.json"
-        ;              {:info {:title       "Opsee API"
-        ;                      :description "Own your availability."}
-        ;               :definitions {"HttpCheck" {:type "object"}}})
   (routes
    (GET* "/api/swagger.json" {:as req}
          :no-doc true
@@ -461,82 +456,96 @@
            :return [ScanVpcsResponse]
            (scan-vpc-resource vpc-req))
 
-  (ANY*    "/bastions" []
-           :no-doc true
-           (bastions-resource))
+  (context* "/bastions" []
+    :tags ["bastions"]
 
-  (POST*   "/bastions/launch" []
-           :summary "Launch bastions in the given VPC's."
-           :body [launch-cmd LaunchCmd]
-           :return [LaunchCmd]
-           (launch-bastions-resource launch-cmd))
+    (GET* "/" []
+      :no-doc true
+      (bastions-resource))
 
-  (POST*   "/bastions/test-check" []
-           :summary "Tells the bastion to test out a check and return the response"
-           :proto [testCheck TestCheckRequest]
-           :return (pb/proto->schema TestCheckResponse)
-           (test-check-resource testCheck))
+    (POST* "/launch" []
+      :summary "Launch bastions in the given VPC's."
+      :body [launch-cmd LaunchCmd]
+      :return [LaunchCmd]
+      (launch-bastions-resource launch-cmd))
 
-  (POST*   "/checks" []
-           :summary "Create a check"
-           :proto [check Check]
-           :return (pb/proto->schema Check)
-           (checks-resource check))
+    (POST* "/test-check" []
+      :summary "Tells the bastion to test out a check and return the response"
+      :proto [testCheck TestCheckRequest]
+      :return (pb/proto->schema TestCheckResponse)
+      (test-check-resource testCheck)))
 
-  (GET*    "/checks" []
-           :summary "List all checks"
-           :return [(pb/proto->schema Check)]
-           (checks-resource nil))
+  (context* "/checks" []
+    :tags ["checks"]
 
-  (GET*    "/checks/:id" [id]
-           :summary "Retrieve a check by its ID."
-           :return (pb/proto->schema Check)
-           (check-resource id nil))
+    (POST* "/" []
+      :summary "Create a check"
+      :proto [check Check]
+      :return (pb/proto->schema Check)
+      (checks-resource check))
 
-  (DELETE* "/checks/:id" [id]
-           :summary "Delete a check by its ID."
-           (check-resource id nil))
+    (GET* "/" []
+      :summary "List all checks"
+      :return [(pb/proto->schema Check)]
+      (checks-resource nil))
 
-  (PUT*    "/checks/:id" [id]
-           :summary "Update a check by its ID."
-           :proto [check Check]
-           :return (pb/proto->schema Check)
-           (check-resource id check));; DONE
+    (GET* "/:id" [id]
+      :summary "Retrieve a check by its ID."
+      :return (pb/proto->schema Check)
+      (check-resource id nil))
 
-  (GET*    "/instances" []
-           :summary "Retrieve a list of instances."
-           :no-doc true
-           (instances-resource nil))
+    (DELETE* "/:id" [id]
+      :summary "Delete a check by its ID."
+      (check-resource id nil))
 
-  (GET*    "/instances/:type" [type]
-           :summary "Retrieve a list of instances by type."
-           :no-doc true
-           (instances-resource {:type type}))
+    (PUT* "/:id" [id]
+      :summary "Update a check by its ID."
+      :proto [check Check]
+      :return (pb/proto->schema Check)
+      (check-resource id check)))
 
-  (GET*    "/instance/:type/:id" [type id]
-           :summary "Retrieve a single ec2 instance."
-           :no-doc true
-           (instances-resource {:type type :id id}))
+  (context* "/instances" []
+    :tags ["instances"]
 
-  (GET*    "/groups" []
-           :summary "Retrieve a list of groups."
-           :no-doc true
-           (groups-resource nil))
+    (GET* "/" []
+      :summary "Retrieve a list of instances."
+      :no-doc true
+      (instances-resource nil))
 
-  (GET*    "/groups/:type" [type]
-           :summary "Retrieve a list of security groups."
-           :no-doc true
-           (groups-resource {:type type}))
+    (GET* "/:type" [type]
+      :summary "Retrieve a list of instances by type."
+      :no-doc true
+      (instances-resource {:type type}))
 
-  (GET*    "/group/:type/:id" [type id]
-           :summary "Retrieve a list of instances belonging to a security group."
-           :no-doc true
-           (groups-resource {:id id :type type}))
+    (GET* "/:type/:id" [type id]
+      :summary "Retrieve a single ec2 instance."
+      :no-doc true
+      (instances-resource {:type type :id id})))
 
-  (GET*    "/customer" []
-           :summary "Retrieve a customer from the instance store."
-           :no-doc true
-           (customers-resource)))
+  (context* "/groups" []
+    :tags ["groups"]
+
+    (GET* "/" []
+      :summary "Retrieve a list of groups."
+      :no-doc true
+      (groups-resource nil))
+
+    (GET* "/:type" [type]
+      :summary "Retrieve a list of security groups."
+      :no-doc true
+      (groups-resource {:type type}))
+
+    (GET* "/:type/:id" [type id]
+      :summary "Retrieve a list of instances belonging to a security group."
+      :no-doc true
+      (groups-resource {:id id :type type})))
+
+  (GET* "/customer" []
+    :summary "Retrieve a customer from the instance store."
+    :no-doc true
+    (customers-resource))
+
+  (rt/not-found "Not found."))
 
 (defn handler [exe sched message-bus database conf]
   (reset! executor exe)
