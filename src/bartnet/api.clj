@@ -509,18 +509,18 @@
 
     (GET* "/" []
       :summary "Retrieve a list of instances."
-      :no-doc true
       (instances-resource nil))
 
     (GET* "/:type" [type]
       :summary "Retrieve a list of instances by type."
-      :no-doc true
       (instances-resource {:type type}))
 
     (GET* "/:type/:id" [type id]
       :summary "Retrieve a single ec2 instance."
-      :no-doc true
       (instances-resource {:type type :id id})))
+
+  (GET* "/instance/:type/:id" [type id]
+    (instance-resource {:type type :id id}))
 
   (context* "/groups" []
     :tags ["groups"]
@@ -539,6 +539,9 @@
       :summary "Retrieve a list of instances belonging to a security group."
       :no-doc true
       (groups-resource {:id id :type type})))
+
+  (GET* "/group/:type/:id" [type id]
+    (groups-resource {:id id :type type}))
 
   (GET* "/customer" []
     :summary "Retrieve a customer from the instance store."
