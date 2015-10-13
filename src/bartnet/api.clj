@@ -520,7 +520,7 @@
       (instances-resource {:type type :id id})))
 
   (GET* "/instance/:type/:id" [type id]
-    (instance-resource {:type type :id id}))
+    (instances-resource {:type type :id id}))
 
   (context* "/groups" []
     :tags ["groups"]
