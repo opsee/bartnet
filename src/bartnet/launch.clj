@@ -1,6 +1,7 @@
 (ns bartnet.launch
   (:require [bartnet.s3-buckets :as buckets]
             [bartnet.bus :as bus]
+            [bartnet.util :as util]
             [cheshire.core :refer :all]
             [instaparse.core :as insta]
             [clostache.parser :refer [render-resource]]
@@ -78,7 +79,8 @@
                                ; Until then, always launch with the stable version.
                                :BASTION_VERSION "stable"
                                :BASTION_ID (:id bastion-creds)
-                               :VPN_PASSWORD (:password bastion-creds)})}]
+                               :VPN_PASSWORD (:password bastion-creds
+                                          )})}]
      :coreos {:update
               {:reboot-strategy "etcd-lock"
                :group "beta"}}})))
@@ -109,8 +111,8 @@
 
 (defn launcher [creds bastion-creds bus client image-id instance-type vpc-id login keypair template-src executor]
   (fn []
-    (try
-      (let [id (:id bastion-creds)
+    (util/try-let
+      [id (:id bastion-creds)
             customer-id (:customer_id login)
             state (atom nil)
             endpoint (keyword (:endpoint creds))
@@ -158,9 +160,6 @@
         (log/info "exiting" id)
         (bus/publish bus client customer-id "launch-bastion"
                      (bus/make-msg "LaunchEvent" {:state "ok" :attributes {:status :success}}))
-        (.cancel launch-beater false)
-        (sns/delete-topic creds topic-arn)
-        (sqs/delete-queue creds queue-url)
         (if (= "failed" @state)
           (send-slack-error-msg (str "BASTION LAUNCH FAILED - user-email: " (:email login)
                                      " customer-id: " customer-id
@@ -169,7 +168,7 @@
                                :secret_key (:secret-key creds)
                                :region (:endpoint creds)
                                :customer_id customer-id
-                               :user_id (:id login)})))
+                               :user_id (:id login)}))
       (catch Exception ex (do
                             (log/error ex "Exception in thread")
                             (send-slack-error-msg
@@ -177,7 +176,12 @@
                                   (.getMessage ex)
                                   " - user-email: " (:email login)
                                   " customer-id: " (:customer_id login)
-                                  " user-id " (:id login))))))))
+                                  " user-id " (:id login)))))
+      (finally (do
+                 (log/info "cleaning up")
+                 (.cancel launch-beater false)
+                 (sns/delete-topic creds topic-arn)
+                 (sqs/delete-queue creds queue-url))))))
 
 (defn launch-bastions [^ExecutorService executor scheduler bus login msg options]
   (let [access-key (:access-key msg)
@@ -208,4 +212,3 @@
                                     template-src scheduler))
                          (assoc vpc :instance_id (:id bastion-creds)))))]
         (assoc region-obj :vpcs vpcs)))))
-
