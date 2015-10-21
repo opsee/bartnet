@@ -10,6 +10,7 @@ dependencies:
     - docker info
     - docker pull quay.io/opsee/build-clj
     - docker pull sameersbn/postgresql:9.4-3
+    - lein deps
     - docker run --name postgresql -d -e PSQL_TRUST_LOCALNET=true -e DB_USER=postgres -e DB_PASS= -e DB_NAME=bartnet_test sameersbn/postgresql:9.4-3
 machine:
   java:
