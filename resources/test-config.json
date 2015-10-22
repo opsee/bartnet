@@ -3,7 +3,9 @@
     {
         "classname":"org.postgresql.Driver",
         "subprotocol":"postgresql",
-        "subname":"bartnet_test",
+        "host":"{{DB_HOST}}",
+        "port":"{{DB_PORT}}",
+        "subname":"{{DB_NAME}}",
         "user":"postgres",
         "password":"test",
         "max-conns":6,
