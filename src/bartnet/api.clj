@@ -2,50 +2,28 @@
   (:require [bartnet.instance :as instance]
             [bartnet.sql :as sql]
             [bartnet.rpc :as rpc :refer [all-bastions]]
-            [bartnet.protobuilder :as pb]
+            [opsee.middleware.protobuilder :as pb]
+            [opsee.middleware.core :refer :all]
             [bartnet.bastion-router :as router]
             [clojure.tools.logging :as log]
             [ring.middleware.cors :refer [wrap-cors]]
             [liberator.representation :refer [ring-response]]
-            [ring.swagger.json-schema :as rsj]
             [ring.swagger.middleware :as rsm]
             [ring.util.http-response :refer :all]
-            [yesql.util :refer [slurp-from-classpath]]
             [amazonica.aws.ec2 :refer [describe-vpcs describe-account-attributes describe-instances]]
             [ring.middleware.params :refer [wrap-params]]
             [compojure.api.sweet :refer :all]
             [compojure.api.swagger :as cas]
-            [compojure.api.meta :as meta]
             [compojure.api.middleware :as mw]
             [compojure.route :as rt]
             [cheshire.core :refer :all]
-            [clojure.string :as str]
             [bartnet.identifiers :as identifiers]
-            [bartnet.auth :as auth]
             [bartnet.launch :as launch]
-            [bartnet.util :as util]
             [bartnet.bus :as bus]
             [schema.core :as sch]
             [liberator.dev :refer [wrap-trace]]
             [liberator.core :refer [resource defresource]])
-  (:import (java.sql BatchUpdateException)
-           (co.opsee.proto TestCheckRequest TestCheckResponse CheckResourceRequest Check)
-           (java.io ByteArrayInputStream)
-           (bartnet.protobuilder AnyTypeSchema TimestampSchema)))
-
-;; preamble enables spiffy protobuf coercion
-
-(defmethod meta/restructure-param :proto [_ [value clazz] acc]
-  (-> acc
-      (update-in [:lets] into [value (meta/src-coerce! (resolve clazz) :body-params :proto)])
-      (assoc-in [:parameters :parameters :body] (pb/proto->schema (resolve clazz)))))
-
-(defmethod rsj/json-type TimestampSchema [_]
-  {:type "string" :format "date-time"})
-(defmethod rsj/json-type AnyTypeSchema [_]
-  {"$ref" "#/definitions/Any"})
-
-;; Schemata
+  (:import (co.opsee.proto TestCheckRequest TestCheckResponse CheckResourceRequest Check)))
 
 (def executor (atom nil))
 (def scheduler (atom nil))
@@ -54,90 +32,13 @@
 (def bus (atom nil))
 (def client (atom nil))
 
-(defmethod liberator.representation/render-map-generic "application/json" [data _]
-  (generate-string data))
-
-(defmethod liberator.representation/render-seq-generic "application/json" [data _]
-  (generate-string data))
-
-; TODO: Loginator for Clojure
-(defn log-request [handler]
-  (fn [request]
-    (if-let [body-rdr (:body request)]
-      (let [body (slurp body-rdr)
-            req' (assoc request
-                        :strbody body
-                        :body (ByteArrayInputStream. (.getBytes body)))
-            req'' (if-not (get-in req' [:headers "Content-Type"])
-                    (assoc-in req' [:headers "Content-Type"] "application/json"))]
-        (log/info "request:" req'')
-        (handler req''))
-      (do (log/info "request:" request)
-          (handler request)))))
-
-(defn log-response [handler]
-  (fn [request]
-    (let [response (handler request)
-          response' (if (instance? java.io.InputStream (:body response))
-                      (assoc response :body (slurp (:body response)))
-                      response)]
-      (log/info "response:" response')
-      response')))
-
-(defn log-and-error [ex]
-  (log/error ex "problem encountered")
-  {:status  500
-   :headers {"Content-Type" "application/json"} `:body    (generate-string {:error (.getMessage ex)})})
-
-(defn robustify-errors [^Exception ex]
-  (if (instance? BatchUpdateException ex)
-    (log-and-error (.getNextException ex))
-    (log-and-error ex)))
-
-(defn json-body [ctx]
-  (if-let [body (get-in ctx [:request :strbody])]
-    (parse-string body true)
-    (if-let [in (get-in ctx [:request :body])]
-      (parse-stream in true))))
-
 (defn respond-with-entity? [ctx]
   (not= (get-in ctx [:request :request-method]) :delete))
-
-(defn user-authorized? [ctx]
-  (if-let [auth-header (get-in ctx [:request :headers "authorization"])]
-    (let [[_ slug] (str/split auth-header #" " 2)]
-      (auth/authorized? slug))))
-
-(defn superuser-authorized? [ctx]
-  (if-let [[answer {login :login}] (user-authorized? ctx)]
-    (if (and answer (:admin login))
-      [true, {:login login}])))
-
-(defn authorized?
-  "Determines whether a request has the correct authorization headers, and sets the login id in the ctx."
-  ([fn-auth-level]
-   (fn [ctx]
-     (case (if (fn? fn-auth-level)
-             (fn-auth-level ctx)
-             fn-auth-level)
-       :unauthenticated true
-       :user (user-authorized? ctx)
-       :superuser (superuser-authorized? ctx))))
-  ([]
-   (authorized? :user)))
 
 (defn list-bastions [ctx]
   (let [login (:login ctx)
         instance-ids (router/get-customer-bastions (:customer_id login))]
     {:bastions instance-ids}))
-
-(defn send-msg [bus id cmd body] {})
-
-(defn cmd-bastion! [id]
-  (fn [ctx]
-    (let [cmd (json-body ctx)
-          recv @(send-msg @bus id (:cmd cmd) (:body cmd))]
-      {:msg recv})))
 
 (defn ensure-target-created [target]
   (if (empty? (sql/get-target-by-id @db (:id target)))
@@ -299,13 +200,6 @@
   :post! (launch-bastions! launch-cmd)
   :handle-created :regions)
 
-(defresource bastion-resource [id]
-  :available-media-types ["application/json"]
-  :allowed-methods [:post]
-  :authorized? (authorized?)
-  :post! (cmd-bastion! id)
-  :handle-created :msg)
-
 (defresource bastions-resource []
   :available-media-types ["application/json"]
   :allowed-methods [:get]
@@ -345,22 +239,6 @@
   :allowed-methods [:post]
   :post! (scan-vpcs req)
   :handle-created :regions)
-
-(defn vary-origin [handler]
-  (fn [request]
-    (let [resp (handler request)]
-      (assoc-in resp [:headers "Vary"] "origin"))))
-
-(defn wrap-options [handler]
-  (fn [request]
-    (if (= :options (:request-method request))
-      {:status  200
-       :body    ""
-       :headers {"Access-Control-Allow-Origin"  "*"
-                 "Access-Control-Allow-Methods" "GET, PUT, POST, PATCH, DELETE"
-                 "Access-Control-Allow-Headers" "Accept-Encoding,Authorization,Content-Type"
-                 "Access-Control-Max-Age"       "1728000"}}
-      (handler request))))
 
 (def EC2Region (sch/enum "ap-northeast-1" "ap-southeast-1" "ap-southeast-2"
                          "eu-central-1" "eu-west-1"
