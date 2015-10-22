@@ -2,21 +2,18 @@
   (:gen-class)
   (:require [clojure.tools.logging :as log]
             [clojure.tools.cli :refer [parse-opts]]
+            [opsee.middleware.config :refer [config]]
+            [opsee.middleware.migrate :as migrate]
             [bartnet.api :as api]
-            [bartnet.db-cmd :as db-cmd]
             [bartnet.upload-cmd :as upload-cmd]
             [bartnet.bus :as bus]
             [bartnet.autobus :as autobus]
-            [opsee.middleware.config :refer [config]]
             [bartnet.nsq :as nsq]
             [bartnet.websocket :as websocket]
             [bartnet.sql :as sql]
-            [bartnet.util :refer :all]
+            [opsee.middleware.core :refer :all]
             [ring.adapter.jetty9 :refer :all]
             [cheshire.core :refer :all]
-            [clj-disco.core :as disco]
-            [bartnet.auth :as auth]
-            [bartnet.util :as util]
             [bartnet.instance :as instance])
   (:import [java.util.concurrent ScheduledThreadPoolExecutor]
            [io.aleph.dirigiste Executors]))
@@ -27,7 +24,6 @@
   (if-not @ws-server
     (do
       (reset! instance/store-host "https://fieri.opsy.co")
-      (auth/set-secret! (util/slurp-bytes (:secret config)))
       (reset! ws-server
               (run-jetty
                (api/handler executor scheduler bus db config)
@@ -61,6 +57,6 @@
         subargs (rest args)]
     (case cmd
       "server" (start-server subargs)
-      "db" (db-cmd/db-cmd subargs)
+      "db" (migrate/db-cmd subargs)
       "upload" (upload-cmd/upload subargs))))
 

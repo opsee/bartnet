@@ -7,8 +7,9 @@
             [bartnet.bastion-router :as router]
             [bartnet.bus :as bus]
             [bartnet.rpc :as rpc]
+            [opsee.middleware.test-helpers :refer :all]
+            [opsee.middleware.config :refer [config]]
             [bartnet.fixtures :refer :all]
-            [yesql.util :refer [slurp-from-classpath]]
             [clojure.test :refer :all]
             [ring.mock.request :as mock]
             [bartnet.sql :as sql]
@@ -18,15 +19,19 @@
             [cheshire.core :refer :all]
             [clj-time.format :as f]
             [ring.adapter.jetty9 :refer [run-jetty]]
-            [bartnet.auth :as auth]
             [clojure.java.io :as io]
             [bartnet.instance :as instance]
             [schema.core :as sch]
-            [bartnet.util :as util])
+            [opsee.middleware.core :refer :all])
   (:import [io.aleph.dirigiste Executors]
            (java.util.concurrent ScheduledThreadPoolExecutor)))
 
-(log/info "Testing!")
+(def defaults {"DB_NAME" "bartnet_test"
+               "DB_HOST" "localhost"
+               "DB_PORT" "5432"
+               "DB_USER" "postgres"
+               "DB_PASS" ""})
+(def test-config (config "resources/test-config.json" defaults))
 
 ;"2015-09-09T19:10:14.000-07:00"
 
@@ -61,17 +66,15 @@
 
 (defn do-setup []
   (do
-    (start-connection)))
+    (start-connection test-config)))
 
 (defn app []
   (do
-    (auth/set-secret! (util/slurp-bytes (:secret test-config)))
     (api/handler executor scheduler bus @db test-config)))
 
 (defn start-ws-server []
   (do
     (log/info "start server")
-    (auth/set-secret! (util/slurp-bytes (:secret test-config)))
     (reset! ws-server (run-jetty
                        (api/handler executor scheduler bus @db test-config)
                        (assoc (:server test-config)

@@ -1,9 +1,9 @@
 (ns bartnet.websocket
   (:require [bartnet.bus :as bus]
-            [bartnet.auth :as auth]
-            [bartnet.util :refer :all]
+            [opsee.middleware.core :refer :all]
             [cheshire.core :refer :all]
             [clojure.tools.logging :as log]
+            [opsee.middleware.auth :as auth]
             [ring.adapter.jetty9 :refer :all])
   (:import (org.cliffc.high_scale_lib NonBlockingHashMap)
            (java.util.concurrent TimeUnit)
@@ -30,7 +30,7 @@
 
 (defn register-ws-connection [msg bus ws]
   (if-and-let [token (get-in msg [:attributes :token])
-               auth-resp (auth/authorized? token)
+               auth-resp (auth/authorized? "bearer" token)
                [authorized {login :login}] auth-resp]
               (if authorized
                 (let [client (bus/register bus (ws-message-client ws) (:customer_id login))]
