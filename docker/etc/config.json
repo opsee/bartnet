@@ -22,7 +22,7 @@
     "tag": "stable",
     "keypair": "bastion-testing",
     "template-src": {
-      "template-url": "beta/bastion-cf.template"
+      "resource": "bastion-cf.template"
     }
   },
   "mailgun": {
