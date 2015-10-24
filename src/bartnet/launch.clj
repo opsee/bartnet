@@ -15,6 +15,7 @@
             [clj-http.client :as http]
             [clojure.string :as str]
             [clojure.pprint :refer [pprint]]
+            [opsee.middleware.core :refer :all]
             [clojure.core.match :refer [match]]
             [bartnet.instance :as instance])
   (:import [java.util.concurrent ExecutorService TimeUnit ScheduledFuture]
@@ -107,77 +108,80 @@
 (defn send-slack-error-msg [msg]
   (http/post slack-url {:form-params {:payload (generate-string {:text (str "error while launching bastion " msg)})}}))
 
+
 (defn launcher [creds bastion-creds bus client image-id instance-type vpc-id login keypair template-src executor]
-  (fn []
-    (try
-      (let [id (:id bastion-creds)
-            customer-id (:customer_id login)
-            state (atom nil)
-            endpoint (keyword (:endpoint creds))
-            template-map (if-let [res (:resource template-src)]
-                           {:template-body (-> res
-                                               io/resource
-                                               io/file
-                                               slurp)}
-                           {:template-url (buckets/url-to endpoint (:template-url template-src))})
-            {topic-arn :topic-arn} (sns/create-topic creds {:name (str "opsee-bastion-build-sns-" id)})
-            {queue-url :queue-url} (sqs/create-queue creds {:queue-name (str "opsee-bastion-build-sqs-" id)})
-            {queue-arn :QueueArn} (sqs/get-queue-attributes creds {:queue-url queue-url :attribute-names ["All"]})
-            launch-beater (.scheduleAtFixedRate executor (launch-heartbeat bus client customer-id id) beat-delay beat-delay TimeUnit/SECONDS)
-            policy (render-resource "templates/sqs_policy.mustache" {:policy-id id :queue-arn queue-arn :topic-arn topic-arn})
-            _ (sqs/set-queue-attributes creds queue-url {"Policy" policy})
-            {subscription-arn :SubscriptionArn} (sns/subscribe creds topic-arn "sqs" queue-arn)]
-        (log/info queue-url endpoint template-map)
-        (log/info "subscribe" topic-arn "sqs" queue-arn)
-        (log/info "launching stack with " image-id vpc-id customer-id)
-        (create-stack creds
-                      (merge {:stack-name (str "opsee-bastion-" id)
-                              :capabilities ["CAPABILITY_IAM"]
-                              :parameters [{:parameter-key "ImageId" :parameter-value image-id}
-                                           {:parameter-key "InstanceType" :parameter-value instance-type}
-                                           {:parameter-key "UserData" :parameter-value (encode-user-data
-                                                                                        (generate-user-data customer-id bastion-creds))}
-                                           {:parameter-key "VpcId" :parameter-value vpc-id}
-                                           {:parameter-key "KeyName" :parameter-value keypair}]
-                              :tags [{:key "Name" :value (str "Opsee Bastion " customer-id)}]
-                              :notification-arns [topic-arn]} template-map))
-        (loop [{messages :messages} (sqs/receive-message creds {:queue-url queue-url})]
-          (if
-           (not-any? #(true? %)
-                     (for [message messages
-                           :let [msg-body (:body message)
-                                 msg (parse-cloudformation-msg id (parse-string msg-body true))]]
-                       (do
-                         (sqs/delete-message creds (assoc message :queue-url queue-url))
-                         (bus/publish bus client customer-id "launch-bastion" (bus/make-msg "LaunchEvent" msg))
-                         (log/info (get-in msg [:attributes :ResourceType]) (get-in msg [:attributes :ResourceStatus]))
-                         (reset! state (:state msg))
-                         (contains? #{"complete" "failed"} (:state msg)))))
-            (recur (sqs/receive-message creds {:queue-url queue-url
-                                               :wait-time-seconds 20}))))
-        (log/info "exiting" id)
-        (bus/publish bus client customer-id "launch-bastion"
-                     (bus/make-msg "LaunchEvent" {:state "ok" :attributes {:status :success}}))
-        (.cancel launch-beater false)
-        (sns/delete-topic creds topic-arn)
-        (sqs/delete-queue creds queue-url)
-        (if (= "failed" @state)
-          (send-slack-error-msg (str "BASTION LAUNCH FAILED - user-email: " (:email login)
-                                     " customer-id: " customer-id
-                                     " user-id " (:id login)))
-          (instance/discover! {:access_key (:access-key creds)
-                               :secret_key (:secret-key creds)
-                               :region (:endpoint creds)
-                               :customer_id customer-id
-                               :user_id (:id login)})))
-      (catch Exception ex (do
-                            (log/error ex "Exception in thread")
-                            (send-slack-error-msg
-                             (str "BASTION LAUNCH EXCEPTION: "
-                                  (.getMessage ex)
-                                  " - user-email: " (:email login)
-                                  " customer-id: " (:customer_id login)
-                                  " user-id " (:id login))))))))
+      (fn []
+          (try-let
+            [id (:id bastion-creds)
+             customer-id (:customer_id login)
+             state (atom nil)
+             endpoint (keyword (:endpoint creds))
+             template-map (if-let [res (:resource template-src)]
+                                  {:template-body (-> res
+                                                      io/resource
+                                                      io/file
+                                                      slurp)}
+                                  {:template-url (buckets/url-to endpoint (:template-url template-src))})
+             {topic-arn :topic-arn} (sns/create-topic creds {:name (str "opsee-bastion-build-sns-" id)})
+             {queue-url :queue-url} (sqs/create-queue creds {:queue-name (str "opsee-bastion-build-sqs-" id)})
+             {queue-arn :QueueArn} (sqs/get-queue-attributes creds {:queue-url queue-url :attribute-names ["All"]})
+             launch-beater (.scheduleAtFixedRate executor (launch-heartbeat bus client customer-id id) beat-delay beat-delay TimeUnit/SECONDS)
+             policy (render-resource "templates/sqs_policy.mustache" {:policy-id id :queue-arn queue-arn :topic-arn topic-arn})
+             _ (sqs/set-queue-attributes creds queue-url {"Policy" policy})
+             {subscription-arn :SubscriptionArn} (sns/subscribe creds topic-arn "sqs" queue-arn)]
+            (log/info queue-url endpoint template-map)
+            (log/info "subscribe" topic-arn "sqs" queue-arn)
+            (log/info "launching stack with " image-id vpc-id customer-id)
+            (create-stack creds
+                          (merge {:stack-name (str "opsee-bastion-" id)
+                                  :capabilities ["CAPABILITY_IAM"]
+                                  :parameters [{:parameter-key "ImageId" :parameter-value image-id}
+                                               {:parameter-key "InstanceType" :parameter-value instance-type}
+                                               {:parameter-key "UserData" :parameter-value (encode-user-data
+                                                                                             (generate-user-data customer-id bastion-creds))}
+                                               {:parameter-key "VpcId" :parameter-value vpc-id}
+                                               {:parameter-key "KeyName" :parameter-value keypair}]
+                                  :tags [{:key "Name" :value (str "Opsee Bastion " customer-id)}]
+                                  :notification-arns [topic-arn]} template-map))
+            (loop [{messages :messages} (sqs/receive-message creds {:queue-url queue-url})]
+                  (if
+                    (not-any? #(true? %)
+                              (for [message messages
+                                    :let [msg-body (:body message)
+                                          msg (parse-cloudformation-msg id (parse-string msg-body true))]]
+                                   (do
+                                     (sqs/delete-message creds (assoc message :queue-url queue-url))
+                                     (bus/publish bus client customer-id "launch-bastion" (bus/make-msg "LaunchEvent" msg))
+                                     (log/info (get-in msg [:attributes :ResourceType]) (get-in msg [:attributes :ResourceStatus]))
+                                     (reset! state (:state msg))
+                                     (contains? #{"complete" "failed"} (:state msg)))))
+                    (recur (sqs/receive-message creds {:queue-url queue-url
+                                                       :wait-time-seconds 20}))))
+            (log/info "exiting" id)
+            (bus/publish bus client customer-id "launch-bastion"
+                         (bus/make-msg "LaunchEvent" {:state "ok" :attributes {:status :success}}))
+            (if (= "failed" @state)
+              (send-slack-error-msg (str "BASTION LAUNCH FAILED - user-email: " (:email login)
+                                         " customer-id: " customer-id
+                                         " user-id " (:id login)))
+              (instance/discover! {:access_key (:access-key creds)
+                                   :secret_key (:secret-key creds)
+                                   :region (:endpoint creds)
+                                   :customer_id customer-id
+                                   :user_id (:id login)}))
+            (catch Exception ex (do
+                                  (log/error ex "Exception in thread")
+                                  (send-slack-error-msg
+                                    (str "BASTION LAUNCH EXCEPTION: "
+                                         (.getMessage ex)
+                                         " - user-email: " (:email login)
+                                         " customer-id: " (:customer_id login)
+                                         " user-id " (:id login)))))
+            (finally (do
+                       (log/info "cleaning up")
+                       (.cancel launch-beater false)
+                       (sns/delete-topic creds topic-arn)
+                       (sqs/delete-queue creds queue-url))))))
 
 (defn launch-bastions [^ExecutorService executor scheduler bus login msg options]
   (let [access-key (:access-key msg)
