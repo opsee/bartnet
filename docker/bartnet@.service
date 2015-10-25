@@ -14,7 +14,7 @@ ExecStartPre=-/usr/bin/docker kill %p-%i
 ExecStartPre=-/usr/bin/docker rm %p-%i
 ExecStartPre=/usr/bin/docker pull quay.io/opsee/bartnet:latest
 ExecStartPre=/usr/bin/docker run quay.io/opsee/bartnet migrate
-ExecStart=/usr/bin/docker run --name %p-%i -p 8080:8080 -e ETCD_HOST=${COREOS_PRIVATE_IPV4} quay.io/opsee/bartnet
+ExecStart=/usr/bin/docker run --name %p-%i -p 8080:8080 -e ETCD_HOST=${COREOS_PRIVATE_IPV4} -e APPENV=bartnetenv quay.io/opsee/bartnet
 ExecStop=/usr/bin/docker stop %p-%i
 
 [X-Fleet]

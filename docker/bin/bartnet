@@ -7,14 +7,15 @@ COMMAND="server"
 OPTS="-cp /bartnet/lib/bartnet.jar"
 NAMESPACE="bartnet.core"
 AGGRESSIVE_OPTS="-server -XX:+UseConcMarkSweepGC -XX:+UseParNewGC -XX:+CMSParallelRemarkEnabled -XX:+AggressiveOpts -XX:+UseFastAccessorMethods -XX:+UseCompressedOops -XX:+CMSClassUnloadingEnabled"
+APPENV=${APPENV:-bartnetenv}
 
 if [[ $AWS == 0 ]]; then
   eval "$(/opt/bin/ec2-env)"
   /opt/bin/s3kms get -b opsee-keys -o dev/vape.key > /bartnet/etc/vape.key
-  /opt/bin/s3kms get -b opsee-keys -o dev/bartnetenv > /bartnet/etc/bartnetenv
+  /opt/bin/s3kms get -b opsee-keys -o dev/$APPENV > /bartnet/etc/$APPENV
 else
   openssl rand 16 > /bartnet/etc/vape.key
-  cat > /bartnet/etc/bartnetenv << EOF
+  cat > /bartnet/etc/$APPENV << EOF
 NSQ_PRODUCE_HOST=nsqd.opsy.co
 NSQ_PRODUCE_PORT=4150
 NSQ_LOOKUP_HOST=nsqlookupd.opsy.co
@@ -48,4 +49,4 @@ for arg in "$@"; do
   esac
 done
 
-env $(cat /bartnet/etc/bartnetenv | xargs) java $OPTS "$NAMESPACE" "$COMMAND" "$SUBCOMMAND" "$CONFIG"
+env $(cat /bartnet/etc/$APPENV | xargs) java $OPTS "$NAMESPACE" "$COMMAND" "$SUBCOMMAND" "$CONFIG"
