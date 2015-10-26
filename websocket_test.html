@@ -7,9 +7,10 @@
 			var host = "localhost:8080";
 			var wsUri = "ws://" + host + "/stream/";
 			var launchUri = "http://" + host + "/bastions/launch";
-			var hmac = "1--iFplvAUtzi_veq_dMKPfnjtg_SQ=";
+			var checkUri = "http://" + host + "/bastions";
+			var bearer = ""
 			var output;
-			var customer_id = null;
+			var customer_id ="" ;
 
 			function init() {
 				output = document.getElementById("output");
@@ -20,10 +21,10 @@
 				var req = new XMLHttpRequest();
 				req.open("POST", launchUri, true);
 				req.setRequestHeader("Content-Type", "application/json");
-				req.setRequestHeader("Authorization", "HMAC " + hmac);
+				req.setRequestHeader("Authorization", "Bearer " + bearer);
 				req.send(JSON.stringify({
-					"access-key": "xxx",
-					"secret-key": "xxx",
+					"access-key": "",
+					"secret-key": "",
 					"regions": [
 						{
 							"region": "us-east-1",
@@ -41,7 +42,7 @@
 				websocket.onopen = function(evt) {
 					var auth = JSON.stringify({
 						"command": "authenticate",
-						"attributes": {"hmac" : hmac}
+						"attributes": {"token" : bearer}
 					});
 					websocket.send(auth);
 				};
@@ -53,7 +54,7 @@
 						customer_id = msg.attributes.customer_id;
 						var sub_msg = JSON.stringify({
 							"command":"subscribe",
-							"attributes":{"subscribe_to": customer_id + ".launch-bastion"}
+							"attributes":{"subscribe_to": "launch-bastion"}
 						});
 						websocket.send(sub_msg);
 					} else if (msg.command == "authenticate" && msg.state == "unauthenticated") {
@@ -63,7 +64,7 @@
 					} else {
 						var pre = document.createElement("p");
 						pre.style.wordWrap = "break-word";
-						pre.innerHTML = msg.attributes.ResourceType + " - " + msg.attributes.ResourceStatus;
+						pre.innerHTML = msg.command;
 						output.appendChild(pre);
 					}
 				};
