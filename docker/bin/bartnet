@@ -11,8 +11,8 @@ APPENV=${APPENV:-bartnetenv}
 
 if [[ $AWS == 0 ]]; then
   eval "$(/opt/bin/ec2-env)"
-  /opt/bin/s3kms get -b opsee-keys -o dev/vape.key > /bartnet/etc/vape.key
-  /opt/bin/s3kms get -b opsee-keys -o dev/$APPENV > /bartnet/etc/$APPENV
+  /opt/bin/s3kms -r us-west-1 get -b opsee-keys -o dev/vape.key > /bartnet/etc/vape.key
+  /opt/bin/s3kms -r us-west-1 get -b opsee-keys -o dev/$APPENV > /bartnet/etc/$APPENV
 else
   openssl rand 16 > /bartnet/etc/vape.key
   cat > /bartnet/etc/$APPENV << EOF
