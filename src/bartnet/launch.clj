@@ -119,7 +119,6 @@
              template-map (if-let [res (:resource template-src)]
                                   {:template-body (-> res
                                                       io/resource
-                                                      io/file
                                                       slurp)}
                                   {:template-url (buckets/url-to endpoint (:template-url template-src))})
              {topic-arn :topic-arn} (sns/create-topic creds {:name (str "opsee-bastion-build-sns-" id)})
