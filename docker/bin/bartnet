@@ -23,6 +23,10 @@ NSQ_LOOKUP_PORT=4161
 EOF
 fi
 
+function run {
+  env $(cat /bartnet/etc/$APPENV | xargs) java $OPTS "$NAMESPACE" "$COMMAND" "$SUBCOMMAND" "$CONFIG"
+}
+
 for arg in "$@"; do
   case $arg in
     "-a")
@@ -42,6 +46,9 @@ for arg in "$@"; do
       COMMAND="db"
       SUBCOMMAND="migrate"
       ;;
+    migrate-start)
+      MIGRATESTART=1
+      ;;
     *)
       CONFIG="$arg"
       unset GEN_CONFIG
@@ -49,4 +56,8 @@ for arg in "$@"; do
   esac
 done
 
-env $(cat /bartnet/etc/$APPENV | xargs) java $OPTS "$NAMESPACE" "$COMMAND" "$SUBCOMMAND" "$CONFIG"
+if [ "x$MIGRATESTART" != "x" ]; then
+  (COMMAND="db" SUBCOMMAND="migrate" run)
+fi
+
+run
