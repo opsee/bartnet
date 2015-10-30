@@ -15,6 +15,7 @@ COPY etc/* /bartnet/etc/
 
 ENV NSQ_LOOKUP=""
 ENV NSQ_PRODUCE=""
+ENV FIERI_ADDR=""
 ENV DB_NAME="postgres"
 ENV DB_HOST="postgres"
 ENV DB_USER="postgres"

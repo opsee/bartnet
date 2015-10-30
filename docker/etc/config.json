@@ -38,5 +38,8 @@
       "host": "{{NSQ_PRODUCE_HOST}}",
       "port": {{NSQ_PRODUCE_PORT}}
     }
+  },
+  "fieri": {
+    "addr": "{{FIERI_ADDR}}"
   }
 }
