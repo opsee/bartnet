@@ -23,7 +23,7 @@
 (defn- start-ws-server [executor scheduler db bus config]
   (if-not @ws-server
     (do
-      (reset! instance/store-host "https://fieri.opsy.co")
+      (reset! instance/store-host (get-in config [:fieri :addr]))
       (reset! ws-server
               (run-jetty
                (api/handler executor scheduler bus db config)
