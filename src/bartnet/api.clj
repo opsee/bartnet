@@ -405,17 +405,14 @@
 
     (GET* "/" []
       :summary "Retrieve a list of groups."
-      :no-doc true
       (groups-resource nil))
 
     (GET* "/:type" [type]
       :summary "Retrieve a list of security groups."
-      :no-doc true
       (groups-resource {:type type}))
 
     (GET* "/:type/:id" [type id]
       :summary "Retrieve a list of instances belonging to a security group."
-      :no-doc true
       (groups-resource {:id id :type type})))
 
   (GET* "/group/:type/:id" [type id]
@@ -423,7 +420,6 @@
 
   (GET* "/customer" []
     :summary "Retrieve a customer from the instance store."
-    :no-doc true
     (customers-resource))
 
   (rt/not-found "Not found."))
