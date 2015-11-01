@@ -1,45 +1,45 @@
 (ns bartnet.instance
   (:require [clojure.tools.logging :as log]
             [cheshire.core :refer :all]
+            [bartnet.results :as results]
             [clojure.string :refer :all]
-            [clj-http.client :as http]))
+            [http.async.client :as http]))
 
 (def store-host (atom nil))
 
-(defn- request [method customer-id endpoint body]
-  (let [opts {:headers {"Customer-Id" customer-id} :content-type :json :accept :json :body body}
-        response (method (join "/" [@store-host endpoint]) opts)
-        status (:status response)]
-    (cond
-      (<= 200 status 299) (parse-string (:body response) keyword)
-      :else (throw (Exception. "failed to get instances from the instance store")))))
+(defn- request [method client customer-id endpoint body]
+  (let [opts {:headers {"Customer-Id" customer-id
+                        "Content-Type" "application/json"
+                        "Accept" "application/json"}
+              :body body}]
+    (method client (join "/" [@store-host endpoint]) opts)))
 
-(defn- get [endpoint options]
+(defn- get [client endpoint options]
   (let [customer-id (:customer_id options)
         type (:type options)
         id (:id options)
         ep (cond-> [endpoint]
              type (conj type)
              id (conj id))]
-    (request http/get customer-id (join "/" ep) nil)))
+    (request http/GET client customer-id (join "/" ep) nil)))
 
-(defn- post [endpoint options]
+(defn- post [client endpoint options]
   (let [customer-id (:customer_id options)
         options (dissoc options :customer_id)]
-    (request http/post customer-id endpoint (generate-string options))))
+    (request http/POST client customer-id endpoint (generate-string options))))
 
-(defn list-instances! [options]
-  (if (:id options)
-    (get "instance" options)
-    (get "instances" options)))
+(defn list-instances! [client options]
+  {:store (get client (if (:id options) "instance"
+                                        "instances") options)
+   :results (results/get-results client options)})
 
-(defn list-groups! [options]
-  (if (:id options)
-    (get "group" options)
-    (get "groups" options)))
+(defn list-groups! [client options]
+  {:store (get client (if (:id options) "group"
+                                        "groups") options)
+   :results (results/get-results client options)})
 
-(defn get-customer! [options]
-  (get "customer" options))
+(defn get-customer! [client options]
+  (get client "customer" options))
 
-(defn discover! [options]
-  (post "onboard" options))
+(defn discover! [client options]
+  (post client "onboard" options))

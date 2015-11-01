@@ -463,6 +463,35 @@
                                                                 :ec2-classic true
                                                                 :vpcs (just [(contains {:vpc-id "vpc-82828282"
                                                                                         :count 1})])})]))))))
+(facts "instance store"
+  (with-redefs [http.async.client/GET (mock-get {"/groups/security" {:status 200 :body (:groups fixtures)}
+                                                 "/group/security/sg-c852dbad" {:status 200 :body (:group fixtures)}
+                                                 {:url "/results"
+                                                  :query {:q "customer_id = \"154ba57a-5188-11e5-8067-9b5f2d96dce1\""}} {:status 200 :body (:customer-query fixtures)}
+                                                 {:url "/results"
+                                                  :query {:q "customer_id = \"154ba57a-5188-11e5-8067-9b5f2d96dce1\" and host = \"sg-c852dbad\""}} {:status 200 :body (:group-query fixtures)}})
+                http.async.client/string mock-body
+                http.async.client/status mock-status]
+    (fact "/groups/security"
+      (let [response ((app) (-> (mock/request :get "/groups/security")
+                                (mock/header "Authorization" auth-header)))]
+        (:status response) => 200
+        (:body response) => (is-json (just {:groups (contains
+                                                      (contains {:GroupId "sg-c852dbad"
+                                                                 :result (contains {:check_id "check2"})}))}))))
+    (fact "/groups/security/id"
+      (let [response ((app) (-> (mock/request :get "/groups/security/sg-c852dbad")
+                                (mock/header "Authorization" auth-header)))]
+        (:status response) => 200
+        (:body response) => (is-json (just {:group (contains {:GroupId "sg-c852dbad"
+                                                              :result (contains {:check_id "check2"})})
+                                            :instances (contains [(contains {:result (contains {:check_id "check2"})})])}))))
+    (fact "/groups/elb")
+    (fact "/groups/elb/id")
+    (fact "/instances/ec2")
+    (fact "/instances/ec2/id")))
+
+
 
 (facts "about bartnet server" :integration
        (with-state-changes
