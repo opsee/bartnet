@@ -4,11 +4,11 @@
             [clojure.string :refer :all]
             [clj-http.client :as http]))
 
-(def store-host (atom nil))
+(def store-addr (atom nil))
 
 (defn- request [method customer-id endpoint body]
   (let [opts {:headers {"Customer-Id" customer-id} :content-type :json :accept :json :body body}
-        response (method (join "/" [@store-host endpoint]) opts)
+        response (method (join "/" [@store-addr endpoint]) opts)
         status (:status response)]
     (cond
       (<= 200 status 299) (parse-string (:body response) keyword)
