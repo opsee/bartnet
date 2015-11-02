@@ -12,7 +12,7 @@
                         "Content-Type" "application/json"
                         "Accept" "application/json"}
               :body body}]
-    (method client (join "/" [@store-addr endpoint]) opts)))
+    (apply method client (join "/" [@store-addr endpoint]) opts)))
 
 (defn- get [client endpoint options]
   (let [customer-id (:customer_id options)
