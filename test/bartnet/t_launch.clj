@@ -15,12 +15,16 @@
        "    BASTION_VERSION=stable\n"
        "    BASTION_ID=dorpydorp\n"
        "    VPN_PASSWORD=doopydoop\n"
+       "    VPN_REMOTE=bastion.opsee.com\n"
+       "    DNS_SERVER=2.2.2.2\n"
+       "    NSQD_HOST=nsqd.in.opsee.com\n"
        "coreos:\n"
        "  update: {reboot-strategy: etcd-lock, group: beta}\n"))
 
 (with-fake-routes {"https://vape.opsy.co/bastions" {:post (fn [request] {:status 200 :headers {} :body "{\"id\":\"dorpydorp\",\"password\":\"doopydoop\"}"})}}
                   ;; Exact string match:
 
+  (reset! launch/auth-addr "https://vape.opsy.co/bastions")
   (facts "get-bastion-creds"
          (let [creds (launch/get-bastion-creds "custy1")]
            (fact "has an id"
@@ -28,7 +32,6 @@
            (fact "has an password"
                  (:password creds) => "doopydoop")))
   (facts "userdata"
-         (let [userdata (launch/generate-user-data "custy1" (launch/get-bastion-creds "custy1"))]
+         (let [userdata (launch/generate-user-data "custy1" (launch/get-bastion-creds "custy1") {:vpn-remote "bastion.opsee.com" :dns-server "2.2.2.2" :nsqd-host "nsqd.in.opsee.com"})]
            (fact "is generated"
                  userdata => expected-userdata))))
-

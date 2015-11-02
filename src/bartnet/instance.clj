@@ -5,14 +5,14 @@
             [clojure.string :refer :all]
             [http.async.client :as http]))
 
-(def store-host (atom nil))
+(def store-addr (atom nil))
 
 (defn- request [method client customer-id endpoint body]
   (let [opts {:headers {"Customer-Id" customer-id
                         "Content-Type" "application/json"
                         "Accept" "application/json"}
               :body body}]
-    (method client (join "/" [@store-host endpoint]) opts)))
+    (method client (join "/" [@store-addr endpoint]) opts)))
 
 (defn- get [client endpoint options]
   (let [customer-id (:customer_id options)

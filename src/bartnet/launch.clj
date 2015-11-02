@@ -23,7 +23,7 @@
 
 (def formatter (f/formatters :date-time))
 
-(def auth-endpoint "https://vape.opsy.co/bastions")
+(def auth-addr (atom nil))
 
 (def beta-map (reduce #(assoc %1 %2 (buckets/url-to %2 "beta/bastion-cf.template")) {} buckets/regions))
 
@@ -47,7 +47,7 @@
     (first (sort-by :name #(compare %2 %1) images))))
 
 (defn get-bastion-creds [customer-id]
-  (let [response (http/post auth-endpoint {:content-type :json :accept :json :body (generate-string {:customer_id customer-id})})]
+  (let [response (http/post @auth-addr {:content-type :json :accept :json :body (generate-string {:customer_id customer-id})})]
     (case (:status response)
       200 (parse-string (:body response) keyword)
       (throw (Exception. "failed to get bastion credentials from vape")))))
@@ -64,7 +64,7 @@
                     (str (name k) "=" v))
                   env)))
 
-(defn generate-user-data [customer-id bastion-creds] ;ca cert key]
+(defn generate-user-data [customer-id bastion-creds bastion-config] ;ca cert key]
   (str
    "#cloud-config\n"
    (yaml/generate-string
@@ -79,7 +79,10 @@
                                ; Until then, always launch with the stable version.
                                :BASTION_VERSION "stable"
                                :BASTION_ID (:id bastion-creds)
-                               :VPN_PASSWORD (:password bastion-creds)})}]
+                               :VPN_PASSWORD (:password bastion-creds)
+                               :VPN_REMOTE (:vpn-remote bastion-config)
+                               :DNS_SERVER (:dns-server bastion-config)
+                               :NSQD_HOST (:nsqd-host bastion-config)})}]
      :coreos {:update
               {:reboot-strategy "etcd-lock"
                :group "beta"}}})))
@@ -109,7 +112,7 @@
   (http/post slack-url {:form-params {:payload (generate-string {:text (str "error while launching bastion " msg)})}}))
 
 
-(defn launcher [creds bastion-creds bus client image-id instance-type vpc-id login keypair template-src executor]
+(defn launcher [creds bastion-creds bastion-config bus client image-id instance-type vpc-id login keypair template-src executor]
       (fn []
           (try-let
             [id (:id bastion-creds)
@@ -119,7 +122,6 @@
              template-map (if-let [res (:resource template-src)]
                                   {:template-body (-> res
                                                       io/resource
-                                                      io/file
                                                       slurp)}
                                   {:template-url (buckets/url-to endpoint (:template-url template-src))})
              {topic-arn :topic-arn} (sns/create-topic creds {:name (str "opsee-bastion-build-sns-" id)})
@@ -138,7 +140,7 @@
                                   :parameters [{:parameter-key "ImageId" :parameter-value image-id}
                                                {:parameter-key "InstanceType" :parameter-value instance-type}
                                                {:parameter-key "UserData" :parameter-value (encode-user-data
-                                                                                             (generate-user-data customer-id bastion-creds))}
+                                                                                             (generate-user-data customer-id bastion-creds bastion-config))}
                                                {:parameter-key "VpcId" :parameter-value vpc-id}
                                                {:parameter-key "KeyName" :parameter-value keypair}]
                                   :tags [{:key "Name" :value (str "Opsee Bastion " customer-id)}]
@@ -183,16 +185,16 @@
                        (sns/delete-topic creds topic-arn)
                        (sqs/delete-queue creds queue-url))))))
 
-(defn launch-bastions [^ExecutorService executor scheduler bus login msg options]
+(defn launch-bastions [^ExecutorService executor scheduler bus login msg ami-config bastion-config]
   (let [access-key (:access-key msg)
         secret-key (:secret-key msg)
         regions (:regions msg)
         instance-size (:instance-size msg)
         customer-id (:customer_id login)
-        owner-id (:owner-id options)
-        tag (:tag options)
-        keypair (:keypair options)
-        template-src (:template-src options)
+        owner-id (:owner-id ami-config)
+        tag (:tag ami-config)
+        keypair (:keypair ami-config)
+        template-src (:template-src ami-config)
         client (bus/register bus (bus/publishing-client) customer-id)]
     (log/info regions)
     (for [region-obj regions]
@@ -206,7 +208,7 @@
                              vpc-id (:id vpc)]
                          (.submit
                           executor
-                          (launcher creds bastion-creds bus
+                          (launcher creds bastion-creds bastion-config bus
                                     client image-id instance-size
                                     vpc-id login keypair
                                     template-src scheduler))
