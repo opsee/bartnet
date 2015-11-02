@@ -14,7 +14,8 @@
             [opsee.middleware.core :refer :all]
             [ring.adapter.jetty9 :refer :all]
             [cheshire.core :refer :all]
-            [bartnet.instance :as instance])
+            [bartnet.instance :as instance]
+            [bartnet.launch :as launch])
   (:import [java.util.concurrent ScheduledThreadPoolExecutor]
            [io.aleph.dirigiste Executors]))
 
@@ -23,7 +24,8 @@
 (defn- start-ws-server [executor scheduler db bus config]
   (if-not @ws-server
     (do
-      (reset! instance/store-host (get-in config [:fieri :addr]))
+      (reset! instance/store-addr (get-in config [:fieri :addr]))
+      (reset! launch/auth-addr (get-in config [:vape :addr]))
       (reset! ws-server
               (run-jetty
                (api/handler executor scheduler bus db config)

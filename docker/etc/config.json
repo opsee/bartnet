@@ -25,9 +25,10 @@
       "resource": "bastion-cf.template"
     }
   },
-  "mailgun": {
-    "api_key": "{{MAILGUN_KEY}}",
-    "url": "https://api.mailgun.net/v3/mg.opsee.co"
+  "bastion": {
+    "vpn-remote": "{{BASTION_VPN_REMOTE}}",
+    "dns-server": "{{BASTION_DNS}}",
+    "nsqd-host": "{{NSQ_PRODUCE_HOST}}"
   },
   "nsq": {
     "lookup": {
@@ -41,5 +42,8 @@
   },
   "fieri": {
     "addr": "{{FIERI_ADDR}}"
+  },
+  "vape": {
+    "addr": "{{VAPE_ADDR}}"
   }
 }

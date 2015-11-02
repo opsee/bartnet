@@ -173,7 +173,7 @@
 (defn launch-bastions! [launch-cmd]
   (fn [ctx]
     (let [login (:login ctx)]
-      {:regions (launch/launch-bastions @executor @scheduler @bus login launch-cmd (:ami @config))})))
+      {:regions (launch/launch-bastions @executor @scheduler @bus login launch-cmd (:ami @config) (:bastion @config))})))
 
 (defresource instances-resource [opts]
   :available-media-types ["application/json"]
