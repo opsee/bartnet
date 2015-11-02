@@ -419,6 +419,72 @@
         "address":"192.168.0.0"
       },
       "customer_id":"154ba57a-5188-11e5-8067-9b5f2d96dce1"
+    },
+    {
+      "check_id":"check3",
+      "service":"check3",
+      "time":"1970-01-01T00:00:00Z",
+      "type":"result",
+      "state":false,
+      "passing":false,
+      "host":"lasape",
+      "responses":[
+        {
+          "response":{
+            "type_url":"HttpResponse",
+            "value":{
+              "code":200,
+              "body":"OK",
+              "host":"hostname"
+            }
+          },
+          "check_id":"check2",
+          "service":"check2",
+          "time":"1970-01-01T00:00:00Z",
+          "type":"response",
+          "state":true,
+          "passing":true,
+          "host":"i-84ca4d36",
+          "target":{
+            "name":"instance0",
+            "type":"instance",
+            "id":"i-38aae6fa",
+            "address":"192.168.0.0"
+          },
+          "customer_id":"154ba57a-5188-11e5-8067-9b5f2d96dce1"
+        },
+        {
+          "response":{
+            "type_url":"HttpResponse",
+            "value":{
+              "code":200,
+              "body":"OK",
+              "host":"hostname"
+            }
+          },
+          "check_id":"check2",
+          "service":"check2",
+          "time":"1970-01-01T00:00:00Z",
+          "type":"response",
+          "state":true,
+          "passing":true,
+          "host":"i-20f122e5",
+          "target":{
+            "name":"instance1",
+            "type":"instance",
+            "id":"i-39aae6fb",
+            "address":"192.168.0.1"
+          },
+          "customer_id":"154ba57a-5188-11e5-8067-9b5f2d96dce1"
+        }
+      ],
+      "target":{
+        "name":"lasape",
+        "type":"elb",
+        "id":"lasape"
+      },
+      "timestamp":"1970-01-01T00:00:00Z",
+      "customer_id":"154ba57a-5188-11e5-8067-9b5f2d96dce1"
     }
   ],
   "group-query":[

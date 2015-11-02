@@ -280,7 +280,9 @@
     (fact "/groups/elb"
       (let [response ((app) (-> (mock/request :get "/groups/elb")
                                 (mock/header "Authorization" auth-header)))]
-        (:status response) => 200))
+        (:status response) => 200
+        (:body response) => (is-json (just {:groups (contains [(contains {:LoadBalancerName "lasape"
+                                                                          :result (contains {:check_id "check3"})})])}))))
     (fact "/groups/elb/id")
     (fact "/instances/ec2")
     (fact "/instances/ec2/id")))
