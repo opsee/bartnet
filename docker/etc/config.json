@@ -45,5 +45,8 @@
   },
   "vape": {
     "addr": "{{VAPE_ADDR}}"
+  },
+  "beavis":{
+    "addr": "{{BEAVIS_ADDR}}"
   }
 }

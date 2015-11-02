@@ -4,7 +4,7 @@
             [clojure.string :refer :all]
             [http.async.client :as http]))
 
-(def results-host (atom nil))
+(def results-addr (atom nil))
 
 ; customer_id =
 ; if id
@@ -24,5 +24,5 @@
   (let [login (:login options)
         token (login->token login)
         query (gen-query options)]
-    (http/GET client (join "/" [@results-host "results"]) {:query {:q query}
+    (http/GET client (join "/" [@results-addr "results"]) {:query {:q query}
                                                            :headers {"Authorization" token}})))
