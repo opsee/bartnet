@@ -2,6 +2,7 @@
   (:require [bartnet.instance :as instance]
             [bartnet.sql :as sql]
             [bartnet.rpc :as rpc :refer [all-bastions]]
+            [bartnet.results :as results]
             [opsee.middleware.protobuilder :as pb]
             [opsee.middleware.core :refer :all]
             [bartnet.bastion-router :as router]
@@ -9,6 +10,7 @@
             [ring.middleware.cors :refer [wrap-cors]]
             [liberator.representation :refer [ring-response]]
             [ring.swagger.middleware :as rsm]
+            [http.async.client :as http]
             [ring.util.http-response :refer :all]
             [amazonica.aws.ec2 :refer [describe-vpcs describe-account-attributes describe-instances]]
             [ring.middleware.params :refer [wrap-params]]
@@ -156,12 +158,49 @@
                                                              (:reservations reservations)))]]
                                 (assoc vpc :count count))})}))
 
+(defn get-http-body [response]
+  (let [status (http/status response)]
+    (log/info "status" status)
+    (log/info "body" (http/string response))
+    (cond
+      (<= 200 status 299) (parse-string (http/string response) keyword)
+      :else (throw (Exception. (str "failed to get instances from the instance store " status))))))
+
+(defmulti results-merge (fn [[key _] _] key))
+
+(defn add-instance-results [instance results]
+  (if-let [r (first (filter #(= (:InstanceId instance) (:host %)) results))]
+    (assoc instance :result r)
+    instance))
+
+(defn add-group-results [group results]
+  (if-let [r (first (filter #(= (or (:LoadBalancerName group) (:GroupId group)) (:host %)) results))]
+    (assoc group :result r)
+    group))
+
+(defn unpack-responses [results]
+  (mapcat #(cons % (:responses %)) results))
+
+(defmethod results-merge :instance [[key instance] results]
+  [key (add-instance-results instance results)])
+(defmethod results-merge :instances [[key instances] results]
+  [key (for [instance instances] (add-instance-results instance results))])
+(defmethod results-merge :group [[key group] results]
+  [key (add-group-results group results)])
+(defmethod results-merge :groups [[key groups] results]
+  [key (for [group groups] (add-group-results group results))])
+
 (defn call-instance-store! [meth opts]
   (fn [ctx]
-    (let [customer-id (get-in ctx [:login :customer_id])]
-      (meth (if opts
-              (assoc opts :customer_id customer-id)
-              {:customer_id customer-id})))))
+    (let [login (:login ctx)
+          customer-id (:customer_id login)]
+      (with-open [client (http/create-client)]
+        (let [{store-req :store results-req :results} (meth client (assoc (or opts {})
+                                                                     :customer_id customer-id
+                                                                     :login login))
+              store (get-http-body store-req)
+              results (get-http-body results-req)]
+          (into {} (map #(results-merge % (unpack-responses results))) store))))))
 
 (defn test-check! [testCheck]
   (fn [ctx]

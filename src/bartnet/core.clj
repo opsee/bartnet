@@ -9,6 +9,7 @@
             [bartnet.bus :as bus]
             [bartnet.autobus :as autobus]
             [bartnet.nsq :as nsq]
+            [bartnet.results :as results]
             [bartnet.websocket :as websocket]
             [bartnet.sql :as sql]
             [opsee.middleware.core :refer :all]
@@ -26,6 +27,7 @@
     (do
       (reset! instance/store-addr (get-in config [:fieri :addr]))
       (reset! launch/auth-addr (get-in config [:vape :addr]))
+      (reset! results/results-addr (get-in config [:beavis :addr]))
       (reset! ws-server
               (run-jetty
                (api/handler executor scheduler bus db config)

@@ -2,10 +2,16 @@
   (:require [bartnet.sql :as sql]
             [cheshire.core :refer :all]
             [clojure.string :as str]
+            [cemerick.url :refer [url]]
+            [clojure.tools.logging :as log]
+            [clojure.core.match :refer :all]
             [opsee.middleware.migrate :refer [migrate-db]]
             [opsee.middleware.test-helpers :refer :all]
             [opsee.middleware.config :refer [config]])
-  (:import (co.opsee.proto Timestamp)))
+  (:import (co.opsee.proto Timestamp)
+           (java.util.concurrent ConcurrentHashMap)
+           (java.util.regex Pattern)
+           (clojure.lang PersistentArrayMap PersistentVector Seqable)))
 
 (defn target-fixtures [db]
   (do
@@ -31,3 +37,59 @@
                                                           :port 80
                                                           :verb "GET"
                                                           :protocol "http"}}})))
+
+(def fixtures (parse-string (slurp-from-classpath "fixtures.json") true))
+
+(defmulti url-matcher (fn [path req] [(class path) (class req)]))
+(defmethod url-matcher [Pattern String] [path req]
+  (log/info "Pattern String" path req)
+  (re-matches path req))
+(defmethod url-matcher [PersistentArrayMap PersistentArrayMap] [path req]
+  (log/info "Map Map" path req)
+  (every? (fn [k] (url-matcher (get path k) (get req k))) (keys path)))
+(defmethod url-matcher [Seqable Seqable] [path req]
+  (log/info "Seq Seq" path req)
+  (loop [matcher path
+         to-match req]
+    (let [m-head (first matcher)
+          t-head (first to-match)]
+      (if (nil? m-head)
+        true
+        (if (url-matcher m-head t-head)
+          (recur (rest matcher)
+                 (rest to-match)))))))
+(defmethod url-matcher :default [path req]
+  (log/info ":default" path req)
+  (= path req))
+
+(defn- match-path [mappings url opts]
+  (or (some (fn [[path val]]
+              (if (url-matcher (if-not (map? path)
+                                 {:url path}
+                                 path) (assoc opts :url url))
+                val))
+            mappings)
+      {:status 404 :body nil}))
+
+(defprotocol MockResponse
+  (status [this])
+  (body [this]))
+
+(defn- safe-url [path]
+  (try
+    (:path (url path))
+    (catch Exception _ path)))
+
+(defn mock-get [mappings]
+  (fn [client uri opts]
+    (let [response (match-path mappings (safe-url uri) opts)]
+      (log/info "response" response)
+      (reify MockResponse
+        (status [_] (:status response))
+        (body [_] (generate-string (:body response)))))))
+
+(defn mock-status [response]
+  (status response))
+
+(defn mock-body [response]
+  (body response))
