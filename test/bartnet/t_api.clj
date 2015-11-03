@@ -251,18 +251,16 @@
                                                                 :vpcs (just [(contains {:vpc-id "vpc-82828282"
                                                                                         :count 1})])})]))))))
 (facts "instance store"
-  (with-redefs [http.async.client/GET (mock-get {"/groups/security" {:status 200 :body (:groups fixtures)}
-                                                 "/group/security/sg-c852dbad" {:status 200 :body (:group fixtures)}
-                                                 "/groups/elb" {:status 200 :body (:elbs fixtures)}
-                                                 "/group/elb/lasape" {:status 200 :body (:elb fixtures)}
-                                                 "/instances/ec2" {:status 200 :body (:instances fixtures)}
-                                                 "/instance/ec2/i-38aae6fa" {:status 200 :body (:instance fixtures)}
-                                                 {:url "/results"
-                                                  :query {:q "customer_id = \"154ba57a-5188-11e5-8067-9b5f2d96dce1\""}} {:status 200 :body (:customer-query fixtures)}
-                                                 {:url "/results"
-                                                  :query {:q "customer_id = \"154ba57a-5188-11e5-8067-9b5f2d96dce1\" and host = \"sg-c852dbad\""}} {:status 200 :body (:group-query fixtures)}})
-                http.async.client/string mock-body
-                http.async.client/status mock-status]
+  (with-redefs [clj-http.client/get (mock-get {"/groups/security" {:status 200 :body (:groups fixtures)}
+                                               "/group/security/sg-c852dbad" {:status 200 :body (:group fixtures)}
+                                               "/groups/elb" {:status 200 :body (:elbs fixtures)}
+                                               "/group/elb/lasape" {:status 200 :body (:elb fixtures)}
+                                               "/instances/ec2" {:status 200 :body (:instances fixtures)}
+                                               "/instance/ec2/i-38aae6fa" {:status 200 :body (:instance fixtures)}
+                                               {:url "/results"
+                                                :query-params {:q "customer_id = \"154ba57a-5188-11e5-8067-9b5f2d96dce1\""}} {:status 200 :body (:customer-query fixtures)}
+                                               {:url "/results"
+                                                :query-params {:q "customer_id = \"154ba57a-5188-11e5-8067-9b5f2d96dce1\" and host = \"sg-c852dbad\""}} {:status 200 :body (:group-query fixtures)}})]
     (fact "/groups/security"
       (let [response ((app) (-> (mock/request :get "/groups/security")
                                 (mock/header "Authorization" auth-header)))]

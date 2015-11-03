@@ -2,7 +2,7 @@
   (:require [cheshire.core :refer :all]
             [opsee.middleware.auth :refer [login->token]]
             [clojure.string :refer :all]
-            [http.async.client :as http]))
+            [clj-http.client :as http]))
 
 (def results-addr (atom nil))
 
@@ -20,10 +20,10 @@
        (if check-id
          (str " and service = " (q check-id)))))
 
-(defn get-results [client options]
+(defn get-results [ options]
   (let [login (:login options)
         token (login->token login)
         query (gen-query options)]
-    (http/GET client (join "/" [@results-addr "results"])
-              :query {:q query}
-              :headers {"Authorization" token})))
+    (http/get  (join "/" [@results-addr "results"])
+              {:query-params {:q query}
+               :headers {"Authorization" token}})))

@@ -2,7 +2,6 @@
   (:require [bartnet.instance :as instance]
             [bartnet.sql :as sql]
             [bartnet.rpc :as rpc :refer [all-bastions]]
-            [bartnet.results :as results]
             [opsee.middleware.protobuilder :as pb]
             [opsee.middleware.core :refer :all]
             [bartnet.bastion-router :as router]
@@ -10,7 +9,7 @@
             [ring.middleware.cors :refer [wrap-cors]]
             [liberator.representation :refer [ring-response]]
             [ring.swagger.middleware :as rsm]
-            [http.async.client :as http]
+            [clj-http.client :as http]
             [ring.util.http-response :refer :all]
             [amazonica.aws.ec2 :refer [describe-vpcs describe-account-attributes describe-instances]]
             [ring.middleware.params :refer [wrap-params]]
@@ -159,11 +158,10 @@
                                 (assoc vpc :count count))})}))
 
 (defn get-http-body [response]
-  (let [status (http/status response)]
+  (let [status (:status response)]
     (log/info "status" status)
-    (log/info "body" (http/string response))
     (cond
-      (<= 200 (:code status) 299) (parse-string (http/string response) keyword)
+      (<= 200 status 299) (parse-string (:body response) keyword)
       :else (throw (Exception. (str "failed to get instances from the instance store " status))))))
 
 (defmulti results-merge (fn [[key _] _] key))
@@ -194,13 +192,12 @@
   (fn [ctx]
     (let [login (:login ctx)
           customer-id (:customer_id login)]
-      (with-open [client (http/create-client)]
-        (let [{store-req :store results-req :results} (meth client (assoc (or opts {})
-                                                                     :customer_id customer-id
-                                                                     :login login))
-              store (get-http-body store-req)
-              results (get-http-body results-req)]
-          (into {} (map #(results-merge % (unpack-responses results))) store))))))
+      (let [{store-req :store results-req :results} (meth (assoc (or opts {})
+                                                            :customer_id customer-id
+                                                            :login login))
+            store (get-http-body store-req)
+            results (get-http-body results-req)]
+        (into {} (map #(results-merge % (unpack-responses results))) store)))))
 
 (defn test-check! [testCheck]
   (fn [ctx]

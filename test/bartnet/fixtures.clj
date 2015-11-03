@@ -81,12 +81,10 @@
     (catch Exception _ path)))
 
 (defn mock-get [mappings]
-  (fn [client uri & {:as opts}]
+  (fn [uri opts]
     (let [response (match-path mappings (safe-url uri) opts)]
       (log/info "response" response)
-      (reify MockResponse
-        (status [_] {:code (:status response)})
-        (body [_] (generate-string (:body response)))))))
+      (assoc response :body (generate-string (:body response))))))
 
 (defn mock-status [response]
   (status response))
