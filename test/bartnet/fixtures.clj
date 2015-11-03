@@ -11,7 +11,7 @@
   (:import (co.opsee.proto Timestamp)
            (java.util.concurrent ConcurrentHashMap)
            (java.util.regex Pattern)
-           (clojure.lang PersistentArrayMap PersistentVector Seqable)))
+           (clojure.lang PersistentArrayMap PersistentVector Seqable IPersistentMap)))
 
 (defn target-fixtures [db]
   (do
@@ -44,7 +44,7 @@
 (defmethod url-matcher [Pattern String] [path req]
   (log/info "Pattern String" path req)
   (re-matches path req))
-(defmethod url-matcher [PersistentArrayMap PersistentArrayMap] [path req]
+(defmethod url-matcher [IPersistentMap IPersistentMap] [path req]
   (log/info "Map Map" path req)
   (every? (fn [k] (url-matcher (get path k) (get req k))) (keys path)))
 (defmethod url-matcher [Seqable Seqable] [path req]
@@ -81,7 +81,7 @@
     (catch Exception _ path)))
 
 (defn mock-get [mappings]
-  (fn [client uri opts]
+  (fn [client uri & {:as opts}]
     (let [response (match-path mappings (safe-url uri) opts)]
       (log/info "response" response)
       (reify MockResponse
