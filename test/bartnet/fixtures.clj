@@ -85,7 +85,7 @@
     (let [response (match-path mappings (safe-url uri) opts)]
       (log/info "response" response)
       (reify MockResponse
-        (status [_] (:status response))
+        (status [_] {:code (:status response)})
         (body [_] (generate-string (:body response)))))))
 
 (defn mock-status [response]

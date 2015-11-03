@@ -8,11 +8,17 @@
 (def store-addr (atom nil))
 
 (defn- request [method client customer-id endpoint body]
-  (let [opts {:headers {"Customer-Id" customer-id
-                        "Content-Type" "application/json"
-                        "Accept" "application/json"}
-              :body body}]
-    (apply method client (join "/" [@store-addr endpoint]) opts)))
+  (let [uri (join "/" [@store-addr endpoint])]
+    (case method
+      :get (http/GET client uri
+                     :headers {"Customer-Id" customer-id
+                               "Content-Type" "application/json"
+                               "Accept" "application/json"})
+      :post (http/POST client uri
+                       :headers {"Customer-Id" customer-id
+                                 "Content-Type" "application/json"
+                                 "Accept" "application/json"}
+                       :body body))))
 
 (defn- get [client endpoint options]
   (let [customer-id (:customer_id options)
@@ -21,12 +27,12 @@
         ep (cond-> [endpoint]
              type (conj type)
              id (conj id))]
-    (request http/GET client customer-id (join "/" ep) nil)))
+    (request :get client customer-id (join "/" ep) nil)))
 
 (defn- post [client endpoint options]
   (let [customer-id (:customer_id options)
         options (dissoc options :customer_id)]
-    (request http/POST client customer-id endpoint (generate-string options))))
+    (request :post client customer-id endpoint (generate-string options))))
 
 (defn list-instances! [client options]
   {:store (get client (if (:id options) "instance"

@@ -163,7 +163,7 @@
     (log/info "status" status)
     (log/info "body" (http/string response))
     (cond
-      (<= 200 status 299) (parse-string (http/string response) keyword)
+      (<= 200 (:code status) 299) (parse-string (http/string response) keyword)
       :else (throw (Exception. (str "failed to get instances from the instance store " status))))))
 
 (defmulti results-merge (fn [[key _] _] key))
