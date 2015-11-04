@@ -199,6 +199,10 @@
             results (get-http-body results-req)]
         (into {} (map #(results-merge % (unpack-responses results))) store)))))
 
+(defn get-customer! [ctx]
+  (let [customer-id (get-in ctx [:login :customer_id])]
+    (instance/get-customer! {:customer_id customer-id})))
+
 (defn test-check! [testCheck]
   (fn [ctx]
     (let [login (:login ctx)
@@ -227,7 +231,7 @@
   :available-media-types ["application/json"]
   :allowed-methods [:get]
   :authorized? (authorized?)
-  :handle-ok (call-instance-store! instance/get-customer! nil))
+  :handle-ok get-customer!)
 
 (defresource launch-bastions-resource [launch-cmd]
   :available-media-types ["application/json"]
