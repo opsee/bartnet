@@ -40,7 +40,7 @@
 
       (subscribe! [_ topic client]
         (let [consumer (->
-                        (NSQConsumer. lookup topic (identifiers/generate) (delivery client topic))
+                        (NSQConsumer. lookup topic (str (identifiers/generate) "#ephemeral") (delivery client topic))
                         (.start))]
           (reify Consumer
             (stop! [_]
