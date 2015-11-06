@@ -16,9 +16,9 @@ if [[ $AWS == 0 ]]; then
 else
   openssl rand 16 > /bartnet/etc/vape.key
   cat > /bartnet/etc/$APPENV << EOF
-NSQ_PRODUCE_HOST=nsqd.opsy.co
+NSQ_PRODUCE_HOST=localhost
 NSQ_PRODUCE_PORT=4150
-NSQ_LOOKUP_HOST=nsqlookupd.opsy.co
+NSQ_LOOKUP_HOST=localhost
 NSQ_LOOKUP_PORT=4161
 EOF
 fi

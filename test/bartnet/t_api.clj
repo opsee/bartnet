@@ -3,9 +3,7 @@
   (:require [bartnet.api :as api]
             [bartnet.core :as core]
             [bartnet.websocket :as websocket]
-            [bartnet.autobus :as autobus]
             [bartnet.bastion-router :as router]
-            [bartnet.bus :as bus]
             [bartnet.rpc :as rpc]
             [opsee.middleware.test-helpers :refer :all]
             [opsee.middleware.config :refer [config]]
@@ -21,7 +19,9 @@
             [ring.adapter.jetty9 :refer [run-jetty]]
             [clojure.java.io :as io]
             [bartnet.instance :as instance]
+            [bartnet.nsq :as nsq]
             [schema.core :as sch]
+            [manifold.bus :as bus]
             [opsee.middleware.core :refer :all])
   (:import [io.aleph.dirigiste Executors]
            (java.util.concurrent ScheduledThreadPoolExecutor)))
@@ -44,7 +44,7 @@
 ; it will expire in 10 yrs. hopefully that is long enough so that computers won't exist anymore
 (def auth-header "Bearer eyJhbGciOiJBMTI4R0NNS1ciLCJlbmMiOiJBMTI4R0NNIiwiaXYiOiJXQWlLQ2Z1azk3TlBzM1ZYIiwidGFnIjoiaU56RG1LdjloQmE0TS1YU19YcEpPZyJ9.HqXl4bq3k3E9GQ7FtsWHaQ.SONY24NgxzEZk7c3.yYd7WZX3O8ChDIVFlG--kLr_bDfkNXcR7eAnCyZ-QhFKmlbKGKE9A1-uudKRPuZ05LEAxolOrZ0lPRkW7CM3jdEdYBcUITinztgz-POIdMOXdUjFODpNOVxlcHKtZo2JH1wNdzEobBtAmVbdkl2aNUJMhVSKWbsLV3efvKQ-wVfO3kHDNmYHJlp2DKh0-8yul4UcoDytkEDOfTrpGlZrxStXRNhSf0KhRK11fh3dXvyzj07OEdYuNVbqhtfyycBPUQUJnP1xDZTpDtZ3n7lJaA.OGbujXobjndTRus8wmCqIg")
 
-(def bus (bus/message-bus (autobus/autobus)))
+(def bus (bus/event-bus))
 (def executor (Executors/utilizationExecutor 0.9 10))
 (def scheduler (ScheduledThreadPoolExecutor. 10))
 (def ws-server (atom nil))
@@ -70,13 +70,13 @@
 
 (defn app []
   (do
-    (api/handler executor scheduler bus @db test-config)))
+    (api/handler executor scheduler bus nil nil @db test-config)))
 
 (defn start-ws-server []
   (do
     (log/info "start server")
     (reset! ws-server (run-jetty
-                       (api/handler executor scheduler bus @db test-config)
+                       (api/handler executor scheduler bus nil nil @db test-config)
                        (assoc (:server test-config)
                               :websockets {"/stream" (websocket/ws-handler scheduler bus)})))
     (log/info "server started")))

@@ -35,7 +35,7 @@
       "host": "{{NSQ_LOOKUP_HOST}}",
       "port": {{NSQ_LOOKUP_PORT}}
     },
-    "producer": {
+    "produce": {
       "host": "{{NSQ_PRODUCE_HOST}}",
       "port": {{NSQ_PRODUCE_PORT}}
     }

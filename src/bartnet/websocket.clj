@@ -1,74 +1,39 @@
 (ns bartnet.websocket
-  (:require [bartnet.bus :as bus]
+  (:require [bartnet.nsq :as nsq]
             [opsee.middleware.core :refer :all]
             [cheshire.core :refer :all]
             [clojure.tools.logging :as log]
             [opsee.middleware.auth :as auth]
             [ring.adapter.jetty9 :refer :all])
-  (:import (org.cliffc.high_scale_lib NonBlockingHashMap)
-           (java.util.concurrent TimeUnit)
-           (bartnet.bus MessageClient)
-           (java.util Date)))
-
-(def client-adapters (NonBlockingHashMap.))
-(def customer-ids (NonBlockingHashMap.))
-
-(defn ws-message-client [ws]
-  (reify
-    MessageClient
-    (deliver-to [_ topic msg]
-      (try
-        (let [body (parse-string (:body msg) true)]
-          (send! ws (generate-string {:command topic
-                                      :sent    (Date.)
-                                      :attributes (:attributes body)
-                                      :state (:state body)
-                                      :instance_id (:instance_id body)
-                                      :service topic})))
-        (catch Exception e nil)))
-    (session-id [this] nil)))
+  (:import (java.util.concurrent TimeUnit)))
 
 (defn register-ws-connection [msg bus ws]
   (if-and-let [token (get-in msg [:attributes :token])
                auth-resp (auth/authorized? "bearer" token)
                [authorized {login :login}] auth-resp]
               (if authorized
-                (let [client (bus/register bus (ws-message-client ws) (:customer_id login))]
-                  (log/info "authorizing client")
-                  (.put customer-ids ws (:customer_id login))
+                (do
+                  (nsq/subscribe bus (:customer_id login)
+                                 (fn [msg]
+                                   (send! ws (generate-string msg))))
                   (send! ws (generate-string {:command "authenticate"
                                               :state "ok"
-                                              :attributes login}))
-                  (log/info "sent msg")
-                  client)
+                                              :attributes login})))
                 (send! ws (generate-string {:command "authenticate"
                                             :state "access-denied"})))
               (send! ws (generate-string {:command "authenticate"
                                           :state "bad-token"}))))
-
-(defn bus-msg [in]
-  (if (= (:command in) "subscribe")
-    (bus/make-msg "subscribe" (:attributes in))
-    (bus/make-msg "Websocket" in)))
 
 (defn ws-handler [scheduler bus]
   {:on-connect (fn [ws]
                  (.scheduleAtFixedRate scheduler #(send! ws (generate-string {:command "heartbeat"})) 10 10 (TimeUnit/SECONDS))
                  (log/info "new websocket connection" ws))
    :on-text (fn [ws raw]
-              (let [msg (parse-string raw true)
-                    client (.get client-adapters ws)
-                    customer-id (.get customer-ids ws)]
-                (log/info "message" msg)
-                (if client
-                  (bus/publish bus client customer-id "websocket-command" (bus-msg msg))
-                  (if (= "authenticate" (:command msg))
-                    (if-let [ca (register-ws-connection msg bus ws)]
-                      (.put client-adapters ws ca))
-                    (send! ws (generate-string (assoc msg :state "access-denied")))))))
+              (let [msg (parse-string raw true)]
+                (log/info "ws message" msg)
+                (if (= "authenticate" (:command msg))
+                  (register-ws-connection msg bus ws))))
    :on-closed (fn [ws status-code reason]
-                (log/info "Websocket closing because:" reason)
-                (when-let [client (.remove client-adapters ws)]
-                  (bus/close bus client)))
+                (log/info "Websocket closing because:" reason))
    :on-error (fn [ws e]
                (log/error e "Exception in websocket"))})
