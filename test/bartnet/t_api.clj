@@ -266,21 +266,23 @@
                                 (mock/header "Authorization" auth-header)))]
         (:status response) => 200
         (:body response) => (is-json (just {:groups (contains
-                                                      (contains {:GroupId "sg-c852dbad"
-                                                                 :result (contains {:check_id "check2"})}))}))))
+                                                      [(contains {:group (contains {:GroupId "sg-c852dbad"})
+                                                                  :result (contains {:check_id "check2"})})])}))))
     (fact "/groups/security/id"
       (let [response ((app) (-> (mock/request :get "/groups/security/sg-c852dbad")
                                 (mock/header "Authorization" auth-header)))]
         (:status response) => 200
-        (:body response) => (is-json (just {:group (contains {:GroupId "sg-c852dbad"
-                                                              :result (contains {:check_id "check2"})})
-                                            :instances (contains [(contains {:result (contains {:check_id "check2"})})])}))))
+        (:body response) => (is-json (just {:group (contains {:GroupId "sg-c852dbad"})
+                                            :result (contains {:check_id "check2"})
+                                            :instances (contains [(contains {:result (contains {:check_id "check2"})})])
+                                            :instance_count 4}))))
     (fact "/groups/elb"
       (let [response ((app) (-> (mock/request :get "/groups/elb")
                                 (mock/header "Authorization" auth-header)))]
         (:status response) => 200
-        (:body response) => (is-json (just {:groups (contains [(contains {:LoadBalancerName "lasape"
-                                                                          :result (contains {:check_id "check3"})})])}))))
+        (:body response) => (is-json (just {:groups (contains
+                                                      [(contains {:group (contains {:LoadBalancerName "lasape"})
+                                                                  :result (contains {:check_id "check3"})})])}))))
     (fact "/groups/elb/id")
     (fact "/instances/ec2")
     (fact "/instances/ec2/id")))
