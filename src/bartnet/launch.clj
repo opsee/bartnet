@@ -199,7 +199,7 @@
         customer-id (:customer_id login)
         owner-id (:owner-id ami-config)
         tag (:tag ami-config)
-        keypair (:keypair ami-config)
+        keypair (if (:admin login) (:keypair ami-config) "")
         template-src (:template-src ami-config)]
     (log/info regions)
     (for [region-obj regions]
