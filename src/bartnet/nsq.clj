@@ -1,6 +1,7 @@
 (ns bartnet.nsq
   (:require [manifold.bus :as bus]
             [manifold.stream :as s]
+            [clojure.tools.logging :as log]
             [cheshire.core :refer :all])
   (:import (com.github.brainlag.nsq NSQConsumer NSQProducer ServerAddress)
            (com.github.brainlag.nsq.callbacks NSQMessageCallback)
@@ -41,11 +42,14 @@
   (let [lookup (nsq-lookup (:lookup nsq-config) (:produce nsq-config))
         channel-id (str (UUID/randomUUID) "#ephemeral")
         handler (nsq-handler bus)]
+    (log/info "launch consuming from topic " topic " channel " channel-id)
     (doto (NSQConsumer. lookup topic channel-id handler)
           (.start))))
 
-(defn subscribe [bus customer-id callback]
-  (s/consume callback (bus/subscribe bus customer-id)))
+(defn subscribe [bus customer-id get-callback]
+  (let [stream (bus/subscribe bus customer-id)]
+    (s/consume (get-callback stream) stream)
+    stream))
 
 (defn launch-producer [nsq-config]
   (let [produce-addr (:produce nsq-config)]
