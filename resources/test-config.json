@@ -20,8 +20,8 @@
         "port":8080,
         "join?":false
     },
-    "bastion-server":
-    {
-        "port":4080
+    "nsq":{
+        "lookup":{"host":"{{NSQ_LOOKUP_HOST}}","port":"{{NSQ_LOOKUP_PORT}}"},
+        "produce":{"host":"{{NSQ_PRODUCE_HOST}}","port":"{{NSQ_PRODUCE_PORT}}"}
     }
 }

@@ -1,13 +1,22 @@
 (ns bartnet.nsq
-  (:require [cheshire.core :refer :all]
-            [bartnet.identifiers :as identifiers]
-            [bartnet.bus :as bus])
-  (:import (com.github.brainlag.nsq.lookup DefaultNSQLookup)
-           (com.github.brainlag.nsq NSQProducer NSQConsumer ServerAddress)
-           (bartnet.bus InternalBus Consumer)
+  (:require [manifold.bus :as bus]
+            [manifold.stream :as s]
+            [cheshire.core :refer :all])
+  (:import (com.github.brainlag.nsq NSQConsumer NSQProducer ServerAddress)
            (com.github.brainlag.nsq.callbacks NSQMessageCallback)
            (com.google.common.collect Sets)
-           (java.io IOException)))
+           (com.github.brainlag.nsq.lookup DefaultNSQLookup)
+           (java.io IOException)
+           (java.util UUID)))
+
+(def topic "_.launch")
+
+(defn ensure-int [val]
+  (if (= String (class val))
+    (try
+      (Integer/parseInt val)
+      (catch Exception _ 0))
+    val))
 
 (defn nsq-lookup [lookup-addr produce-addr]
   (let [proxy (proxy [DefaultNSQLookup] []
@@ -16,32 +25,33 @@
                     (proxy-super lookup topic)
                     (catch IOException _
                       (let [set (Sets/newHashSet)]
-                        (.add set (ServerAddress. (:host produce-addr) (:port produce-addr)))
+                        (.add set (ServerAddress. (:host produce-addr) (ensure-int (:port produce-addr))))
                         set)))))]
-    (.addLookupAddress proxy (:host lookup-addr) (:port lookup-addr))
+    (.addLookupAddress proxy (:host lookup-addr) (ensure-int (:port lookup-addr)))
     proxy))
 
-(defn delivery [client topic]
-  (proxy [NSQMessageCallback] []
-    (message [msg]
-      (bus/deliver-to client topic (parse-string (String. (.getMessage msg)) true))
-      (.finished msg))))
+(defn nsq-handler [bus]
+  (reify NSQMessageCallback
+    (message [_ msg]
+      (let [body (parse-string (String. (.getMessage msg)) true)]
+        (bus/publish! bus (:customer_id body) body)
+        (.finished msg)))))
 
-(defn message-bus [config]
-  (let [lookup-addr (:lookup config)
-        produce-addr (:producer config)
-        lookup (nsq-lookup lookup-addr produce-addr)
-        producer (-> (NSQProducer.)
-                     (.addAddress (:host produce-addr) (:port produce-addr))
-                     (.start))]
-    (reify InternalBus
-      (publish! [_ topic msg]
-        (.produce producer topic (.getBytes (generate-string msg))))
+(defn launch-consumer [nsq-config bus]
+  (let [lookup (nsq-lookup (:lookup nsq-config) (:produce nsq-config))
+        channel-id (str (UUID/randomUUID) "#ephemeral")
+        handler (nsq-handler bus)]
+    (doto (NSQConsumer. lookup topic channel-id handler)
+          (.start))))
 
-      (subscribe! [_ topic client]
-        (let [consumer (->
-                        (NSQConsumer. lookup topic (str (identifiers/generate) "#ephemeral") (delivery client topic))
-                        (.start))]
-          (reify Consumer
-            (stop! [_]
-              (.shutdown consumer))))))))
+(defn subscribe [bus customer-id callback]
+  (s/consume callback (bus/subscribe bus customer-id)))
+
+(defn launch-producer [nsq-config]
+  (let [produce-addr (:produce nsq-config)]
+    (-> (NSQProducer.)
+        (.addAddress (:host produce-addr) (ensure-int (:port produce-addr)))
+        (.start))))
+
+(defn publish! [producer msg]
+  (.produce producer topic (.getBytes (generate-string msg))))

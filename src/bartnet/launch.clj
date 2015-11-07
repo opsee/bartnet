@@ -1,6 +1,6 @@
 (ns bartnet.launch
   (:require [bartnet.s3-buckets :as buckets]
-            [bartnet.bus :as bus]
+            [bartnet.nsq :as nsq]
             [cheshire.core :refer :all]
             [instaparse.core :as insta]
             [clostache.parser :refer [render-resource]]
@@ -104,15 +104,17 @@
          :state state})
       (catch Exception e (pprint msg) (log/error e "exception on parse")))))
 
-(defn launch-heartbeat [bus client customer-id instance-id]
+(defn launch-heartbeat [producer customer-id instance-id]
   (fn []
-    (bus/publish bus client customer-id "launch-bastion" (bus/make-msg "LaunchEvent" {:instance_id instance-id
-                                                                                      :state "launching"}))))
+    (nsq/publish! producer {:command "launch-bastion"
+                            :customer_id customer-id
+                            :instance-id instance-id
+                            :state "launching"})))
+
 (defn send-slack-error-msg [msg]
   (http/post slack-url {:form-params {:payload (generate-string {:text (str "error while launching bastion " msg)})}}))
 
-
-(defn launcher [creds bastion-creds bastion-config bus client image-id instance-type vpc-id login keypair template-src executor]
+(defn launcher [creds bastion-creds bastion-config producer image-id instance-type vpc-id login keypair template-src executor]
       (fn []
           (try-let
             [id (:id bastion-creds)
@@ -127,7 +129,7 @@
              {topic-arn :topic-arn} (sns/create-topic creds {:name (str "opsee-bastion-build-sns-" id)})
              {queue-url :queue-url} (sqs/create-queue creds {:queue-name (str "opsee-bastion-build-sqs-" id)})
              {queue-arn :QueueArn} (sqs/get-queue-attributes creds {:queue-url queue-url :attribute-names ["All"]})
-             launch-beater (.scheduleAtFixedRate executor (launch-heartbeat bus client customer-id id) beat-delay beat-delay TimeUnit/SECONDS)
+             launch-beater (.scheduleAtFixedRate executor (launch-heartbeat producer customer-id id) beat-delay beat-delay TimeUnit/SECONDS)
              policy (render-resource "templates/sqs_policy.mustache" {:policy-id id :queue-arn queue-arn :topic-arn topic-arn})
              _ (sqs/set-queue-attributes creds queue-url {"Policy" policy})
              {subscription-arn :SubscriptionArn} (sns/subscribe creds topic-arn "sqs" queue-arn)]
@@ -153,15 +155,19 @@
                                           msg (parse-cloudformation-msg id (parse-string msg-body true))]]
                                    (do
                                      (sqs/delete-message creds (assoc message :queue-url queue-url))
-                                     (bus/publish bus client customer-id "launch-bastion" (bus/make-msg "LaunchEvent" msg))
+                                     (nsq/publish! producer (assoc msg :command "launch-bastion"
+                                                                       :customer_id customer-id))
                                      (log/info (get-in msg [:attributes :ResourceType]) (get-in msg [:attributes :ResourceStatus]))
                                      (reset! state (:state msg))
                                      (contains? #{"complete" "failed"} (:state msg)))))
                     (recur (sqs/receive-message creds {:queue-url queue-url
                                                        :wait-time-seconds 20}))))
             (log/info "exiting" id)
-            (bus/publish bus client customer-id "launch-bastion"
-                         (bus/make-msg "LaunchEvent" {:state "ok" :attributes {:status :success}}))
+            (nsq/publish! producer {:command "launch-bastion"
+                                    :customer_id customer-id
+                                    :instance_id id
+                                    :state "ok"
+                                    :attributes {:status :success}})
             (if (= "failed" @state)
               (send-slack-error-msg (str "BASTION LAUNCH FAILED - user-email: " (:email login)
                                          " customer-id: " customer-id
@@ -185,7 +191,7 @@
                        (sns/delete-topic creds topic-arn)
                        (sqs/delete-queue creds queue-url))))))
 
-(defn launch-bastions [^ExecutorService executor scheduler bus login msg ami-config bastion-config]
+(defn launch-bastions [^ExecutorService executor scheduler producer login msg ami-config bastion-config]
   (let [access-key (:access-key msg)
         secret-key (:secret-key msg)
         regions (:regions msg)
@@ -194,8 +200,7 @@
         owner-id (:owner-id ami-config)
         tag (:tag ami-config)
         keypair (:keypair ami-config)
-        template-src (:template-src ami-config)
-        client (bus/register bus (bus/publishing-client) customer-id)]
+        template-src (:template-src ami-config)]
     (log/info regions)
     (for [region-obj regions]
       (let [creds {:access-key access-key
@@ -208,8 +213,8 @@
                              vpc-id (:id vpc)]
                          (.submit
                           executor
-                          (launcher creds bastion-creds bastion-config bus
-                                    client image-id instance-size
+                          (launcher creds bastion-creds bastion-config producer
+                                    image-id instance-size
                                     vpc-id login keypair
                                     template-src scheduler))
                          (assoc vpc :instance_id (:id bastion-creds)))))]

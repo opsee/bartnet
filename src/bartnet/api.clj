@@ -20,7 +20,6 @@
             [cheshire.core :refer :all]
             [bartnet.identifiers :as identifiers]
             [bartnet.launch :as launch]
-            [bartnet.bus :as bus]
             [schema.core :as sch]
             [liberator.dev :refer [wrap-trace]]
             [liberator.core :refer [resource defresource]])
@@ -31,7 +30,8 @@
 (def config (atom nil))
 (def db (atom nil))
 (def bus (atom nil))
-(def client (atom nil))
+(def producer (atom nil))
+(def consumer (atom nil))
 
 (defn respond-with-entity? [ctx]
   (not= (get-in ctx [:request :request-method]) :delete))
@@ -213,7 +213,7 @@
 (defn launch-bastions! [launch-cmd]
   (fn [ctx]
     (let [login (:login ctx)]
-      {:regions (launch/launch-bastions @executor @scheduler @bus login launch-cmd (:ami @config) (:bastion @config))})))
+      {:regions (launch/launch-bastions @executor @scheduler @producer login launch-cmd (:ami @config) (:bastion @config))})))
 
 (defresource instances-resource [opts]
   :available-media-types ["application/json"]
@@ -464,13 +464,14 @@
 
   (rt/not-found "Not found."))
 
-(defn handler [exe sched message-bus database conf]
+(defn handler [exe sched message-bus prod con database conf]
   (reset! executor exe)
   (reset! scheduler sched)
   (reset! bus message-bus)
+  (reset! producer prod)
+  (reset! consumer con)
   (reset! db database)
   (reset! config conf)
-  (reset! client (bus/register @bus (bus/publishing-client) "*"))
   (->
    bartnet-api
    (log-request)

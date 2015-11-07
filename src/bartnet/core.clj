@@ -5,9 +5,8 @@
             [opsee.middleware.config :refer [config]]
             [opsee.middleware.migrate :as migrate]
             [bartnet.api :as api]
+            [manifold.bus :as bus]
             [bartnet.upload-cmd :as upload-cmd]
-            [bartnet.bus :as bus]
-            [bartnet.autobus :as autobus]
             [bartnet.nsq :as nsq]
             [bartnet.results :as results]
             [bartnet.websocket :as websocket]
@@ -22,7 +21,7 @@
 
 (def ^{:private true} ws-server (atom nil))
 
-(defn- start-ws-server [executor scheduler db bus config]
+(defn- start-ws-server [executor scheduler db bus producer consumer config]
   (if-not @ws-server
     (do
       (reset! instance/store-addr (get-in config [:fieri :addr]))
@@ -30,7 +29,7 @@
       (reset! results/results-addr (get-in config [:beavis :addr]))
       (reset! ws-server
               (run-jetty
-               (api/handler executor scheduler bus db config)
+               (api/handler executor scheduler bus producer consumer db config)
                (assoc (:server config)
                       :websockets {"/stream" (websocket/ws-handler scheduler bus)}))))))
 
@@ -43,12 +42,12 @@
 (defn start-server [args]
   (let [conf (config (last args))
         db (sql/pool (:db-spec conf))
-        bus (bus/message-bus (if (:nsq conf)
-                               (nsq/message-bus (:nsq conf))
-                               (autobus/autobus)))
+        bus (bus/event-bus)
+        producer (nsq/launch-producer (:nsq conf))
+        consumer (nsq/launch-consumer (:nsq conf) bus)
         executor (Executors/utilizationExecutor (:thread-util conf) (:max-threads conf))
         scheduler (ScheduledThreadPoolExecutor. 10)]
-    (start-ws-server executor scheduler db bus conf)))
+    (start-ws-server executor scheduler db bus producer consumer conf)))
 
 (.addShutdownHook
  (Runtime/getRuntime)
