@@ -167,12 +167,12 @@
 (defmulti results-merge (fn [[key _] _] key))
 
 (defn add-instance-results [instance results]
-  (if-let [r (first (filter #(= (:InstanceId instance) (:host %)) results))]
+  (if-let [r (first (filter #(= (get-in instance [:instance :InstanceId]) (:host %)) results))]
     (assoc instance :result r)
     instance))
 
 (defn add-group-results [group results]
-  (if-let [r (first (filter #(= (or (:LoadBalancerName group) (:GroupId group)) (:host %)) results))]
+  (if-let [r (first (filter #(= (or (get-in group [:group :LoadBalancerName]) (get-in group [:group :GroupId])) (:host %)) results))]
     (assoc group :result r)
     group))
 
@@ -180,13 +180,14 @@
   (mapcat #(cons % (:responses %)) results))
 
 (defmethod results-merge :instance [[key instance] results]
-  [key (add-instance-results instance results)])
+  (add-instance-results {key instance} results))
 (defmethod results-merge :instances [[key instances] results]
   [key (for [instance instances] (add-instance-results instance results))])
 (defmethod results-merge :group [[key group] results]
-  [key (add-group-results group results)])
+  (add-group-results {key group} results))
 (defmethod results-merge :groups [[key groups] results]
   [key (for [group groups] (add-group-results group results))])
+(defmethod results-merge :instance_count [ic _] ic)
 
 (defn call-instance-store! [meth opts]
   (fn [ctx]

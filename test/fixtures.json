@@ -970,1770 +970,1195 @@
       }
     }
   },
-  "instances":{
-    "instances":[
+  "instances": {
+    "instances": [
       {
-        "LaunchTime":"2015-10-12T16:58:43Z",
-        "ImageId":"ami-953ac0d1",
-        "Tags":[
-          {
-            "Key":"Name",
-            "Value":"coreos3"
-          }
-        ],
-        "InstanceId":"i-20f122e5",
-        "PrivateIpAddress":"172.31.6.246",
-        "InstanceType":"m3.medium",
-        "PublicIpAddress":"54.219.132.36",
-        "Placement":{
-          "Tenancy":"default",
-          "GroupName":"",
-          "AvailabilityZone":"us-west-1c"
-        },
-        "SubnetId":"subnet-eccedfaa",
-        "KeyName":"c1-us-west-1",
-        "SecurityGroups":[
-          {
-            "GroupId":"sg-c852dbad",
-            "GroupName":"c1-us-west-1"
-          }
-        ],
-        "PrivateDnsName":"ip-172-31-6-246.us-west-1.compute.internal",
-        "AmiLaunchIndex":0,
-        "IamInstanceProfile":{
-          "Id":"AIPAJ2PPDVKELNHMYVUYC",
-          "Arn":"arn:aws:iam::933693344490:instance-profile/CoreOS_Cluster_Role"
-        },
-        "PublicDnsName":"ec2-54-219-132-36.us-west-1.compute.amazonaws.com",
-        "Monitoring":{
-          "State":"disabled"
-        }
-      },
-      {
-        "LaunchTime":"2015-10-16T14:51:45Z",
-        "ImageId":"ami-c5f63681",
-        "Tags":[
-          {
-            "Key":"aws:cloudformation:stack-id",
-            "Value":"arn:aws:cloudformation:us-west-1:933693344490:stack/opsee-bastion-10bb1838-7415-11e5-b74d-77b988780635/11d0a5d0-7415-11e5-bced-5001ff34b618"
+        "instance": {
+          "Tags": [
+            {
+              "Key": "Name",
+              "Value": "coreos6"
+            }
+          ],
+          "ImageId": "ami-dbe71d9f",
+          "KeyName": "c1-us-west-1",
+          "SubnetId": "subnet-eccedfaa",
+          "Placement": {
+            "Tenancy": "default",
+            "GroupName": "",
+            "AvailabilityZone": "us-west-1c"
           },
-          {
-            "Key":"aws:cloudformation:logical-id",
-            "Value":"BastionInstance"
+          "InstanceId": "i-822ff347",
+          "LaunchTime": "2015-09-10T00:59:52Z",
+          "Monitoring": {
+            "State": "disabled"
           },
-          {
-            "Key":"Name",
-            "Value":"Opsee Bastion 5963d7bc-6ba2-11e5-8603-6ba085b2f5b5"
+          "InstanceType": "m3.medium",
+          "PublicDnsName": "ec2-52-8-158-242.us-west-1.compute.amazonaws.com",
+          "AmiLaunchIndex": 0,
+          "PrivateDnsName": "ip-172-31-13-234.us-west-1.compute.internal",
+          "SecurityGroups": [
+            {
+              "GroupId": "sg-c852dbad",
+              "GroupName": "c1-us-west-1"
+            }
+          ],
+          "PublicIpAddress": "52.8.158.242",
+          "PrivateIpAddress": "172.31.13.234",
+          "IamInstanceProfile": {
+            "Id": "AIPAJ2PPDVKELNHMYVUYC",
+            "Arn": "arn:aws:iam::933693344490:instance-profile/CoreOS_Cluster_Role"
+          }
+        }
+      },
+      {
+        "instance": {
+          "Tags": [
+            {
+              "Key": "Name",
+              "Value": "openvpn"
+            }
+          ],
+          "ImageId": "ami-918e62d5",
+          "KeyName": "openvpn",
+          "SubnetId": "subnet-0378a966",
+          "Placement": {
+            "Tenancy": "default",
+            "GroupName": "",
+            "AvailabilityZone": "us-west-1a"
           },
-          {
-            "Key":"aws:cloudformation:stack-name",
-            "Value":"opsee-bastion-10bb1838-7415-11e5-b74d-77b988780635"
-          }
-        ],
-        "InstanceId":"i-84ca4d36",
-        "PrivateIpAddress":"172.31.2.62",
-        "InstanceType":"t2.micro",
-        "PublicIpAddress":"54.193.4.78",
-        "Placement":{
-          "Tenancy":"default",
-          "GroupName":"",
-          "AvailabilityZone":"us-west-1c"
-        },
-        "SubnetId":"subnet-eccedfaa",
-        "KeyName":"bastion-testing",
-        "SecurityGroups":[
-          {
-            "GroupId":"sg-558ac430",
-            "GroupName":"opsee-bastion-10bb1838-7415-11e5-b74d-77b988780635-BastionSecurityGroup-P4JYXOLPCS7G"
-          }
-        ],
-        "PrivateDnsName":"ip-172-31-2-62.us-west-1.compute.internal",
-        "AmiLaunchIndex":0,
-        "IamInstanceProfile":{
-          "Id":"AIPAI46ARRU6OPYQTBJG2",
-          "Arn":"arn:aws:iam::933693344490:instance-profile/opsee-bastion-10bb1838-7415-11e5-b74d-77b988780635-BastionInstanceProfile-15974QBOT1FYX"
-        },
-        "PublicDnsName":"ec2-54-193-4-78.us-west-1.compute.amazonaws.com",
-        "Monitoring":{
-          "State":"disabled"
-        }
-      },
-      {
-        "LaunchTime":"2015-07-02T21:22:35Z",
-        "ImageId":"ami-918e62d5",
-        "Tags":[
-          {
-            "Key":"Name",
-            "Value":"openvpn"
-          }
-        ],
-        "InstanceId":"i-301674fb",
-        "PrivateIpAddress":"172.31.30.221",
-        "InstanceType":"t2.micro",
-        "PublicIpAddress":"52.8.225.146",
-        "Placement":{
-          "Tenancy":"default",
-          "GroupName":"",
-          "AvailabilityZone":"us-west-1a"
-        },
-        "SubnetId":"subnet-0378a966",
-        "KeyName":"openvpn",
-        "SecurityGroups":[
-          {
-            "GroupId":"sg-df6de4ba",
-            "GroupName":"OpenVPN Access Server -HVM--2-0-17-AutogenByAWSMP-"
-          }
-        ],
-        "PrivateDnsName":"ip-172-31-30-221.us-west-1.compute.internal",
-        "AmiLaunchIndex":0,
-        "IamInstanceProfile":null,
-        "PublicDnsName":"ec2-52-8-225-146.us-west-1.compute.amazonaws.com",
-        "Monitoring":{
-          "State":"disabled"
-        }
-      },
-      {
-        "LaunchTime":"2015-10-12T16:59:52Z",
-        "ImageId":"ami-c967938d",
-        "Tags":[
-          {
-            "Key":"Name",
-            "Value":"coreos4"
-          }
-        ],
-        "InstanceId":"i-38aae6fa",
-        "PrivateIpAddress":"172.31.8.48",
-        "InstanceType":"m3.medium",
-        "PublicIpAddress":"54.219.166.146",
-        "Placement":{
-          "Tenancy":"default",
-          "GroupName":"",
-          "AvailabilityZone":"us-west-1c"
-        },
-        "SubnetId":"subnet-eccedfaa",
-        "KeyName":"c1-us-west-1",
-        "SecurityGroups":[
-          {
-            "GroupId":"sg-c852dbad",
-            "GroupName":"c1-us-west-1"
-          }
-        ],
-        "PrivateDnsName":"ip-172-31-8-48.us-west-1.compute.internal",
-        "AmiLaunchIndex":0,
-        "IamInstanceProfile":{
-          "Id":"AIPAJ2PPDVKELNHMYVUYC",
-          "Arn":"arn:aws:iam::933693344490:instance-profile/CoreOS_Cluster_Role"
-        },
-        "PublicDnsName":"ec2-54-219-166-146.us-west-1.compute.amazonaws.com",
-        "Monitoring":{
-          "State":"disabled"
-        }
-      },
-      {
-        "LaunchTime":"2015-10-12T16:56:16Z",
-        "ImageId":"ami-c967938d",
-        "Tags":[
-          {
-            "Key":"Name",
-            "Value":"coreos5"
-          }
-        ],
-        "InstanceId":"i-39aae6fb",
-        "PrivateIpAddress":"172.31.8.49",
-        "InstanceType":"m3.medium",
-        "PublicIpAddress":"54.215.251.2",
-        "Placement":{
-          "Tenancy":"default",
-          "GroupName":"",
-          "AvailabilityZone":"us-west-1c"
-        },
-        "SubnetId":"subnet-eccedfaa",
-        "KeyName":"c1-us-west-1",
-        "SecurityGroups":[
-          {
-            "GroupId":"sg-c852dbad",
-            "GroupName":"c1-us-west-1"
-          }
-        ],
-        "PrivateDnsName":"ip-172-31-8-49.us-west-1.compute.internal",
-        "AmiLaunchIndex":1,
-        "IamInstanceProfile":{
-          "Id":"AIPAJ2PPDVKELNHMYVUYC",
-          "Arn":"arn:aws:iam::933693344490:instance-profile/CoreOS_Cluster_Role"
-        },
-        "PublicDnsName":"ec2-54-215-251-2.us-west-1.compute.amazonaws.com",
-        "Monitoring":{
-          "State":"disabled"
-        }
-      },
-      {
-        "LaunchTime":"2015-10-13T17:14:54Z",
-        "ImageId":"ami-dbe71d9f",
-        "Tags":[
-          {
-            "Key":"Name",
-            "Value":"coreos6"
-          }
-        ],
-        "InstanceId":"i-822ff347",
-        "PrivateIpAddress":"172.31.13.234",
-        "InstanceType":"m3.medium",
-        "PublicIpAddress":"54.219.177.84",
-        "Placement":{
-          "Tenancy":"default",
-          "GroupName":"",
-          "AvailabilityZone":"us-west-1c"
-        },
-        "SubnetId":"subnet-eccedfaa",
-        "KeyName":"c1-us-west-1",
-        "SecurityGroups":[
-          {
-            "GroupId":"sg-c852dbad",
-            "GroupName":"c1-us-west-1"
-          }
-        ],
-        "PrivateDnsName":"ip-172-31-13-234.us-west-1.compute.internal",
-        "AmiLaunchIndex":0,
-        "IamInstanceProfile":{
-          "Id":"AIPAJ2PPDVKELNHMYVUYC",
-          "Arn":"arn:aws:iam::933693344490:instance-profile/CoreOS_Cluster_Role"
-        },
-        "PublicDnsName":"ec2-54-219-177-84.us-west-1.compute.amazonaws.com",
-        "Monitoring":{
-          "State":"disabled"
-        }
-      },
-      {
-        "LaunchTime":"2015-10-16T22:13:41Z",
-        "ImageId":"ami-c5f63681",
-        "Tags":[
-          {
-            "Key":"aws:cloudformation:stack-id",
-            "Value":"arn:aws:cloudformation:us-west-1:933693344490:stack/opsee-bastion-ce999108-7452-11e5-b74e-07bd26796ac9/cf4b3160-7452-11e5-b25e-50d5018012a6"
+          "InstanceId": "i-301674fb",
+          "LaunchTime": "2015-07-02T21:22:35Z",
+          "Monitoring": {
+            "State": "disabled"
           },
-          {
-            "Key":"aws:cloudformation:stack-name",
-            "Value":"opsee-bastion-ce999108-7452-11e5-b74e-07bd26796ac9"
-          },
-          {
-            "Key":"aws:cloudformation:logical-id",
-            "Value":"BastionInstance"
-          },
-          {
-            "Key":"Name",
-            "Value":"Opsee Bastion 9e3e05aa-71c5-11e5-bee9-27e19410bc5b"
-          }
-        ],
-        "InstanceId":"i-2a73f498",
-        "PrivateIpAddress":"172.31.15.248",
-        "InstanceType":"t2.micro",
-        "PublicIpAddress":"54.193.1.247",
-        "Placement":{
-          "Tenancy":"default",
-          "GroupName":"",
-          "AvailabilityZone":"us-west-1c"
-        },
-        "SubnetId":"subnet-eccedfaa",
-        "KeyName":"bastion-testing",
-        "SecurityGroups":[
-          {
-            "GroupId":"sg-9ba2ecfe",
-            "GroupName":"opsee-bastion-ce999108-7452-11e5-b74e-07bd26796ac9-BastionSecurityGroup-1OJNDGVDQNR7Q"
-          }
-        ],
-        "PrivateDnsName":"ip-172-31-15-248.us-west-1.compute.internal",
-        "AmiLaunchIndex":0,
-        "IamInstanceProfile":{
-          "Id":"AIPAI2XGCEKBUTIB5Z4GQ",
-          "Arn":"arn:aws:iam::933693344490:instance-profile/opsee-bastion-ce999108-7452-11e5-b74e-07bd26796ac9-BastionInstanceProfile-KBGQBYJFDIN4"
-        },
-        "PublicDnsName":"ec2-54-193-1-247.us-west-1.compute.amazonaws.com",
-        "Monitoring":{
-          "State":"disabled"
+          "InstanceType": "t2.micro",
+          "PublicDnsName": "ec2-52-8-225-146.us-west-1.compute.amazonaws.com",
+          "AmiLaunchIndex": 0,
+          "PrivateDnsName": "ip-172-31-30-221.us-west-1.compute.internal",
+          "SecurityGroups": [
+            {
+              "GroupId": "sg-df6de4ba",
+              "GroupName": "OpenVPN Access Server -HVM--2-0-17-AutogenByAWSMP-"
+            }
+          ],
+          "PublicIpAddress": "52.8.225.146",
+          "PrivateIpAddress": "172.31.30.221",
+          "IamInstanceProfile": null
         }
       },
       {
-        "LaunchTime":"2015-09-18T18:19:49Z",
-        "ImageId":"ami-df6a8b9b",
-        "Tags":[
-          {
-            "Key":"Name",
-            "Value":"vpn server"
+        "instance": {
+          "Tags": [
+            {
+              "Key": "Name",
+              "Value": "Opsee Bastion 5bb82086-51c6-11e5-9b33-db6aaaf21de2"
+            },
+            {
+              "Key": "aws:cloudformation:logical-id",
+              "Value": "BastionInstance"
+            },
+            {
+              "Key": "aws:cloudformation:stack-id",
+              "Value": "arn:aws:cloudformation:us-west-1:933693344490:stack/opsee-bastion-a8a20324-57db-11e5-88a1-37e8cfb78834/a993d3c0-57db-11e5-8c48-50d5018012a6"
+            },
+            {
+              "Key": "aws:cloudformation:stack-name",
+              "Value": "opsee-bastion-a8a20324-57db-11e5-88a1-37e8cfb78834"
+            }
+          ],
+          "ImageId": "ami-2517ec61",
+          "KeyName": "bastion-testing",
+          "SubnetId": "subnet-eccedfaa",
+          "Placement": {
+            "Tenancy": "default",
+            "GroupName": "",
+            "AvailabilityZone": "us-west-1c"
+          },
+          "InstanceId": "i-8dd40a48",
+          "LaunchTime": "2015-09-10T16:50:13Z",
+          "Monitoring": {
+            "State": "disabled"
+          },
+          "InstanceType": "t2.micro",
+          "PublicDnsName": "ec2-54-67-6-120.us-west-1.compute.amazonaws.com",
+          "AmiLaunchIndex": 0,
+          "PrivateDnsName": "ip-172-31-7-203.us-west-1.compute.internal",
+          "SecurityGroups": [
+            {
+              "GroupId": "sg-92a4d9f7",
+              "GroupName": "opsee-bastion-a8a20324-57db-11e5-88a1-37e8cfb78834-BastionSecurityGroup-1CE8E9ZT4DX0I"
+            }
+          ],
+          "PublicIpAddress": "54.67.6.120",
+          "PrivateIpAddress": "172.31.7.203",
+          "IamInstanceProfile": {
+            "Id": "AIPAIX6THYKQL7DSOL2YI",
+            "Arn": "arn:aws:iam::933693344490:instance-profile/opsee-bastion-a8a20324-57db-11e5-88a1-37e8cfb78834-BastionInstanceProfile-KU1X4B623C6T"
           }
-        ],
-        "InstanceId":"i-dd9deb1d",
-        "PrivateIpAddress":"172.31.21.108",
-        "InstanceType":"t2.micro",
-        "PublicIpAddress":"54.215.246.134",
-        "Placement":{
-          "Tenancy":"default",
-          "GroupName":"",
-          "AvailabilityZone":"us-west-1a"
-        },
-        "SubnetId":"subnet-0378a966",
-        "KeyName":"c1-us-west-1",
-        "SecurityGroups":[
-          {
-            "GroupId":"sg-7e9ef71b",
-            "GroupName":"bastion-vpn-sg"
+        }
+      },
+      {
+        "instance": {
+          "Tags": [
+            {
+              "Key": "Name",
+              "Value": "coreos3"
+            }
+          ],
+          "ImageId": "ami-953ac0d1",
+          "KeyName": "c1-us-west-1",
+          "SubnetId": "subnet-eccedfaa",
+          "Placement": {
+            "Tenancy": "default",
+            "GroupName": "",
+            "AvailabilityZone": "us-west-1c"
+          },
+          "InstanceId": "i-20f122e5",
+          "LaunchTime": "2015-09-08T17:50:46Z",
+          "Monitoring": {
+            "State": "disabled"
+          },
+          "InstanceType": "m3.medium",
+          "PublicDnsName": "ec2-54-183-81-231.us-west-1.compute.amazonaws.com",
+          "AmiLaunchIndex": 0,
+          "PrivateDnsName": "ip-172-31-6-246.us-west-1.compute.internal",
+          "SecurityGroups": [
+            {
+              "GroupId": "sg-c852dbad",
+              "GroupName": "c1-us-west-1"
+            }
+          ],
+          "PublicIpAddress": "54.183.81.231",
+          "PrivateIpAddress": "172.31.6.246",
+          "IamInstanceProfile": {
+            "Id": "AIPAJ2PPDVKELNHMYVUYC",
+            "Arn": "arn:aws:iam::933693344490:instance-profile/CoreOS_Cluster_Role"
           }
-        ],
-        "PrivateDnsName":"ip-172-31-21-108.us-west-1.compute.internal",
-        "AmiLaunchIndex":0,
-        "IamInstanceProfile":{
-          "Id":"AIPAJ2PPDVKELNHMYVUYC",
-          "Arn":"arn:aws:iam::933693344490:instance-profile/CoreOS_Cluster_Role"
-        },
-        "PublicDnsName":"ec2-54-215-246-134.us-west-1.compute.amazonaws.com",
-        "Monitoring":{
-          "State":"disabled"
+        }
+      },
+      {
+        "instance": {
+          "Tags": [
+            {
+              "Key": "Name",
+              "Value": "coreos4"
+            }
+          ],
+          "ImageId": "ami-c967938d",
+          "KeyName": "c1-us-west-1",
+          "SubnetId": "subnet-eccedfaa",
+          "Placement": {
+            "Tenancy": "default",
+            "GroupName": "",
+            "AvailabilityZone": "us-west-1c"
+          },
+          "InstanceId": "i-38aae6fa",
+          "LaunchTime": "2015-07-15T01:57:33Z",
+          "Monitoring": {
+            "State": "disabled"
+          },
+          "InstanceType": "m3.medium",
+          "PublicDnsName": "ec2-52-8-155-47.us-west-1.compute.amazonaws.com",
+          "AmiLaunchIndex": 0,
+          "PrivateDnsName": "ip-172-31-8-48.us-west-1.compute.internal",
+          "SecurityGroups": [
+            {
+              "GroupId": "sg-c852dbad",
+              "GroupName": "c1-us-west-1"
+            }
+          ],
+          "PublicIpAddress": "52.8.155.47",
+          "PrivateIpAddress": "172.31.8.48",
+          "IamInstanceProfile": {
+            "Id": "AIPAJ2PPDVKELNHMYVUYC",
+            "Arn": "arn:aws:iam::933693344490:instance-profile/CoreOS_Cluster_Role"
+          }
+        }
+      },
+      {
+        "instance": {
+          "Tags": [
+            {
+              "Key": "Name",
+              "Value": "coreos5"
+            }
+          ],
+          "ImageId": "ami-c967938d",
+          "KeyName": "c1-us-west-1",
+          "SubnetId": "subnet-eccedfaa",
+          "Placement": {
+            "Tenancy": "default",
+            "GroupName": "",
+            "AvailabilityZone": "us-west-1c"
+          },
+          "InstanceId": "i-39aae6fb",
+          "LaunchTime": "2015-07-15T02:01:05Z",
+          "Monitoring": {
+            "State": "disabled"
+          },
+          "InstanceType": "m3.medium",
+          "PublicDnsName": "ec2-52-8-213-168.us-west-1.compute.amazonaws.com",
+          "AmiLaunchIndex": 1,
+          "PrivateDnsName": "ip-172-31-8-49.us-west-1.compute.internal",
+          "SecurityGroups": [
+            {
+              "GroupId": "sg-c852dbad",
+              "GroupName": "c1-us-west-1"
+            }
+          ],
+          "PublicIpAddress": "52.8.213.168",
+          "PrivateIpAddress": "172.31.8.49",
+          "IamInstanceProfile": {
+            "Id": "AIPAJ2PPDVKELNHMYVUYC",
+            "Arn": "arn:aws:iam::933693344490:instance-profile/CoreOS_Cluster_Role"
+          }
         }
       }
     ]
   },
-  "group":{
-    "group":{
-      "GroupId":"sg-c852dbad",
-      "GroupName":"c1-us-west-1",
-      "Description":"CoreOS Cluster 1 US-West-1"
+  "group": {
+    "group": {
+      "GroupId": "sg-c852dbad",
+      "GroupName": "c1-us-west-1",
+      "Description": "CoreOS Cluster 1 US-West-1"
     },
-    "instances":[
+    "instances": [
       {
-        "LaunchTime":"2015-10-12T16:59:52Z",
-        "ImageId":"ami-c967938d",
-        "Tags":[
-          {
-            "Key":"Name",
-            "Value":"coreos4"
+        "instance": {
+          "Tags": [
+            {
+              "Key": "Name",
+              "Value": "coreos3"
+            }
+          ],
+          "ImageId": "ami-953ac0d1",
+          "KeyName": "c1-us-west-1",
+          "SubnetId": "subnet-eccedfaa",
+          "Placement": {
+            "Tenancy": "default",
+            "GroupName": "",
+            "AvailabilityZone": "us-west-1c"
+          },
+          "InstanceId": "i-20f122e5",
+          "LaunchTime": "2015-09-08T17:50:46Z",
+          "Monitoring": {
+            "State": "disabled"
+          },
+          "InstanceType": "m3.medium",
+          "PublicDnsName": "ec2-54-183-81-231.us-west-1.compute.amazonaws.com",
+          "AmiLaunchIndex": 0,
+          "PrivateDnsName": "ip-172-31-6-246.us-west-1.compute.internal",
+          "SecurityGroups": [
+            {
+              "GroupId": "sg-c852dbad",
+              "GroupName": "c1-us-west-1"
+            }
+          ],
+          "PublicIpAddress": "54.183.81.231",
+          "PrivateIpAddress": "172.31.6.246",
+          "IamInstanceProfile": {
+            "Id": "AIPAJ2PPDVKELNHMYVUYC",
+            "Arn": "arn:aws:iam::933693344490:instance-profile/CoreOS_Cluster_Role"
           }
-        ],
-        "InstanceId":"i-38aae6fa",
-        "PrivateIpAddress":"172.31.8.48",
-        "InstanceType":"m3.medium",
-        "PublicIpAddress":"54.219.166.146",
-        "Placement":{
-          "Tenancy":"default",
-          "GroupName":"",
-          "AvailabilityZone":"us-west-1c"
-        },
-        "SubnetId":"subnet-eccedfaa",
-        "KeyName":"c1-us-west-1",
-        "SecurityGroups":[
-          {
-            "GroupId":"sg-c852dbad",
-            "GroupName":"c1-us-west-1"
-          }
-        ],
-        "PrivateDnsName":"ip-172-31-8-48.us-west-1.compute.internal",
-        "AmiLaunchIndex":0,
-        "IamInstanceProfile":{
-          "Id":"AIPAJ2PPDVKELNHMYVUYC",
-          "Arn":"arn:aws:iam::933693344490:instance-profile/CoreOS_Cluster_Role"
-        },
-        "PublicDnsName":"ec2-54-219-166-146.us-west-1.compute.amazonaws.com",
-        "Monitoring":{
-          "State":"disabled"
         }
       },
       {
-        "LaunchTime":"2015-10-12T16:56:16Z",
-        "ImageId":"ami-c967938d",
-        "Tags":[
-          {
-            "Key":"Name",
-            "Value":"coreos5"
+        "instance": {
+          "Tags": [
+            {
+              "Key": "Name",
+              "Value": "coreos4"
+            }
+          ],
+          "ImageId": "ami-c967938d",
+          "KeyName": "c1-us-west-1",
+          "SubnetId": "subnet-eccedfaa",
+          "Placement": {
+            "Tenancy": "default",
+            "GroupName": "",
+            "AvailabilityZone": "us-west-1c"
+          },
+          "InstanceId": "i-38aae6fa",
+          "LaunchTime": "2015-07-15T01:57:33Z",
+          "Monitoring": {
+            "State": "disabled"
+          },
+          "InstanceType": "m3.medium",
+          "PublicDnsName": "ec2-52-8-155-47.us-west-1.compute.amazonaws.com",
+          "AmiLaunchIndex": 0,
+          "PrivateDnsName": "ip-172-31-8-48.us-west-1.compute.internal",
+          "SecurityGroups": [
+            {
+              "GroupId": "sg-c852dbad",
+              "GroupName": "c1-us-west-1"
+            }
+          ],
+          "PublicIpAddress": "52.8.155.47",
+          "PrivateIpAddress": "172.31.8.48",
+          "IamInstanceProfile": {
+            "Id": "AIPAJ2PPDVKELNHMYVUYC",
+            "Arn": "arn:aws:iam::933693344490:instance-profile/CoreOS_Cluster_Role"
           }
-        ],
-        "InstanceId":"i-39aae6fb",
-        "PrivateIpAddress":"172.31.8.49",
-        "InstanceType":"m3.medium",
-        "PublicIpAddress":"54.215.251.2",
-        "Placement":{
-          "Tenancy":"default",
-          "GroupName":"",
-          "AvailabilityZone":"us-west-1c"
-        },
-        "SubnetId":"subnet-eccedfaa",
-        "KeyName":"c1-us-west-1",
-        "SecurityGroups":[
-          {
-            "GroupId":"sg-c852dbad",
-            "GroupName":"c1-us-west-1"
-          }
-        ],
-        "PrivateDnsName":"ip-172-31-8-49.us-west-1.compute.internal",
-        "AmiLaunchIndex":1,
-        "IamInstanceProfile":{
-          "Id":"AIPAJ2PPDVKELNHMYVUYC",
-          "Arn":"arn:aws:iam::933693344490:instance-profile/CoreOS_Cluster_Role"
-        },
-        "PublicDnsName":"ec2-54-215-251-2.us-west-1.compute.amazonaws.com",
-        "Monitoring":{
-          "State":"disabled"
         }
       },
       {
-        "LaunchTime":"2015-10-12T16:58:43Z",
-        "ImageId":"ami-953ac0d1",
-        "Tags":[
-          {
-            "Key":"Name",
-            "Value":"coreos3"
+        "instance": {
+          "Tags": [
+            {
+              "Key": "Name",
+              "Value": "coreos5"
+            }
+          ],
+          "ImageId": "ami-c967938d",
+          "KeyName": "c1-us-west-1",
+          "SubnetId": "subnet-eccedfaa",
+          "Placement": {
+            "Tenancy": "default",
+            "GroupName": "",
+            "AvailabilityZone": "us-west-1c"
+          },
+          "InstanceId": "i-39aae6fb",
+          "LaunchTime": "2015-07-15T02:01:05Z",
+          "Monitoring": {
+            "State": "disabled"
+          },
+          "InstanceType": "m3.medium",
+          "PublicDnsName": "ec2-52-8-213-168.us-west-1.compute.amazonaws.com",
+          "AmiLaunchIndex": 1,
+          "PrivateDnsName": "ip-172-31-8-49.us-west-1.compute.internal",
+          "SecurityGroups": [
+            {
+              "GroupId": "sg-c852dbad",
+              "GroupName": "c1-us-west-1"
+            }
+          ],
+          "PublicIpAddress": "52.8.213.168",
+          "PrivateIpAddress": "172.31.8.49",
+          "IamInstanceProfile": {
+            "Id": "AIPAJ2PPDVKELNHMYVUYC",
+            "Arn": "arn:aws:iam::933693344490:instance-profile/CoreOS_Cluster_Role"
           }
-        ],
-        "InstanceId":"i-20f122e5",
-        "PrivateIpAddress":"172.31.6.246",
-        "InstanceType":"m3.medium",
-        "PublicIpAddress":"54.219.132.36",
-        "Placement":{
-          "Tenancy":"default",
-          "GroupName":"",
-          "AvailabilityZone":"us-west-1c"
-        },
-        "SubnetId":"subnet-eccedfaa",
-        "KeyName":"c1-us-west-1",
-        "SecurityGroups":[
-          {
-            "GroupId":"sg-c852dbad",
-            "GroupName":"c1-us-west-1"
-          }
-        ],
-        "PrivateDnsName":"ip-172-31-6-246.us-west-1.compute.internal",
-        "AmiLaunchIndex":0,
-        "IamInstanceProfile":{
-          "Id":"AIPAJ2PPDVKELNHMYVUYC",
-          "Arn":"arn:aws:iam::933693344490:instance-profile/CoreOS_Cluster_Role"
-        },
-        "PublicDnsName":"ec2-54-219-132-36.us-west-1.compute.amazonaws.com",
-        "Monitoring":{
-          "State":"disabled"
         }
       },
       {
-        "LaunchTime":"2015-10-13T17:14:54Z",
-        "ImageId":"ami-dbe71d9f",
-        "Tags":[
-          {
-            "Key":"Name",
-            "Value":"coreos6"
+        "instance": {
+          "Tags": [
+            {
+              "Key": "Name",
+              "Value": "coreos6"
+            }
+          ],
+          "ImageId": "ami-dbe71d9f",
+          "KeyName": "c1-us-west-1",
+          "SubnetId": "subnet-eccedfaa",
+          "Placement": {
+            "Tenancy": "default",
+            "GroupName": "",
+            "AvailabilityZone": "us-west-1c"
+          },
+          "InstanceId": "i-822ff347",
+          "LaunchTime": "2015-09-10T00:59:52Z",
+          "Monitoring": {
+            "State": "disabled"
+          },
+          "InstanceType": "m3.medium",
+          "PublicDnsName": "ec2-52-8-158-242.us-west-1.compute.amazonaws.com",
+          "AmiLaunchIndex": 0,
+          "PrivateDnsName": "ip-172-31-13-234.us-west-1.compute.internal",
+          "SecurityGroups": [
+            {
+              "GroupId": "sg-c852dbad",
+              "GroupName": "c1-us-west-1"
+            }
+          ],
+          "PublicIpAddress": "52.8.158.242",
+          "PrivateIpAddress": "172.31.13.234",
+          "IamInstanceProfile": {
+            "Id": "AIPAJ2PPDVKELNHMYVUYC",
+            "Arn": "arn:aws:iam::933693344490:instance-profile/CoreOS_Cluster_Role"
           }
-        ],
-        "InstanceId":"i-822ff347",
-        "PrivateIpAddress":"172.31.13.234",
-        "InstanceType":"m3.medium",
-        "PublicIpAddress":"54.219.177.84",
-        "Placement":{
-          "Tenancy":"default",
-          "GroupName":"",
-          "AvailabilityZone":"us-west-1c"
-        },
-        "SubnetId":"subnet-eccedfaa",
-        "KeyName":"c1-us-west-1",
-        "SecurityGroups":[
-          {
-            "GroupId":"sg-c852dbad",
-            "GroupName":"c1-us-west-1"
-          }
-        ],
-        "PrivateDnsName":"ip-172-31-13-234.us-west-1.compute.internal",
-        "AmiLaunchIndex":0,
-        "IamInstanceProfile":{
-          "Id":"AIPAJ2PPDVKELNHMYVUYC",
-          "Arn":"arn:aws:iam::933693344490:instance-profile/CoreOS_Cluster_Role"
-        },
-        "PublicDnsName":"ec2-54-219-177-84.us-west-1.compute.amazonaws.com",
-        "Monitoring":{
-          "State":"disabled"
         }
+      }
+    ],
+    "instance_count": 4
+  },
+  "groups": {
+    "groups": [
+      {
+        "group": {
+          "GroupId": "sg-1227fa77",
+          "GroupName": "default",
+          "Description": "default VPC security group"
+        },
+        "instance_count": 0
+      },
+      {
+        "group": {
+          "GroupId": "sg-3ae48e5f",
+          "GroupName": "private auth tier",
+          "Description": "for authentication of bastions"
+        },
+        "instance_count": 0
+      },
+      {
+        "group": {
+          "GroupId": "sg-4ae18b2f",
+          "GroupName": "auth tier",
+          "Description": "for public authentication of users"
+        },
+        "instance_count": 0
+      },
+      {
+        "group": {
+          "GroupId": "sg-52a42237",
+          "GroupName": "cluster1-ssh-lb",
+          "Description": "quick-create-1 created on Monday, June 1, 2015 10:54:48 AM UTC-7"
+        },
+        "instance_count": 0
+      },
+      {
+        "group": {
+          "GroupId": "sg-5f65e13a",
+          "GroupName": "staging",
+          "Description": "Staging Enviroment"
+        },
+        "instance_count": 0
+      },
+      {
+        "group": {
+          "GroupId": "sg-6fa4d90a",
+          "GroupName": "nsqlookupd-lb",
+          "Description": "nsqlookupd-lb"
+        },
+        "instance_count": 0
+      },
+      {
+        "group": {
+          "GroupId": "sg-7e9ef71b",
+          "GroupName": "bastion-vpn-sg",
+          "Description": "Bastion VPN Security Group"
+        },
+        "instance_count": 0
+      },
+      {
+        "group": {
+          "GroupId": "sg-92a4d9f7",
+          "GroupName": "opsee-bastion-a8a20324-57db-11e5-88a1-37e8cfb78834-BastionSecurityGroup-1CE8E9ZT4DX0I",
+          "Description": "Bastion SecurityGroup"
+        },
+        "instance_count": 1
+      },
+      {
+        "group": {
+          "GroupId": "sg-9a016bff",
+          "GroupName": "nsqd-lb",
+          "Description": "NSQD LB Security Group"
+        },
+        "instance_count": 0
+      },
+      {
+        "group": {
+          "GroupId": "sg-ac528bc9",
+          "GroupName": "api-lb",
+          "Description": "opsee api tier lb"
+        },
+        "instance_count": 0
+      },
+      {
+        "group": {
+          "GroupId": "sg-c852dbad",
+          "GroupName": "c1-us-west-1",
+          "Description": "CoreOS Cluster 1 US-West-1"
+        },
+        "instance_count": 4
+      },
+      {
+        "group": {
+          "GroupId": "sg-d39a43b6",
+          "GroupName": "databas",
+          "Description": "postgresql"
+        },
+        "instance_count": 0
+      },
+      {
+        "group": {
+          "GroupId": "sg-df6de4ba",
+          "GroupName": "OpenVPN Access Server -HVM--2-0-17-AutogenByAWSMP-",
+          "Description": "This security group was generated by AWS Marketplace and is based on recommended settings for OpenVPN Access Server HVM version 2.0.17 provided by OpenVPN Technologies Inc."
+        },
+        "instance_count": 1
       }
     ]
   },
-  "groups":{
-    "groups":[
+  "elbs": {
+    "groups": [
       {
-        "GroupId":"sg-65420f00",
-        "GroupName":"opsee-bastion-6d27a120-6ed6-11e5-a404-63af9d58cd0a-BastionSecurityGroup-1R1QJVEL9E2WH",
-        "Description":"Bastion SecurityGroup"
+        "group": {
+          "VPCId": "vpc-79b1491c",
+          "Scheme": "internet-facing",
+          "DNSName": "api-lb-869858987.us-west-1.elb.amazonaws.com",
+          "Subnets": [
+            "subnet-0378a966",
+            "subnet-eccedfaa"
+          ],
+          "Instances": [
+            {
+              "InstanceId": "i-39aae6fb"
+            }
+          ],
+          "CreatedTime": "2015-01-20T02:45:57.55Z",
+          "HealthCheck": {
+            "Target": "HTTP:8080/health_check",
+            "Timeout": 5,
+            "Interval": 30,
+            "HealthyThreshold": 2,
+            "UnhealthyThreshold": 2
+          },
+          "SecurityGroups": [
+            "sg-ac528bc9"
+          ],
+          "LoadBalancerName": "api-lb",
+          "AvailabilityZones": [
+            "us-west-1c",
+            "us-west-1a"
+          ],
+          "SourceSecurityGroup": {
+            "GroupName": "api-lb",
+            "OwnerAlias": "933693344490"
+          },
+          "ListenerDescriptions": [
+            {
+              "Listener": {
+                "Protocol": "TCP",
+                "InstancePort": 4080,
+                "InstanceProtocol": "TCP",
+                "LoadBalancerPort": 4080,
+                "SSLCertificateId": null
+              },
+              "PolicyNames": []
+            },
+            {
+              "Listener": {
+                "Protocol": "TCP",
+                "InstancePort": 8080,
+                "InstanceProtocol": "TCP",
+                "LoadBalancerPort": 80,
+                "SSLCertificateId": null
+              },
+              "PolicyNames": []
+            }
+          ],
+          "CanonicalHostedZoneName": "api-lb-869858987.us-west-1.elb.amazonaws.com",
+          "CanonicalHostedZoneNameID": "Z1M58G0W56PQJA"
+        },
+        "instance_count": 1
       },
       {
-        "GroupId":"sg-b6a2efd3",
-        "GroupName":"mami-sg-3dobe4SkWwTDApNf4ndyKA",
-        "Description":"mami temporary sg"
+        "group": {
+          "VPCId": "vpc-79b1491c",
+          "Scheme": "internet-facing",
+          "DNSName": "bastion-vpn-lb-1855726553.us-west-1.elb.amazonaws.com",
+          "Subnets": [
+            "subnet-0378a966",
+            "subnet-eccedfaa"
+          ],
+          "Instances": [
+            {
+              "InstanceId": "i-39aae6fb"
+            }
+          ],
+          "CreatedTime": "2015-08-24T17:09:56.87Z",
+          "HealthCheck": {
+            "Target": "TCP:1194",
+            "Timeout": 5,
+            "Interval": 30,
+            "HealthyThreshold": 5,
+            "UnhealthyThreshold": 2
+          },
+          "SecurityGroups": [
+            "sg-7e9ef71b"
+          ],
+          "LoadBalancerName": "bastion-vpn-lb",
+          "AvailabilityZones": [
+            "us-west-1a",
+            "us-west-1c"
+          ],
+          "SourceSecurityGroup": {
+            "GroupName": "bastion-vpn-sg",
+            "OwnerAlias": "933693344490"
+          },
+          "ListenerDescriptions": [
+            {
+              "Listener": {
+                "Protocol": "TCP",
+                "InstancePort": 1194,
+                "InstanceProtocol": "TCP",
+                "LoadBalancerPort": 1194,
+                "SSLCertificateId": null
+              },
+              "PolicyNames": []
+            }
+          ],
+          "CanonicalHostedZoneName": "bastion-vpn-lb-1855726553.us-west-1.elb.amazonaws.com",
+          "CanonicalHostedZoneNameID": "Z1M58G0W56PQJA"
+        },
+        "instance_count": 1
       },
       {
-        "GroupId":"sg-d39a43b6",
-        "GroupName":"databas",
-        "Description":"postgresql"
+        "group": {
+          "VPCId": "vpc-79b1491c",
+          "Scheme": "internal",
+          "DNSName": "internal-c1-us-west-1-ssh-1605792065.us-west-1.elb.amazonaws.com",
+          "Subnets": [
+            "subnet-0378a966",
+            "subnet-eccedfaa"
+          ],
+          "Instances": [
+            {
+              "InstanceId": "i-38aae6fa"
+            },
+            {
+              "InstanceId": "i-39aae6fb"
+            }
+          ],
+          "CreatedTime": "2015-07-02T23:44:01.12Z",
+          "HealthCheck": {
+            "Target": "TCP:22",
+            "Timeout": 5,
+            "Interval": 30,
+            "HealthyThreshold": 5,
+            "UnhealthyThreshold": 2
+          },
+          "SecurityGroups": [
+            "sg-52a42237"
+          ],
+          "LoadBalancerName": "c1-us-west-1-ssh",
+          "AvailabilityZones": [
+            "us-west-1a",
+            "us-west-1c"
+          ],
+          "SourceSecurityGroup": {
+            "GroupName": "cluster1-ssh-lb",
+            "OwnerAlias": "933693344490"
+          },
+          "ListenerDescriptions": [
+            {
+              "Listener": {
+                "Protocol": "TCP",
+                "InstancePort": 22,
+                "InstanceProtocol": "TCP",
+                "LoadBalancerPort": 9122,
+                "SSLCertificateId": null
+              },
+              "PolicyNames": []
+            }
+          ],
+          "CanonicalHostedZoneName": "",
+          "CanonicalHostedZoneNameID": "Z1M58G0W56PQJA"
+        },
+        "instance_count": 2
       },
       {
-        "GroupId":"sg-95602cf0",
-        "GroupName":"opsee-bastion-b8ff1bea-710c-11e5-bee8-43cf2e78c31a-BastionSecurityGroup-HS26C6QWGQNW",
-        "Description":"Bastion SecurityGroup"
+        "group": {
+          "VPCId": "vpc-79b1491c",
+          "Scheme": "internet-facing",
+          "DNSName": "lasape-1758986398.us-west-1.elb.amazonaws.com",
+          "Subnets": [
+            "subnet-0378a966",
+            "subnet-eccedfaa"
+          ],
+          "Instances": [
+            {
+              "InstanceId": "i-39aae6fb"
+            }
+          ],
+          "CreatedTime": "2015-05-26T18:29:49.79Z",
+          "HealthCheck": {
+            "Target": "HTTP:80/index.html",
+            "Timeout": 5,
+            "Interval": 30,
+            "HealthyThreshold": 5,
+            "UnhealthyThreshold": 2
+          },
+          "SecurityGroups": [
+            "sg-5f65e13a"
+          ],
+          "LoadBalancerName": "lasape",
+          "AvailabilityZones": [
+            "us-west-1c",
+            "us-west-1a"
+          ],
+          "SourceSecurityGroup": {
+            "GroupName": "staging",
+            "OwnerAlias": "933693344490"
+          },
+          "ListenerDescriptions": [
+            {
+              "Listener": {
+                "Protocol": "HTTP",
+                "InstancePort": 80,
+                "InstanceProtocol": "HTTP",
+                "LoadBalancerPort": 80,
+                "SSLCertificateId": null
+              },
+              "PolicyNames": []
+            }
+          ],
+          "CanonicalHostedZoneName": "lasape-1758986398.us-west-1.elb.amazonaws.com",
+          "CanonicalHostedZoneNameID": "Z1M58G0W56PQJA"
+        },
+        "instance_count": 1
       },
       {
-        "GroupId":"sg-14d99571",
-        "GroupName":"mami-sg-KU3K29f7WPNUJHHAtQ1kV",
-        "Description":"mami temporary sg"
+        "group": {
+          "VPCId": "vpc-79b1491c",
+          "Scheme": "internal",
+          "DNSName": "internal-nsqd-lb-1648761947.us-west-1.elb.amazonaws.com",
+          "Subnets": [
+            "subnet-0378a966",
+            "subnet-eccedfaa"
+          ],
+          "Instances": [
+            {
+              "InstanceId": "i-38aae6fa"
+            }
+          ],
+          "CreatedTime": "2015-08-27T23:55:14.74Z",
+          "HealthCheck": {
+            "Target": "TCP:4150",
+            "Timeout": 5,
+            "Interval": 30,
+            "HealthyThreshold": 5,
+            "UnhealthyThreshold": 2
+          },
+          "SecurityGroups": [
+            "sg-9a016bff"
+          ],
+          "LoadBalancerName": "nsqd-lb",
+          "AvailabilityZones": [
+            "us-west-1a",
+            "us-west-1c"
+          ],
+          "SourceSecurityGroup": {
+            "GroupName": "nsqd-lb",
+            "OwnerAlias": "933693344490"
+          },
+          "ListenerDescriptions": [
+            {
+              "Listener": {
+                "Protocol": "TCP",
+                "InstancePort": 4150,
+                "InstanceProtocol": "TCP",
+                "LoadBalancerPort": 4150,
+                "SSLCertificateId": null
+              },
+              "PolicyNames": []
+            },
+            {
+              "Listener": {
+                "Protocol": "HTTP",
+                "InstancePort": 4151,
+                "InstanceProtocol": "HTTP",
+                "LoadBalancerPort": 4151,
+                "SSLCertificateId": null
+              },
+              "PolicyNames": []
+            }
+          ],
+          "CanonicalHostedZoneName": "",
+          "CanonicalHostedZoneNameID": "Z1M58G0W56PQJA"
+        },
+        "instance_count": 1
       },
       {
-        "GroupId":"sg-59fab63c",
-        "GroupName":"mami-sg-3JbrVMOY12UrsV3qc0wdxW",
-        "Description":"mami temporary sg"
+        "group": {
+          "VPCId": "vpc-79b1491c",
+          "Scheme": "internal",
+          "DNSName": "internal-nsqlookupd-1-lb-740052419.us-west-1.elb.amazonaws.com",
+          "Subnets": [
+            "subnet-0378a966",
+            "subnet-eccedfaa"
+          ],
+          "Instances": [],
+          "CreatedTime": "2015-09-10T16:46:26.86Z",
+          "HealthCheck": {
+            "Target": "HTTP:4161/ping",
+            "Timeout": 5,
+            "Interval": 10,
+            "HealthyThreshold": 2,
+            "UnhealthyThreshold": 2
+          },
+          "SecurityGroups": [
+            "sg-6fa4d90a"
+          ],
+          "LoadBalancerName": "nsqlookupd-1-lb",
+          "AvailabilityZones": [
+            "us-west-1a",
+            "us-west-1c"
+          ],
+          "SourceSecurityGroup": {
+            "GroupName": "nsqlookupd-lb",
+            "OwnerAlias": "933693344490"
+          },
+          "ListenerDescriptions": [
+            {
+              "Listener": {
+                "Protocol": "HTTP",
+                "InstancePort": 4161,
+                "InstanceProtocol": "HTTP",
+                "LoadBalancerPort": 4161,
+                "SSLCertificateId": null
+              },
+              "PolicyNames": []
+            },
+            {
+              "Listener": {
+                "Protocol": "TCP",
+                "InstancePort": 4160,
+                "InstanceProtocol": "TCP",
+                "LoadBalancerPort": 4160,
+                "SSLCertificateId": null
+              },
+              "PolicyNames": []
+            }
+          ],
+          "CanonicalHostedZoneName": "",
+          "CanonicalHostedZoneNameID": "Z1M58G0W56PQJA"
+        },
+        "instance_count": 0
       },
       {
-        "GroupId":"sg-d7400db2",
-        "GroupName":"mami-sg-YE0aRsIw4YArNP7KJdZ8h",
-        "Description":"mami temporary sg"
+        "group": {
+          "VPCId": "vpc-79b1491c",
+          "Scheme": "internal",
+          "DNSName": "internal-nsqlookupd-2-lb-1883800016.us-west-1.elb.amazonaws.com",
+          "Subnets": [
+            "subnet-0378a966",
+            "subnet-eccedfaa"
+          ],
+          "Instances": [],
+          "CreatedTime": "2015-09-10T16:41:36.83Z",
+          "HealthCheck": {
+            "Target": "HTTP:4160/ping",
+            "Timeout": 5,
+            "Interval": 10,
+            "HealthyThreshold": 2,
+            "UnhealthyThreshold": 2
+          },
+          "SecurityGroups": [
+            "sg-6fa4d90a"
+          ],
+          "LoadBalancerName": "nsqlookupd-2-lb",
+          "AvailabilityZones": [
+            "us-west-1a",
+            "us-west-1c"
+          ],
+          "SourceSecurityGroup": {
+            "GroupName": "nsqlookupd-lb",
+            "OwnerAlias": "933693344490"
+          },
+          "ListenerDescriptions": [
+            {
+              "Listener": {
+                "Protocol": "HTTP",
+                "InstancePort": 4160,
+                "InstanceProtocol": "HTTP",
+                "LoadBalancerPort": 4161,
+                "SSLCertificateId": null
+              },
+              "PolicyNames": []
+            },
+            {
+              "Listener": {
+                "Protocol": "TCP",
+                "InstancePort": 4160,
+                "InstanceProtocol": "TCP",
+                "LoadBalancerPort": 4160,
+                "SSLCertificateId": null
+              },
+              "PolicyNames": []
+            }
+          ],
+          "CanonicalHostedZoneName": "",
+          "CanonicalHostedZoneNameID": "Z1M58G0W56PQJA"
+        },
+        "instance_count": 0
       },
       {
-        "GroupId":"sg-3ff6ba5a",
-        "GroupName":"mami-sg-132IigzMXvvKEmrcTOJttI",
-        "Description":"mami temporary sg"
+        "group": {
+          "VPCId": "vpc-79b1491c",
+          "Scheme": "internal",
+          "DNSName": "internal-vape-private-lb-1104202630.us-west-1.elb.amazonaws.com",
+          "Subnets": [
+            "subnet-0378a966",
+            "subnet-eccedfaa"
+          ],
+          "Instances": [
+            {
+              "InstanceId": "i-20f122e5"
+            },
+            {
+              "InstanceId": "i-38aae6fa"
+            },
+            {
+              "InstanceId": "i-39aae6fb"
+            }
+          ],
+          "CreatedTime": "2015-08-28T22:38:41.53Z",
+          "HealthCheck": {
+            "Target": "HTTP:9091/health",
+            "Timeout": 5,
+            "Interval": 30,
+            "HealthyThreshold": 2,
+            "UnhealthyThreshold": 2
+          },
+          "SecurityGroups": [
+            "sg-3ae48e5f"
+          ],
+          "LoadBalancerName": "vape-private-lb",
+          "AvailabilityZones": [
+            "us-west-1a",
+            "us-west-1c"
+          ],
+          "SourceSecurityGroup": {
+            "GroupName": "private auth tier",
+            "OwnerAlias": "933693344490"
+          },
+          "ListenerDescriptions": [
+            {
+              "Listener": {
+                "Protocol": "HTTPS",
+                "InstancePort": 9091,
+                "InstanceProtocol": "HTTP",
+                "LoadBalancerPort": 443,
+                "SSLCertificateId": "arn:aws:iam::933693344490:server-certificate/OpsyCoWildcard"
+              },
+              "PolicyNames": [
+                "AWSConsole-SSLNegotiationPolicy-vape-private-lb-1440801521805"
+              ]
+            }
+          ],
+          "CanonicalHostedZoneName": "",
+          "CanonicalHostedZoneNameID": "Z1M58G0W56PQJA"
+        },
+        "instance_count": 3
       },
       {
-        "GroupId":"sg-44a8e721",
-        "GroupName":"motorn",
-        "Description":"app proxy security group"
+        "group": {
+          "VPCId": "vpc-79b1491c",
+          "Scheme": "internet-facing",
+          "DNSName": "vape-public-lb-1058661806.us-west-1.elb.amazonaws.com",
+          "Subnets": [
+            "subnet-0378a966",
+            "subnet-eccedfaa"
+          ],
+          "Instances": [
+            {
+              "InstanceId": "i-38aae6fa"
+            },
+            {
+              "InstanceId": "i-39aae6fb"
+            }
+          ],
+          "CreatedTime": "2015-08-28T22:13:04.78Z",
+          "HealthCheck": {
+            "Target": "HTTP:8081/health",
+            "Timeout": 5,
+            "Interval": 30,
+            "HealthyThreshold": 10,
+            "UnhealthyThreshold": 2
+          },
+          "SecurityGroups": [
+            "sg-4ae18b2f"
+          ],
+          "LoadBalancerName": "vape-public-lb",
+          "AvailabilityZones": [
+            "us-west-1a",
+            "us-west-1c"
+          ],
+          "SourceSecurityGroup": {
+            "GroupName": "auth tier",
+            "OwnerAlias": "933693344490"
+          },
+          "ListenerDescriptions": [
+            {
+              "Listener": {
+                "Protocol": "HTTPS",
+                "InstancePort": 8081,
+                "InstanceProtocol": "HTTP",
+                "LoadBalancerPort": 443,
+                "SSLCertificateId": "arn:aws:iam::933693344490:server-certificate/OpseeCoWildcard"
+              },
+              "PolicyNames": [
+                "AWSConsole-SSLNegotiationPolicy-vape-public-lb-1440799985510"
+              ]
+            }
+          ],
+          "CanonicalHostedZoneName": "vape-public-lb-1058661806.us-west-1.elb.amazonaws.com",
+          "CanonicalHostedZoneNameID": "Z1M58G0W56PQJA"
+        },
+        "instance_count": 2
       },
       {
-        "GroupId":"sg-bdfcb0d8",
-        "GroupName":"mami-sg-4GOYWBV7B8oMOt1LlJCJyt",
-        "Description":"mami temporary sg"
-      },
-      {
-        "GroupId":"sg-ebf8b48e",
-        "GroupName":"mami-sg-5fw3YtLNg7qB3phvljbHle",
-        "Description":"mami temporary sg"
-      },
-      {
-        "GroupId":"sg-6fa4d90a",
-        "GroupName":"nsqlookupd-lb",
-        "Description":"nsqlookupd-lb"
-      },
-      {
-        "GroupId":"sg-4ae18b2f",
-        "GroupName":"auth tier",
-        "Description":"for public authentication of users"
-      },
-      {
-        "GroupId":"sg-73730b16",
-        "GroupName":"opsee-bastion-ea7380f0-5d5a-11e5-92b6-83a2258ade3a-BastionSecurityGroup-M1F3JI3ADBMU",
-        "Description":"Bastion SecurityGroup"
-      },
-      {
-        "GroupId":"sg-0df2be68",
-        "GroupName":"mami-sg-3ltOIULovAbiQb2DED2duA",
-        "Description":"mami temporary sg"
-      },
-      {
-        "GroupId":"sg-9a016bff",
-        "GroupName":"nsqd-lb",
-        "Description":"NSQD LB Security Group"
-      },
-      {
-        "GroupId":"sg-bce5a8d9",
-        "GroupName":"opsee-bastion-07f1d9fc-7010-11e5-b357-cf9955d76f48-BastionSecurityGroup-NHPG1B3G89JZ",
-        "Description":"Bastion SecurityGroup"
-      },
-      {
-        "GroupId":"sg-52a42237",
-        "GroupName":"cluster1-ssh-lb",
-        "Description":"quick-create-1 created on Monday, June 1, 2015 10:54:48 AM UTC-7"
-      },
-      {
-        "GroupId":"sg-3ae48e5f",
-        "GroupName":"private auth tier",
-        "Description":"for authentication of bastions"
-      },
-      {
-        "GroupId":"sg-c852dbad",
-        "GroupName":"c1-us-west-1",
-        "Description":"CoreOS Cluster 1 US-West-1"
-      },
-      {
-        "GroupId":"sg-1227fa77",
-        "GroupName":"default",
-        "Description":"default VPC security group"
-      },
-      {
-        "GroupId":"sg-68d6ae0d",
-        "GroupName":"app-com-lb",
-        "Description":"app lb security group for .com"
-      },
-      {
-        "GroupId":"sg-ffdea69a",
-        "GroupName":"api-opsee-com",
-        "Description":"api lb for opsee.com"
-      },
-      {
-        "GroupId":"sg-a5067cc0",
-        "GroupName":"rds-launch-wizard",
-        "Description":"Created from the RDS Management Console"
-      },
-      {
-        "GroupId":"sg-21773944",
-        "GroupName":"opsee-bastion-fa5c7370-7405-11e5-b74c-4f0fe99f759b-BastionSecurityGroup-18TXMW2YO45E6",
-        "Description":"Bastion SecurityGroup"
-      },
-      {
-        "GroupId":"sg-c70f40a2",
-        "GroupName":"mami-sg-5ck604LUs9GbtxNiduwmMh",
-        "Description":"mami temporary sg"
-      },
-      {
-        "GroupId":"sg-5f65e13a",
-        "GroupName":"staging",
-        "Description":"Staging Enviroment"
-      },
-      {
-        "GroupId":"sg-a6bff2c3",
-        "GroupName":"opsee-bastion-a6c6c50e-6f9a-11e5-8265-b32360ed8aa0-BastionSecurityGroup-1MMCCIAVI1DSH",
-        "Description":"Bastion SecurityGroup"
-      },
-      {
-        "GroupId":"sg-69f7bb0c",
-        "GroupName":"mami-sg-4dNFKEyAa3qsS6rkCkun8Y",
-        "Description":"mami temporary sg"
-      },
-      {
-        "GroupId":"sg-109ce175",
-        "GroupName":"nsqadmin-lb",
-        "Description":"nsqadmin-lb"
-      },
-      {
-        "GroupId":"sg-9ba2ecfe",
-        "GroupName":"opsee-bastion-ce999108-7452-11e5-b74e-07bd26796ac9-BastionSecurityGroup-1OJNDGVDQNR7Q",
-        "Description":"Bastion SecurityGroup"
-      },
-      {
-        "GroupId":"sg-350d4250",
-        "GroupName":"mami-sg-7GhrxPzuKr0LFdn4NaCCHg",
-        "Description":"mami temporary sg"
-      },
-      {
-        "GroupId":"sg-65a9e600",
-        "GroupName":"ECS",
-        "Description":"ECS security group"
-      },
-      {
-        "GroupId":"sg-81fbb7e4",
-        "GroupName":"mami-sg-2IUhAyeQLCwNkj3dSbsrJW",
-        "Description":"mami temporary sg"
-      },
-      {
-        "GroupId":"sg-90d496f5",
-        "GroupName":"opsee-bastion-33b20488-6e10-11e5-934a-67c1ad2fee30-BastionSecurityGroup-1MSY144JF52UJ",
-        "Description":"Bastion SecurityGroup"
-      },
-      {
-        "GroupId":"sg-6d377a08",
-        "GroupName":"opsee-bastion-f7aa08a8-6eb6-11e5-934b-0b9ef18cda34-BastionSecurityGroup-1CXAXA2JPZWHH",
-        "Description":"Bastion SecurityGroup"
-      },
-      {
-        "GroupId":"sg-d2fab6b7",
-        "GroupName":"mami-sg-16TvCu87vmUltbEgijN4eT",
-        "Description":"mami temporary sg"
-      },
-      {
-        "GroupId":"sg-7e9ef71b",
-        "GroupName":"bastion-vpn-sg",
-        "Description":"Bastion VPN Security Group"
-      },
-      {
-        "GroupId":"sg-558ac430",
-        "GroupName":"opsee-bastion-10bb1838-7415-11e5-b74d-77b988780635-BastionSecurityGroup-P4JYXOLPCS7G",
-        "Description":"Bastion SecurityGroup"
-      },
-      {
-        "GroupId":"sg-df6de4ba",
-        "GroupName":"OpenVPN Access Server -HVM--2-0-17-AutogenByAWSMP-",
-        "Description":"This security group was generated by AWS Marketplace and is based on recommended settings for OpenVPN Access Server HVM version 2.0.17 provided by OpenVPN Technologies Inc."
-      },
-      {
-        "GroupId":"sg-02bff267",
-        "GroupName":"mami-sg-4lpSiEIchLAn0mgDVs0NfY",
-        "Description":"mami temporary sg"
-      },
-      {
-        "GroupId":"sg-b2bdf0d7",
-        "GroupName":"mami-sg-5xoYrqzEEAOJQ1JiAAHWuJ",
-        "Description":"mami temporary sg"
-      },
-      {
-        "GroupId":"sg-37047e52",
-        "GroupName":"rds-launch-wizard-1",
-        "Description":"Created from the RDS Management Console"
-      },
-      {
-        "GroupId":"sg-d7d0a9b2",
-        "GroupName":"instance-store-lb",
-        "Description":"instance store load balancer"
-      },
-      {
-        "GroupId":"sg-92470af7",
-        "GroupName":"mami-sg-2SyNNnbq5kRyF7iG5rLkwj",
-        "Description":"mami temporary sg"
-      },
-      {
-        "GroupId":"sg-2a05494f",
-        "GroupName":"mami-sg-496EmeL0LsCIXOcKMIfz6k",
-        "Description":"mami temporary sg"
-      },
-      {
-        "GroupId":"sg-cbf3bfae",
-        "GroupName":"mami-sg-1Teir4IN0fYqc46J5UdWB1",
-        "Description":"mami temporary sg"
-      },
-      {
-        "GroupId":"sg-ac528bc9",
-        "GroupName":"api-lb",
-        "Description":"opsee api tier lb"
-      },
-      {
-        "GroupId":"sg-263f7143",
-        "GroupName":"opsee-bastion-69bc048e-738d-11e5-856a-9b7d01a5d3e7-BastionSecurityGroup-IPWOGOK6IZE6",
-        "Description":"Bastion SecurityGroup"
-      },
-      {
-        "GroupId":"sg-0b4c016e",
-        "GroupName":"opsee-bastion-12d5fdf8-6ec1-11e5-a403-eba32f55d990-BastionSecurityGroup-17WFNFBZMOH95",
-        "Description":"Bastion SecurityGroup"
+        "group": {
+          "VPCId": "vpc-79b1491c",
+          "Scheme": "internet-facing",
+          "DNSName": "webhooks-65263778.us-west-1.elb.amazonaws.com",
+          "Subnets": [
+            "subnet-0378a966",
+            "subnet-eccedfaa"
+          ],
+          "Instances": [
+            {
+              "InstanceId": "i-38aae6fa"
+            },
+            {
+              "InstanceId": "i-39aae6fb"
+            }
+          ],
+          "CreatedTime": "2015-07-10T20:59:23.45Z",
+          "HealthCheck": {
+            "Target": "HTTP:20000/health",
+            "Timeout": 5,
+            "Interval": 30,
+            "HealthyThreshold": 5,
+            "UnhealthyThreshold": 2
+          },
+          "SecurityGroups": [
+            "sg-5f65e13a"
+          ],
+          "LoadBalancerName": "webhooks",
+          "AvailabilityZones": [
+            "us-west-1a",
+            "us-west-1c"
+          ],
+          "SourceSecurityGroup": {
+            "GroupName": "staging",
+            "OwnerAlias": "933693344490"
+          },
+          "ListenerDescriptions": [
+            {
+              "Listener": {
+                "Protocol": "HTTP",
+                "InstancePort": 20000,
+                "InstanceProtocol": "HTTP",
+                "LoadBalancerPort": 80,
+                "SSLCertificateId": null
+              },
+              "PolicyNames": []
+            },
+            {
+              "Listener": {
+                "Protocol": "HTTPS",
+                "InstancePort": 20000,
+                "InstanceProtocol": "HTTP",
+                "LoadBalancerPort": 443,
+                "SSLCertificateId": "arn:aws:iam::933693344490:server-certificate/OpsyCoWildcard"
+              },
+              "PolicyNames": [
+                "ELBSecurityPolicy-2015-05"
+              ]
+            }
+          ],
+          "CanonicalHostedZoneName": "webhooks-65263778.us-west-1.elb.amazonaws.com",
+          "CanonicalHostedZoneNameID": "Z1M58G0W56PQJA"
+        },
+        "instance_count": 2
       }
     ]
   },
-  "elbs":{
-    "groups":[
-      {
-        "Instances":[
-          {
-            "InstanceId":"i-38aae6fa"
-          },
-          {
-            "InstanceId":"i-39aae6fb"
-          }
-        ],
-        "Subnets":[
-          "subnet-0378a966",
-          "subnet-eccedfaa"
-        ],
-        "DNSName":"lasape-1758986398.us-west-1.elb.amazonaws.com",
-        "VPCId":"vpc-79b1491c",
-        "LoadBalancerName":"lasape",
-        "CanonicalHostedZoneName":"lasape-1758986398.us-west-1.elb.amazonaws.com",
-        "SourceSecurityGroup":{
-          "GroupName":"staging",
-          "OwnerAlias":"933693344490"
-        },
-        "AvailabilityZones":[
-          "us-west-1c",
-          "us-west-1a"
-        ],
-        "HealthCheck":{
-          "Target":"HTTP:80/index.html",
-          "Timeout":5,
-          "Interval":6,
-          "HealthyThreshold":2,
-          "UnhealthyThreshold":2
-        },
-        "SecurityGroups":[
-          "sg-5f65e13a"
-        ],
-        "ListenerDescriptions":[
-          {
-            "Listener":{
-              "Protocol":"HTTPS",
-              "InstancePort":80,
-              "InstanceProtocol":"HTTP",
-              "LoadBalancerPort":443,
-              "SSLCertificateId":"arn:aws:iam::933693344490:server-certificate/cloudfront/OpseeComWildcard"
-            },
-            "PolicyNames":[
-              "ELBSecurityPolicy-2015-05"
-            ]
-          }
-        ],
-        "CreatedTime":"2015-05-26T18:29:49.79Z",
-        "Scheme":"internet-facing",
-        "CanonicalHostedZoneNameID":"Z1M58G0W56PQJA"
-      },
-      {
-        "Instances":[
-          {
-            "InstanceId":"i-38aae6fa"
-          },
-          {
-            "InstanceId":"i-39aae6fb"
-          }
-        ],
-        "Subnets":[
-          "subnet-0378a966",
-          "subnet-eccedfaa"
-        ],
-        "DNSName":"webhooks-65263778.us-west-1.elb.amazonaws.com",
-        "VPCId":"vpc-79b1491c",
-        "LoadBalancerName":"webhooks",
-        "CanonicalHostedZoneName":"webhooks-65263778.us-west-1.elb.amazonaws.com",
-        "SourceSecurityGroup":{
-          "GroupName":"staging",
-          "OwnerAlias":"933693344490"
-        },
-        "AvailabilityZones":[
-          "us-west-1a",
-          "us-west-1c"
-        ],
-        "HealthCheck":{
-          "Target":"HTTP:20000/health",
-          "Timeout":5,
-          "Interval":30,
-          "HealthyThreshold":5,
-          "UnhealthyThreshold":2
-        },
-        "SecurityGroups":[
-          "sg-5f65e13a"
-        ],
-        "ListenerDescriptions":[
-          {
-            "Listener":{
-              "Protocol":"HTTP",
-              "InstancePort":20000,
-              "InstanceProtocol":"HTTP",
-              "LoadBalancerPort":80,
-              "SSLCertificateId":null
-            },
-            "PolicyNames":null
-          },
-          {
-            "Listener":{
-              "Protocol":"HTTPS",
-              "InstancePort":20000,
-              "InstanceProtocol":"HTTP",
-              "LoadBalancerPort":443,
-              "SSLCertificateId":"arn:aws:iam::933693344490:server-certificate/OpsyCoWildcard"
-            },
-            "PolicyNames":[
-              "ELBSecurityPolicy-2015-05"
-            ]
-          }
-        ],
-        "CreatedTime":"2015-07-10T20:59:23.45Z",
-        "Scheme":"internet-facing",
-        "CanonicalHostedZoneNameID":"Z1M58G0W56PQJA"
-      },
-      {
-        "Instances":[
-          {
-            "InstanceId":"i-38aae6fa"
-          },
-          {
-            "InstanceId":"i-39aae6fb"
-          }
-        ],
-        "Subnets":[
-          "subnet-0378a966",
-          "subnet-eccedfaa"
-        ],
-        "DNSName":"internal-nsqd-lb-1648761947.us-west-1.elb.amazonaws.com",
-        "VPCId":"vpc-79b1491c",
-        "LoadBalancerName":"nsqd-lb",
-        "CanonicalHostedZoneName":"",
-        "SourceSecurityGroup":{
-          "GroupName":"nsqd-lb",
-          "OwnerAlias":"933693344490"
-        },
-        "AvailabilityZones":[
-          "us-west-1a",
-          "us-west-1c"
-        ],
-        "HealthCheck":{
-          "Target":"TCP:4150",
-          "Timeout":5,
-          "Interval":30,
-          "HealthyThreshold":5,
-          "UnhealthyThreshold":2
-        },
-        "SecurityGroups":[
-          "sg-9a016bff"
-        ],
-        "ListenerDescriptions":[
-          {
-            "Listener":{
-              "Protocol":"TCP",
-              "InstancePort":4150,
-              "InstanceProtocol":"TCP",
-              "LoadBalancerPort":4150,
-              "SSLCertificateId":null
-            },
-            "PolicyNames":null
-          },
-          {
-            "Listener":{
-              "Protocol":"HTTP",
-              "InstancePort":4151,
-              "InstanceProtocol":"HTTP",
-              "LoadBalancerPort":4151,
-              "SSLCertificateId":null
-            },
-            "PolicyNames":null
-          }
-        ],
-        "CreatedTime":"2015-08-27T23:55:14.74Z",
-        "Scheme":"internal",
-        "CanonicalHostedZoneNameID":"Z1M58G0W56PQJA"
-      },
-      {
-        "Instances":[
-          {
-            "InstanceId":"i-38aae6fa"
-          },
-          {
-            "InstanceId":"i-39aae6fb"
-          }
-        ],
-        "Subnets":[
-          "subnet-0378a966",
-          "subnet-eccedfaa"
-        ],
-        "DNSName":"internal-vape-private-lb-1104202630.us-west-1.elb.amazonaws.com",
-        "VPCId":"vpc-79b1491c",
-        "LoadBalancerName":"vape-private-lb",
-        "CanonicalHostedZoneName":"",
-        "SourceSecurityGroup":{
-          "GroupName":"private auth tier",
-          "OwnerAlias":"933693344490"
-        },
-        "AvailabilityZones":[
-          "us-west-1a",
-          "us-west-1c"
-        ],
-        "HealthCheck":{
-          "Target":"HTTP:9091/health",
-          "Timeout":5,
-          "Interval":30,
-          "HealthyThreshold":2,
-          "UnhealthyThreshold":2
-        },
-        "SecurityGroups":[
-          "sg-3ae48e5f"
-        ],
-        "ListenerDescriptions":[
-          {
-            "Listener":{
-              "Protocol":"HTTPS",
-              "InstancePort":9091,
-              "InstanceProtocol":"HTTP",
-              "LoadBalancerPort":443,
-              "SSLCertificateId":"arn:aws:iam::933693344490:server-certificate/OpsyCoWildcard"
-            },
-            "PolicyNames":[
-              "AWSConsole-SSLNegotiationPolicy-vape-private-lb-1440801521805"
-            ]
-          }
-        ],
-        "CreatedTime":"2015-08-28T22:38:41.53Z",
-        "Scheme":"internal",
-        "CanonicalHostedZoneNameID":"Z1M58G0W56PQJA"
-      },
-      {
-        "Instances":[
-          {
-            "InstanceId":"i-38aae6fa"
-          },
-          {
-            "InstanceId":"i-39aae6fb"
-          }
-        ],
-        "Subnets":[
-          "subnet-0378a966",
-          "subnet-eccedfaa"
-        ],
-        "DNSName":"internal-nsqadmin-lb-903660143.us-west-1.elb.amazonaws.com",
-        "VPCId":"vpc-79b1491c",
-        "LoadBalancerName":"nsqadmin-lb",
-        "CanonicalHostedZoneName":"",
-        "SourceSecurityGroup":{
-          "GroupName":"nsqadmin-lb",
-          "OwnerAlias":"933693344490"
-        },
-        "AvailabilityZones":[
-          "us-west-1a",
-          "us-west-1c"
-        ],
-        "HealthCheck":{
-          "Target":"HTTP:4171/",
-          "Timeout":5,
-          "Interval":30,
-          "HealthyThreshold":4,
-          "UnhealthyThreshold":2
-        },
-        "SecurityGroups":[
-          "sg-109ce175"
-        ],
-        "ListenerDescriptions":[
-          {
-            "Listener":{
-              "Protocol":"HTTP",
-              "InstancePort":4171,
-              "InstanceProtocol":"HTTP",
-              "LoadBalancerPort":80,
-              "SSLCertificateId":null
-            },
-            "PolicyNames":null
-          }
-        ],
-        "CreatedTime":"2015-09-10T17:42:42.04Z",
-        "Scheme":"internal",
-        "CanonicalHostedZoneNameID":"Z1M58G0W56PQJA"
-      },
-      {
-        "Instances":[
-          {
-            "InstanceId":"i-20f122e5"
-          },
-          {
-            "InstanceId":"i-39aae6fb"
-          }
-        ],
-        "Subnets":[
-          "subnet-0378a966",
-          "subnet-eccedfaa"
-        ],
-        "DNSName":"app-lb-com-2111889638.us-west-1.elb.amazonaws.com",
-        "VPCId":"vpc-79b1491c",
-        "LoadBalancerName":"app-lb-com",
-        "CanonicalHostedZoneName":"app-lb-com-2111889638.us-west-1.elb.amazonaws.com",
-        "SourceSecurityGroup":{
-          "GroupName":"app-com-lb",
-          "OwnerAlias":"933693344490"
-        },
-        "AvailabilityZones":[
-          "us-west-1a",
-          "us-west-1c"
-        ],
-        "HealthCheck":{
-          "Target":"HTTP:80/index.html",
-          "Timeout":5,
-          "Interval":30,
-          "HealthyThreshold":2,
-          "UnhealthyThreshold":2
-        },
-        "SecurityGroups":[
-          "sg-68d6ae0d"
-        ],
-        "ListenerDescriptions":[
-          {
-            "Listener":{
-              "Protocol":"HTTPS",
-              "InstancePort":443,
-              "InstanceProtocol":"HTTPS",
-              "LoadBalancerPort":443,
-              "SSLCertificateId":"arn:aws:iam::933693344490:server-certificate/cloudfront/OpseeComWildcard"
-            },
-            "PolicyNames":[
-              "AWSConsole-SSLNegotiationPolicy-app-lb-com-1442619084403"
-            ]
-          },
-          {
-            "Listener":{
-              "Protocol":"TCP",
-              "InstancePort":4080,
-              "InstanceProtocol":"TCP",
-              "LoadBalancerPort":4080,
-              "SSLCertificateId":null
-            },
-            "PolicyNames":null
-          }
-        ],
-        "CreatedTime":"2015-09-18T23:31:23.15Z",
-        "Scheme":"internet-facing",
-        "CanonicalHostedZoneNameID":"Z1M58G0W56PQJA"
-      },
-      {
-        "Instances":[
-          {
-            "InstanceId":"i-20f122e5"
-          },
-          {
-            "InstanceId":"i-38aae6fa"
-          },
-          {
-            "InstanceId":"i-39aae6fb"
-          },
-          {
-            "InstanceId":"i-822ff347"
-          }
-        ],
-        "Subnets":[
-          "subnet-0378a966",
-          "subnet-eccedfaa"
-        ],
-        "DNSName":"api-lb-com-1143078159.us-west-1.elb.amazonaws.com",
-        "VPCId":"vpc-79b1491c",
-        "LoadBalancerName":"api-lb-com",
-        "CanonicalHostedZoneName":"api-lb-com-1143078159.us-west-1.elb.amazonaws.com",
-        "SourceSecurityGroup":{
-          "GroupName":"api-opsee-com",
-          "OwnerAlias":"933693344490"
-        },
-        "AvailabilityZones":[
-          "us-west-1a",
-          "us-west-1c"
-        ],
-        "HealthCheck":{
-          "Target":"HTTP:8080/health_check",
-          "Timeout":5,
-          "Interval":30,
-          "HealthyThreshold":2,
-          "UnhealthyThreshold":2
-        },
-        "SecurityGroups":[
-          "sg-ffdea69a"
-        ],
-        "ListenerDescriptions":[
-          {
-            "Listener":{
-              "Protocol":"HTTPS",
-              "InstancePort":80,
-              "InstanceProtocol":"HTTP",
-              "LoadBalancerPort":443,
-              "SSLCertificateId":"arn:aws:iam::933693344490:server-certificate/cloudfront/OpseeComWildcard"
-            },
-            "PolicyNames":[
-              "AWSConsole-SSLNegotiationPolicy-api-lb-com-1442608382628"
-            ]
-          },
-          {
-            "Listener":{
-              "Protocol":"SSL",
-              "InstancePort":4080,
-              "InstanceProtocol":"SSL",
-              "LoadBalancerPort":4080,
-              "SSLCertificateId":"arn:aws:iam::933693344490:server-certificate/cloudfront/OpseeComWildcard"
-            },
-            "PolicyNames":[
-              "AWSConsole-SSLNegotiationPolicy-api-lb-com-1442608382628"
-            ]
-          }
-        ],
-        "CreatedTime":"2015-09-18T20:33:00.34Z",
-        "Scheme":"internet-facing",
-        "CanonicalHostedZoneNameID":"Z1M58G0W56PQJA"
-      },
-      {
-        "Instances":[
-          {
-            "InstanceId":"i-38aae6fa"
-          },
-          {
-            "InstanceId":"i-39aae6fb"
-          }
-        ],
-        "Subnets":[
-          "subnet-0378a966",
-          "subnet-eccedfaa"
-        ],
-        "DNSName":"internal-instance-store-lb-71661513.us-west-1.elb.amazonaws.com",
-        "VPCId":"vpc-79b1491c",
-        "LoadBalancerName":"instance-store-lb",
-        "CanonicalHostedZoneName":"",
-        "SourceSecurityGroup":{
-          "GroupName":"instance-store-lb",
-          "OwnerAlias":"933693344490"
-        },
-        "AvailabilityZones":[
-          "us-west-1a",
-          "us-west-1c"
-        ],
-        "HealthCheck":{
-          "Target":"HTTP:9092/health",
-          "Timeout":2,
-          "Interval":5,
-          "HealthyThreshold":5,
-          "UnhealthyThreshold":2
-        },
-        "SecurityGroups":[
-          "sg-d7d0a9b2"
-        ],
-        "ListenerDescriptions":[
-          {
-            "Listener":{
-              "Protocol":"HTTPS",
-              "InstancePort":9092,
-              "InstanceProtocol":"HTTP",
-              "LoadBalancerPort":443,
-              "SSLCertificateId":"arn:aws:iam::933693344490:server-certificate/OpsyCoWildcard"
-            },
-            "PolicyNames":[
-              "AWSConsole-SSLNegotiationPolicy-instance-store-lb-1442450119135"
-            ]
-          }
-        ],
-        "CreatedTime":"2015-09-17T00:35:18.26Z",
-        "Scheme":"internal",
-        "CanonicalHostedZoneNameID":"Z1M58G0W56PQJA"
-      },
-      {
-        "Instances":[
-          {
-            "InstanceId":"i-38aae6fa"
-          },
-          {
-            "InstanceId":"i-39aae6fb"
-          }
-        ],
-        "Subnets":[
-          "subnet-0378a966",
-          "subnet-eccedfaa"
-        ],
-        "DNSName":"api-lb-869858987.us-west-1.elb.amazonaws.com",
-        "VPCId":"vpc-79b1491c",
-        "LoadBalancerName":"api-lb",
-        "CanonicalHostedZoneName":"api-lb-869858987.us-west-1.elb.amazonaws.com",
-        "SourceSecurityGroup":{
-          "GroupName":"api-lb",
-          "OwnerAlias":"933693344490"
-        },
-        "AvailabilityZones":[
-          "us-west-1c",
-          "us-west-1a"
-        ],
-        "HealthCheck":{
-          "Target":"HTTP:8080/health_check",
-          "Timeout":5,
-          "Interval":30,
-          "HealthyThreshold":2,
-          "UnhealthyThreshold":2
-        },
-        "SecurityGroups":[
-          "sg-ac528bc9"
-        ],
-        "ListenerDescriptions":[
-          {
-            "Listener":{
-              "Protocol":"SSL",
-              "InstancePort":4080,
-              "InstanceProtocol":"TCP",
-              "LoadBalancerPort":4080,
-              "SSLCertificateId":"arn:aws:iam::933693344490:server-certificate/OpseeCoWildcard"
-            },
-            "PolicyNames":[
-              "ELBSecurityPolicy-2015-05"
-            ]
-          },
-          {
-            "Listener":{
-              "Protocol":"SSL",
-              "InstancePort":8080,
-              "InstanceProtocol":"TCP",
-              "LoadBalancerPort":443,
-              "SSLCertificateId":"arn:aws:iam::933693344490:server-certificate/OpseeCoWildcard"
-            },
-            "PolicyNames":[
-              "ELBSecurityPolicy-2015-05"
-            ]
-          }
-        ],
-        "CreatedTime":"2015-01-20T02:45:57.55Z",
-        "Scheme":"internet-facing",
-        "CanonicalHostedZoneNameID":"Z1M58G0W56PQJA"
-      },
-      {
-        "Instances":[
-          {
-            "InstanceId":"i-20f122e5"
-          },
-          {
-            "InstanceId":"i-38aae6fa"
-          },
-          {
-            "InstanceId":"i-39aae6fb"
-          }
-        ],
-        "Subnets":[
-          "subnet-0378a966",
-          "subnet-eccedfaa"
-        ],
-        "DNSName":"internal-c1-us-west-1-ssh-1605792065.us-west-1.elb.amazonaws.com",
-        "VPCId":"vpc-79b1491c",
-        "LoadBalancerName":"c1-us-west-1-ssh",
-        "CanonicalHostedZoneName":"",
-        "SourceSecurityGroup":{
-          "GroupName":"cluster1-ssh-lb",
-          "OwnerAlias":"933693344490"
-        },
-        "AvailabilityZones":[
-          "us-west-1a",
-          "us-west-1c"
-        ],
-        "HealthCheck":{
-          "Target":"TCP:22",
-          "Timeout":3,
-          "Interval":5,
-          "HealthyThreshold":2,
-          "UnhealthyThreshold":2
-        },
-        "SecurityGroups":[
-          "sg-52a42237"
-        ],
-        "ListenerDescriptions":[
-          {
-            "Listener":{
-              "Protocol":"TCP",
-              "InstancePort":22,
-              "InstanceProtocol":"TCP",
-              "LoadBalancerPort":9122,
-              "SSLCertificateId":null
-            },
-            "PolicyNames":null
-          }
-        ],
-        "CreatedTime":"2015-07-02T23:44:01.12Z",
-        "Scheme":"internal",
-        "CanonicalHostedZoneNameID":"Z1M58G0W56PQJA"
-      },
-      {
-        "Instances":null,
-        "Subnets":[
-          "subnet-0378a966",
-          "subnet-eccedfaa"
-        ],
-        "DNSName":"bastion-vpn-lb-1855726553.us-west-1.elb.amazonaws.com",
-        "VPCId":"vpc-79b1491c",
-        "LoadBalancerName":"bastion-vpn-lb",
-        "CanonicalHostedZoneName":"bastion-vpn-lb-1855726553.us-west-1.elb.amazonaws.com",
-        "SourceSecurityGroup":{
-          "GroupName":"bastion-vpn-sg",
-          "OwnerAlias":"933693344490"
-        },
-        "AvailabilityZones":[
-          "us-west-1a",
-          "us-west-1c"
-        ],
-        "HealthCheck":{
-          "Target":"TCP:1194",
-          "Timeout":5,
-          "Interval":30,
-          "HealthyThreshold":5,
-          "UnhealthyThreshold":2
-        },
-        "SecurityGroups":[
-          "sg-7e9ef71b"
-        ],
-        "ListenerDescriptions":[
-          {
-            "Listener":{
-              "Protocol":"TCP",
-              "InstancePort":1194,
-              "InstanceProtocol":"TCP",
-              "LoadBalancerPort":1194,
-              "SSLCertificateId":null
-            },
-            "PolicyNames":null
-          }
-        ],
-        "CreatedTime":"2015-08-24T17:09:56.87Z",
-        "Scheme":"internet-facing",
-        "CanonicalHostedZoneNameID":"Z1M58G0W56PQJA"
-      },
-      {
-        "Instances":[
-          {
-            "InstanceId":"i-38aae6fa"
-          },
-          {
-            "InstanceId":"i-39aae6fb"
-          }
-        ],
-        "Subnets":[
-          "subnet-0378a966",
-          "subnet-eccedfaa"
-        ],
-        "DNSName":"vape-public-lb-1058661806.us-west-1.elb.amazonaws.com",
-        "VPCId":"vpc-79b1491c",
-        "LoadBalancerName":"vape-public-lb",
-        "CanonicalHostedZoneName":"vape-public-lb-1058661806.us-west-1.elb.amazonaws.com",
-        "SourceSecurityGroup":{
-          "GroupName":"auth tier",
-          "OwnerAlias":"933693344490"
-        },
-        "AvailabilityZones":[
-          "us-west-1a",
-          "us-west-1c"
-        ],
-        "HealthCheck":{
-          "Target":"HTTP:8081/health",
-          "Timeout":5,
-          "Interval":30,
-          "HealthyThreshold":10,
-          "UnhealthyThreshold":2
-        },
-        "SecurityGroups":[
-          "sg-4ae18b2f"
-        ],
-        "ListenerDescriptions":[
-          {
-            "Listener":{
-              "Protocol":"HTTPS",
-              "InstancePort":8081,
-              "InstanceProtocol":"HTTP",
-              "LoadBalancerPort":443,
-              "SSLCertificateId":"arn:aws:iam::933693344490:server-certificate/OpseeCoWildcard"
-            },
-            "PolicyNames":[
-              "AWSConsole-SSLNegotiationPolicy-vape-public-lb-1440799985510"
-            ]
-          }
-        ],
-        "CreatedTime":"2015-08-28T22:13:04.78Z",
-        "Scheme":"internet-facing",
-        "CanonicalHostedZoneNameID":"Z1M58G0W56PQJA"
-      },
-      {
-        "Instances":[
-          {
-            "InstanceId":"i-38aae6fa"
-          },
-          {
-            "InstanceId":"i-39aae6fb"
-          }
-        ],
-        "Subnets":[
-          "subnet-0378a966",
-          "subnet-eccedfaa"
-        ],
-        "DNSName":"beavis-lb-1688730013.us-west-1.elb.amazonaws.com",
-        "VPCId":"vpc-79b1491c",
-        "LoadBalancerName":"beavis-lb",
-        "CanonicalHostedZoneName":"beavis-lb-1688730013.us-west-1.elb.amazonaws.com",
-        "SourceSecurityGroup":{
-          "GroupName":"api-lb",
-          "OwnerAlias":"933693344490"
-        },
-        "AvailabilityZones":[
-          "us-west-1a",
-          "us-west-1c"
-        ],
-        "HealthCheck":{
-          "Target":"HTTP:2020/health_check",
-          "Timeout":5,
-          "Interval":30,
-          "HealthyThreshold":10,
-          "UnhealthyThreshold":2
-        },
-        "SecurityGroups":[
-          "sg-1227fa77",
-          "sg-ac528bc9"
-        ],
-        "ListenerDescriptions":[
-          {
-            "Listener":{
-              "Protocol":"HTTPS",
-              "InstancePort":2020,
-              "InstanceProtocol":"HTTP",
-              "LoadBalancerPort":443,
-              "SSLCertificateId":"arn:aws:iam::933693344490:server-certificate/OpseeCoWildcard"
-            },
-            "PolicyNames":[
-              "AWSConsole-SSLNegotiationPolicy-beavis-lb-1443046032320"
-            ]
-          }
-        ],
-        "CreatedTime":"2015-09-23T22:07:11.65Z",
-        "Scheme":"internet-facing",
-        "CanonicalHostedZoneNameID":"Z1M58G0W56PQJA"
-      },
-      {
-        "Instances":[
-          {
-            "InstanceId":"i-38aae6fa"
-          }
-        ],
-        "Subnets":[
-          "subnet-0378a966",
-          "subnet-eccedfaa"
-        ],
-        "DNSName":"internal-nsqlookupd-1-lb-740052419.us-west-1.elb.amazonaws.com",
-        "VPCId":"vpc-79b1491c",
-        "LoadBalancerName":"nsqlookupd-1-lb",
-        "CanonicalHostedZoneName":"",
-        "SourceSecurityGroup":{
-          "GroupName":"nsqlookupd-lb",
-          "OwnerAlias":"933693344490"
-        },
-        "AvailabilityZones":[
-          "us-west-1a",
-          "us-west-1c"
-        ],
-        "HealthCheck":{
-          "Target":"HTTP:4161/ping",
-          "Timeout":5,
-          "Interval":10,
-          "HealthyThreshold":2,
-          "UnhealthyThreshold":2
-        },
-        "SecurityGroups":[
-          "sg-6fa4d90a"
-        ],
-        "ListenerDescriptions":[
-          {
-            "Listener":{
-              "Protocol":"HTTP",
-              "InstancePort":4161,
-              "InstanceProtocol":"HTTP",
-              "LoadBalancerPort":4161,
-              "SSLCertificateId":null
-            },
-            "PolicyNames":null
-          },
-          {
-            "Listener":{
-              "Protocol":"TCP",
-              "InstancePort":4160,
-              "InstanceProtocol":"TCP",
-              "LoadBalancerPort":4160,
-              "SSLCertificateId":null
-            },
-            "PolicyNames":null
-          }
-        ],
-        "CreatedTime":"2015-09-10T16:46:26.86Z",
-        "Scheme":"internal",
-        "CanonicalHostedZoneNameID":"Z1M58G0W56PQJA"
-      },
-      {
-        "Instances":[
-          {
-            "InstanceId":"i-39aae6fb"
-          }
-        ],
-        "Subnets":[
-          "subnet-0378a966",
-          "subnet-eccedfaa"
-        ],
-        "DNSName":"internal-nsqlookupd-2-lb-3045632.us-west-1.elb.amazonaws.com",
-        "VPCId":"vpc-79b1491c",
-        "LoadBalancerName":"nsqlookupd-2-lb",
-        "CanonicalHostedZoneName":"",
-        "SourceSecurityGroup":{
-          "GroupName":"nsqlookupd-lb",
-          "OwnerAlias":"933693344490"
-        },
-        "AvailabilityZones":[
-          "us-west-1a",
-          "us-west-1c"
-        ],
-        "HealthCheck":{
-          "Target":"HTTP:4161/ping",
-          "Timeout":5,
-          "Interval":10,
-          "HealthyThreshold":2,
-          "UnhealthyThreshold":2
-        },
-        "SecurityGroups":[
-          "sg-6fa4d90a"
-        ],
-        "ListenerDescriptions":[
-          {
-            "Listener":{
-              "Protocol":"HTTP",
-              "InstancePort":4161,
-              "InstanceProtocol":"HTTP",
-              "LoadBalancerPort":4161,
-              "SSLCertificateId":null
-            },
-            "PolicyNames":null
-          },
-          {
-            "Listener":{
-              "Protocol":"TCP",
-              "InstancePort":4160,
-              "InstanceProtocol":"TCP",
-              "LoadBalancerPort":4160,
-              "SSLCertificateId":null
-            },
-            "PolicyNames":null
-          }
-        ],
-        "CreatedTime":"2015-09-10T17:06:20.02Z",
-        "Scheme":"internal",
-        "CanonicalHostedZoneNameID":"Z1M58G0W56PQJA"
-      },
-      {
-        "Instances":null,
-        "Subnets":[
-          "subnet-0378a966",
-          "subnet-eccedfaa"
-        ],
-        "DNSName":"motorn-533809805.us-west-1.elb.amazonaws.com",
-        "VPCId":"vpc-79b1491c",
-        "LoadBalancerName":"motorn",
-        "CanonicalHostedZoneName":"motorn-533809805.us-west-1.elb.amazonaws.com",
-        "SourceSecurityGroup":{
-          "GroupName":"motorn",
-          "OwnerAlias":"933693344490"
-        },
-        "AvailabilityZones":[
-          "us-west-1a",
-          "us-west-1c"
-        ],
-        "HealthCheck":{
-          "Target":"HTTP:80/hmu.html",
-          "Timeout":5,
-          "Interval":30,
-          "HealthyThreshold":10,
-          "UnhealthyThreshold":2
-        },
-        "SecurityGroups":[
-          "sg-44a8e721"
-        ],
-        "ListenerDescriptions":[
-          {
-            "Listener":{
-              "Protocol":"HTTP",
-              "InstancePort":80,
-              "InstanceProtocol":"HTTP",
-              "LoadBalancerPort":80,
-              "SSLCertificateId":null
-            },
-            "PolicyNames":null
-          }
-        ],
-        "CreatedTime":"2015-10-14T21:59:26.77Z",
-        "Scheme":"internet-facing",
-        "CanonicalHostedZoneNameID":"Z1M58G0W56PQJA"
-      }
-    ]
-  },
-  "elb":{
-    "group":{
-      "Instances":[
-        {
-          "InstanceId":"i-38aae6fa"
-        },
-        {
-          "InstanceId":"i-39aae6fb"
-        }
-      ],
-      "Subnets":[
+  "elb": {
+    "group": {
+      "VPCId": "vpc-79b1491c",
+      "Scheme": "internet-facing",
+      "DNSName": "lasape-1758986398.us-west-1.elb.amazonaws.com",
+      "Subnets": [
         "subnet-0378a966",
         "subnet-eccedfaa"
       ],
-      "DNSName":"lasape-1758986398.us-west-1.elb.amazonaws.com",
-      "VPCId":"vpc-79b1491c",
-      "LoadBalancerName":"lasape",
-      "CanonicalHostedZoneName":"lasape-1758986398.us-west-1.elb.amazonaws.com",
-      "SourceSecurityGroup":{
-        "GroupName":"staging",
-        "OwnerAlias":"933693344490"
+      "Instances": [
+        {
+          "InstanceId": "i-39aae6fb"
+        }
+      ],
+      "CreatedTime": "2015-05-26T18:29:49.79Z",
+      "HealthCheck": {
+        "Target": "HTTP:80/index.html",
+        "Timeout": 5,
+        "Interval": 30,
+        "HealthyThreshold": 5,
+        "UnhealthyThreshold": 2
       },
-      "AvailabilityZones":[
+      "SecurityGroups": [
+        "sg-5f65e13a"
+      ],
+      "LoadBalancerName": "lasape",
+      "AvailabilityZones": [
         "us-west-1c",
         "us-west-1a"
       ],
-      "HealthCheck":{
-        "Target":"HTTP:80/index.html",
-        "Timeout":5,
-        "Interval":6,
-        "HealthyThreshold":2,
-        "UnhealthyThreshold":2
+      "SourceSecurityGroup": {
+        "GroupName": "staging",
+        "OwnerAlias": "933693344490"
       },
-      "SecurityGroups":[
-        "sg-5f65e13a"
-      ],
-      "ListenerDescriptions":[
+      "ListenerDescriptions": [
         {
-          "Listener":{
-            "Protocol":"HTTPS",
-            "InstancePort":80,
-            "InstanceProtocol":"HTTP",
-            "LoadBalancerPort":443,
-            "SSLCertificateId":"arn:aws:iam::933693344490:server-certificate/cloudfront/OpseeComWildcard"
+          "Listener": {
+            "Protocol": "HTTP",
+            "InstancePort": 80,
+            "InstanceProtocol": "HTTP",
+            "LoadBalancerPort": 80,
+            "SSLCertificateId": null
           },
-          "PolicyNames":[
-            "ELBSecurityPolicy-2015-05"
-          ]
+          "PolicyNames": []
         }
       ],
-      "CreatedTime":"2015-05-26T18:29:49.79Z",
-      "Scheme":"internet-facing",
-      "CanonicalHostedZoneNameID":"Z1M58G0W56PQJA"
+      "CanonicalHostedZoneName": "lasape-1758986398.us-west-1.elb.amazonaws.com",
+      "CanonicalHostedZoneNameID": "Z1M58G0W56PQJA"
     },
-    "instances":[
+    "instances": [
       {
-        "LaunchTime":"2015-10-12T16:59:52Z",
-        "ImageId":"ami-c967938d",
-        "Tags":[
-          {
-            "Key":"Name",
-            "Value":"coreos4"
+        "instance": {
+          "Tags": [
+            {
+              "Key": "Name",
+              "Value": "coreos5"
+            }
+          ],
+          "ImageId": "ami-c967938d",
+          "KeyName": "c1-us-west-1",
+          "SubnetId": "subnet-eccedfaa",
+          "Placement": {
+            "Tenancy": "default",
+            "GroupName": "",
+            "AvailabilityZone": "us-west-1c"
+          },
+          "InstanceId": "i-39aae6fb",
+          "LaunchTime": "2015-07-15T02:01:05Z",
+          "Monitoring": {
+            "State": "disabled"
+          },
+          "InstanceType": "m3.medium",
+          "PublicDnsName": "ec2-52-8-213-168.us-west-1.compute.amazonaws.com",
+          "AmiLaunchIndex": 1,
+          "PrivateDnsName": "ip-172-31-8-49.us-west-1.compute.internal",
+          "SecurityGroups": [
+            {
+              "GroupId": "sg-c852dbad",
+              "GroupName": "c1-us-west-1"
+            }
+          ],
+          "PublicIpAddress": "52.8.213.168",
+          "PrivateIpAddress": "172.31.8.49",
+          "IamInstanceProfile": {
+            "Id": "AIPAJ2PPDVKELNHMYVUYC",
+            "Arn": "arn:aws:iam::933693344490:instance-profile/CoreOS_Cluster_Role"
           }
-        ],
-        "InstanceId":"i-38aae6fa",
-        "PrivateIpAddress":"172.31.8.48",
-        "InstanceType":"m3.medium",
-        "PublicIpAddress":"54.219.166.146",
-        "Placement":{
-          "Tenancy":"default",
-          "GroupName":"",
-          "AvailabilityZone":"us-west-1c"
-        },
-        "SubnetId":"subnet-eccedfaa",
-        "KeyName":"c1-us-west-1",
-        "SecurityGroups":[
-          {
-            "GroupId":"sg-c852dbad",
-            "GroupName":"c1-us-west-1"
-          }
-        ],
-        "PrivateDnsName":"ip-172-31-8-48.us-west-1.compute.internal",
-        "AmiLaunchIndex":0,
-        "IamInstanceProfile":{
-          "Id":"AIPAJ2PPDVKELNHMYVUYC",
-          "Arn":"arn:aws:iam::933693344490:instance-profile/CoreOS_Cluster_Role"
-        },
-        "PublicDnsName":"ec2-54-219-166-146.us-west-1.compute.amazonaws.com",
-        "Monitoring":{
-          "State":"disabled"
-        }
-      },
-      {
-        "LaunchTime":"2015-10-12T16:56:16Z",
-        "ImageId":"ami-c967938d",
-        "Tags":[
-          {
-            "Key":"Name",
-            "Value":"coreos5"
-          }
-        ],
-        "InstanceId":"i-39aae6fb",
-        "PrivateIpAddress":"172.31.8.49",
-        "InstanceType":"m3.medium",
-        "PublicIpAddress":"54.215.251.2",
-        "Placement":{
-          "Tenancy":"default",
-          "GroupName":"",
-          "AvailabilityZone":"us-west-1c"
-        },
-        "SubnetId":"subnet-eccedfaa",
-        "KeyName":"c1-us-west-1",
-        "SecurityGroups":[
-          {
-            "GroupId":"sg-c852dbad",
-            "GroupName":"c1-us-west-1"
-          }
-        ],
-        "PrivateDnsName":"ip-172-31-8-49.us-west-1.compute.internal",
-        "AmiLaunchIndex":1,
-        "IamInstanceProfile":{
-          "Id":"AIPAJ2PPDVKELNHMYVUYC",
-          "Arn":"arn:aws:iam::933693344490:instance-profile/CoreOS_Cluster_Role"
-        },
-        "PublicDnsName":"ec2-54-215-251-2.us-west-1.compute.amazonaws.com",
-        "Monitoring":{
-          "State":"disabled"
         }
       }
-    ]
+    ],
+    "instance_count": 1
   },
   "us-west-1":{
     "reservations":[
