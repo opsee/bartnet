@@ -84,7 +84,7 @@
                                :DNS_SERVER (:dns-server bastion-config)
                                :NSQD_HOST (:nsqd-host bastion-config)})}]
      :coreos {:update
-              {:reboot-strategy "etcd-lock"
+              {:reboot-strategy "off"
                :group "beta"}}})))
 
 (defn parse-cloudformation-msg [instance-id msg]
