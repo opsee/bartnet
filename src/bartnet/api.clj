@@ -7,23 +7,27 @@
             [bartnet.bastion-router :as router]
             [clojure.tools.logging :as log]
             [ring.middleware.cors :refer [wrap-cors]]
-            [liberator.representation :refer [ring-response]]
+            [liberator.representation :refer [Representation ring-response render-map-generic]]
             [ring.swagger.middleware :as rsm]
             [clj-http.client :as http]
             [ring.util.http-response :refer :all]
             [amazonica.aws.ec2 :refer [describe-vpcs describe-account-attributes describe-instances]]
             [ring.middleware.params :refer [wrap-params]]
             [compojure.api.sweet :refer :all]
+            [ring.middleware.format-response :refer [make-encoder]]
             [compojure.api.swagger :as cas]
             [compojure.api.middleware :as mw]
             [compojure.route :as rt]
+            [ring.swagger.schema :as schema]
             [cheshire.core :refer :all]
             [bartnet.identifiers :as identifiers]
             [bartnet.launch :as launch]
             [schema.core :as sch]
             [liberator.dev :refer [wrap-trace]]
             [liberator.core :refer [resource defresource]])
-  (:import (co.opsee.proto TestCheckRequest TestCheckResponse CheckResourceRequest Check)))
+  (:import (co.opsee.proto TestCheckRequest TestCheckResponse CheckResourceRequest Check)
+           (com.google.protobuf GeneratedMessage)
+           (java.io ByteArrayInputStream)))
 
 (def executor (atom nil))
 (def scheduler (atom nil))
@@ -32,6 +36,28 @@
 (def bus (atom nil))
 (def producer (atom nil))
 (def consumer (atom nil))
+
+(extend-type GeneratedMessage
+  Representation
+  (as-response [this ctx]
+    {:body (.toByteArray this)
+     :headers {"Content-Type" "application/x-protobuf"}}))
+
+(defn pb-as-response [clazz]
+  (fn [data ctx]
+    (case (get-in ctx [:representation :media-type])
+                  "application/x-protobuf" {:body (ByteArrayInputStream.  (.toByteArray (pb/hash->proto clazz data)))
+                                            :headers {"Content-Type" "application/x-protobuf"}}
+                  (liberator.representation/as-response data ctx))))
+
+;(extend-protocol liberator.representation/Representation
+;  co.opsee.proto.Check
+;  (as-response [this ctx]
+;    {:body (.toByteArray this)
+;     :headers {"Content-Type" "application/x-protobuf"}}))
+
+(defn encode-protobuf [body]
+  (.toByteArray body))
 
 (defn respond-with-entity? [ctx]
   (not= (get-in ctx [:request :request-method]) :delete))
@@ -55,12 +81,14 @@
     (dissoc (assoc check :target (retrieve-target (:target_id check))) :target_id)))
 
 (defn resolve-lastrun [customer-id check]
-  (let [req (-> (CheckResourceRequest/newBuilder)
-                (.addChecks (pb/hash->proto Check check))
-                .build)
-        retr-checks (all-bastions customer-id #(rpc/retrieve-check % req))
-        max-check (max-key #(:seconds (:last_run %)) retr-checks)]
-    (assoc check :last_run (:last_run max-check))))
+  (try
+    (let [req (-> (CheckResourceRequest/newBuilder)
+                  (.addChecks (pb/hash->proto Check check))
+                  .build)
+          retr-checks (all-bastions customer-id #(rpc/retrieve-check % req))
+          max-check (max-key #(:seconds (:last_run %)) retr-checks)]
+      (assoc check :last_run (:last_run max-check)))
+    (catch Exception _ check)))
 
 (defn check-exists? [id]
   (fn [ctx]
@@ -124,7 +152,7 @@
         checks (map #(resolve-target (dissoc % :customer_id)) (sql/get-checks-by-customer-id @db customer-id))]
     (map #(resolve-lastrun customer-id %) checks)
     (log/info "checks" checks)
-    checks))
+    {:checks checks}))
 
 (defn ec2-classic? [attrs]
   (let [ttr (:account-attributes attrs)
@@ -255,8 +283,8 @@
   :handle-created (fn [ctx] (pb/proto->hash (:test-results ctx))))
 
 (defresource check-resource [id check]
-  :as-response (fn [data _] {:body data})
-  :available-media-types ["application/json"]
+  :as-response (pb-as-response Check)
+  :available-media-types ["application/json" "application/x-protobuf"]
   :allowed-methods [:get :put :delete]
   :authorized? (authorized?)
   :exists? (check-exists? id)
@@ -267,8 +295,8 @@
   :handle-ok :check)
 
 (defresource checks-resource [checks]
-  :as-response (fn [data _] {:body data})
-  :available-media-types ["application/json"]
+  :as-response (pb-as-response CheckResourceRequest)
+  :available-media-types ["application/json" "application/x-protobuf"]
   :allowed-methods [:get :post]
   :authorized? (authorized?)
   :post! (create-check! checks)
@@ -346,34 +374,36 @@
 
 (defapi bartnet-api
   {:exceptions {:exception-handler robustify-errors}
-   :coercion   (fn [_] (assoc mw/default-coercion-matchers
-                              :proto pb/proto-walker))}
+   :coercion   (fn [_] (-> mw/default-coercion-matchers
+                           (assoc :proto pb/proto-walker)
+                           (dissoc :response)))
+   :format {:formats [:json (make-encoder encode-protobuf "application/x-protobuf" :binary)]}}
   (routes
-   (GET* "/api/swagger.json" {:as req}
-         :no-doc true
-         :name ::swagger
-         (let [runtime-info (rsm/get-swagger-data req)
-               base-path {:basePath (cas/base-path req)}
-               options (:ring-swagger (mw/get-options req))]
-           (ok
-            (let [swagger (merge runtime-info base-path)
-                  result (merge-with merge
-                                     (ring.swagger.swagger2/swagger-json swagger options)
-                                     {:info {:title "Opsee API"
-                                             :description "Be More Opsee"}
-                                      :definitions (pb/anyschemas)})]
-              result)))))
+    (GET* "/api/swagger.json" {:as req}
+      :no-doc true
+      :name ::swagger
+      (let [runtime-info (rsm/get-swagger-data req)
+            base-path {:basePath (cas/base-path req)}
+            options (:ring-swagger (mw/get-options req))]
+        (ok
+          (let [swagger (merge runtime-info base-path)
+                result (merge-with merge
+                                   (ring.swagger.swagger2/swagger-json swagger options)
+                                   {:info        {:title       "Opsee API"
+                                                  :description "Be More Opsee"}
+                                    :definitions (pb/anyschemas)})]
+            result)))))
   (swagger-ui "/api/swagger" :swagger-docs "/api/swagger.json")
-        ;; TODO: Split out request methods and document with swagger metadata
-  (GET*    "/health_check" []
-           :no-doc true
-           "A ok")
+  ;; TODO: Split out request methods and document with swagger metadata
+  (GET* "/health_check" []
+    :no-doc true
+    "A ok")
 
-  (POST*   "/scan-vpcs" []
-           :summary "Scans the regions requested for any VPC's and instance counts."
-           :body [vpc-req ScanVpcsRequest]
-           :return [ScanVpcsResponse]
-           (scan-vpc-resource vpc-req))
+  (POST* "/scan-vpcs" []
+    :summary "Scans the regions requested for any VPC's and instance counts."
+    :body [vpc-req ScanVpcsRequest]
+    :return [ScanVpcsResponse]
+    (scan-vpc-resource vpc-req))
 
   (context* "/bastions" []
     :tags ["bastions"]
@@ -405,11 +435,13 @@
 
     (GET* "/" []
       :summary "List all checks"
+      :produces ["application/json" "application/x-protobuf"]
       :return [(pb/proto->schema Check)]
       (checks-resource nil))
 
     (GET* "/:id" [id]
       :summary "Retrieve a check by its ID."
+      :produces ["application/json" "application/x-protobuf"]
       :return (pb/proto->schema Check)
       (check-resource id nil))
 

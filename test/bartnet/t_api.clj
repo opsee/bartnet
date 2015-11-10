@@ -95,7 +95,7 @@
                  (let [response ((app) (-> (mock/request :get "/checks")
                                            (mock/header "Authorization" auth-header)))]
                    (:status response) => 200
-                   (:body response) => (is-json empty?)))
+                   (:body response) => (is-json (just {:checks empty?}))))
            (fact "tests a check")
            (with-state-changes
              [(before :facts (check-fixtures @db))]
@@ -108,9 +108,11 @@
                                              (mock/header "Authorization" auth-header)))]
                      (:status response) => 200
                      (:body response) => (is-json (just
-                                                   (contains
-                                                    {:check_spec
-                                                     (contains {:value (contains {:name "A Good Check"})})})))))
+                                                    {:checks
+                                                     (just
+                                                       (contains
+                                                         {:check_spec
+                                                          (contains {:value (contains {:name "A Good Check"})})}))}))))
              (fact "creates new checks"
                    (let [response ((app) (-> (mock/request :post "/checks" (generate-string
                                                                             {:interval 10
