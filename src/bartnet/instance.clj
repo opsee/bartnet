@@ -11,11 +11,13 @@
   (let [uri (join "/" [@store-addr endpoint])]
     (case method
       :get (http/get uri
-                     {:headers {"Customer-Id" customer-id
+                     {:throw-entire-message? true
+                      :headers {"Customer-Id" customer-id
                                 "Content-Type" "application/json"
                                 "Accept" "application/json"}})
       :post (http/post uri
-                       {:headers {"Customer-Id" customer-id
+                       {:throw-entire-message? true
+                        :headers {"Customer-Id" customer-id
                                   "Content-Type" "application/json"
                                   "Accept" "application/json"}
                         :body body}))))

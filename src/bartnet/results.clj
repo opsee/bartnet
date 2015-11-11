@@ -24,6 +24,7 @@
   (let [login (:login options)
         token (login->token login)
         query (gen-query options)]
-    (http/get  (join "/" [@results-addr "results"])
-              {:query-params {:q query}
+    (http/get (join "/" [@results-addr "results"])
+              {:throw-entire-message? true
+               :query-params {:q query}
                :headers {"Authorization" token}})))
