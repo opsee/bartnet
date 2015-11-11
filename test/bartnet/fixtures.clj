@@ -25,6 +25,7 @@
                                   :name "boreos"
                                   :type "sg"})
     (sql/insert-into-checks! db {:id             "checkid123"
+                                 :name "boreos"
                                  :customer_id "154ba57a-5188-11e5-8067-9b5f2d96dce1"
                                  :target_id      "sg-123"
                                  :interval       60

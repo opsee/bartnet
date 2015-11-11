@@ -317,4 +317,10 @@
       <column name="customer_id" type="UUID"></column>
     </createIndex>
   </changeSet>
+  <changeSet id="22" author="greg">
+    <delete tableName="checks"/>
+    <addColumn tableName="checks">
+      <column name="name" type="varchar(255)"><constraints nullable="false"/></column>
+    </addColumn>
+  </changeSet>
 </databaseChangeLog>

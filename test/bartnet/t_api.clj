@@ -117,6 +117,7 @@
              (fact "creates new checks"
                    (let [response ((app) (-> (mock/request :post "/checks" (generate-string
                                                                             {:interval 10
+                                                                             :name "A Good Check"
                                                                              :target {:name "goobernetty"
                                                                                       :type "sg"
                                                                                       :id "sg123679"}
@@ -161,6 +162,7 @@
            (fact "checks get updated"
                  (let [response ((app) (-> (mock/request :put "/checks/checkid123" (generate-string
                                                                                     {:interval 100
+                                                                                     :name "doop"
                                                                                      :target {:name "goobernetty"
                                                                                               :type "sg"
                                                                                               :id "sg123"}
@@ -177,6 +179,7 @@
            (fact "new checks get saved"
                  (let [response ((app) (-> (mock/request :post "/checks" (generate-string
                                                                           {:interval 10
+                                                                           :name "A Good Check"
                                                                            :target {:name "goobernetty"
                                                                                     :type "sg"
                                                                                     :id "sg123"}
