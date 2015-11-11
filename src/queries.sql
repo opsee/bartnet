@@ -10,8 +10,8 @@ select * from targets where id=:id;
 
 -- name: insert-into-checks!
 -- Inserts a new record into the checks table.
-insert into checks (id, customer_id, "interval", target_id, last_run, check_spec) values
-                  (:id, :customer_id::UUID, :interval, :target_id, :last_run, :check_spec::jsonb);
+insert into checks (id, name, customer_id, "interval", target_id, last_run, check_spec) values
+                  (:id, :name, :customer_id::UUID, :interval, :target_id, :last_run, :check_spec::jsonb);
 
 -- name: update-check!
 -- Updates an existing health_check record.
