@@ -2,6 +2,7 @@
   (:require [cheshire.core :refer :all]
             [opsee.middleware.auth :refer [login->token]]
             [clojure.string :refer :all]
+            [clojure.tools.logging :as log]
             [clj-http.client :as http]))
 
 (def results-addr (atom nil))
@@ -24,7 +25,11 @@
   (let [login (:login options)
         token (login->token login)
         query (gen-query options)]
-    (http/get (join "/" [@results-addr "results"])
-              {:throw-entire-message? true
-               :query-params {:q query}
-               :headers {"Authorization" token}})))
+    (try
+      (http/get (join "/" [@results-addr "results"])
+                {:throw-entire-message? true
+                 :query-params {:q query}
+                 :headers {"Authorization" token}})
+      (catch Exception ex
+        (do (log/error "encountered error talking to beavis" token query)
+            (throw ex))))))
