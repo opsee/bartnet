@@ -195,17 +195,20 @@
 (defmulti results-merge (fn [[key _] _] key))
 
 (defn add-instance-results [instance results]
-  (if-let [r (first (filter #(= (get-in instance [:instance :InstanceId]) (:host %)) results))]
-    (assoc instance :result r)
-    instance))
+  (if-let [r (first (filter #(= (get-in instance [:instance :InstanceId]) (:key %)) results))]
+    (update instance :results conj r)
+    (update instance :results #(if (nil? %) [] %))))
 
 (defn add-group-results [group results]
-  (if-let [r (first (filter #(= (or (get-in group [:group :LoadBalancerName]) (get-in group [:group :GroupId])) (:host %)) results))]
-    (assoc group :result r)
-    group))
+  (if-let [r (first (filter #(= (or (get-in group [:group :LoadBalancerName]) (get-in group [:group :GroupId])) (:key %)) results))]
+    (update group :results conj r)
+    (update group :results #(if (nil? %) [] %))))
 
 (defn unpack-responses [results]
-  (mapcat #(cons % (:responses %)) results))
+  (mapcat (fn [result]
+            (cons (assoc result :key (:host result))
+                  (map #(assoc result :key (:host %)
+                                      :responses [%]) (:responses result)))) results))
 
 (defmethod results-merge :instance [[key instance] results]
   (add-instance-results {key instance} results))
