@@ -18,13 +18,22 @@
             "Type": "String"
         },
         "KeyName" : {
-            "Description" : "The name of a keypair to use.",
+            "Description" : "The name of a keypair to use (optional)",
+            "Default": "",
             "Type": "String"
         },
         "VpcId" : {
             "Description" : "The VPC in which to deploy the instance",
             "Type": "String",
             "ConstraintDescription" : "Must be a valid VPC ID"
+        }
+    },
+    "Conditions": {
+        "NoKey": {
+            "Fn::Equals": [
+                {"Ref": "KeyName"},
+                ""
+            ]
         }
     },
     "Resources" : {
@@ -152,7 +161,13 @@
                 "ImageId": {"Ref":"ImageId"},
                 "IamInstanceProfile": {"Ref":"BastionInstanceProfile"},
                 "InstanceType": {"Ref":"InstanceType"},
-                "KeyName": {"Ref":"KeyName"},
+                "KeyName": {
+                    "Fn::If": [
+                        "NoKey",
+                        {"Ref": "AWS::NoValue"},
+                        {"Ref":"KeyName"}
+                    ]
+                },
                 "SecurityGroupIds": [{"Ref": "BastionSecurityGroup"}],
                 "UserData": {"Ref":"UserData"}
             }
