@@ -2,6 +2,7 @@
   (:require [bartnet.instance :as instance]
             [bartnet.sql :as sql]
             [bartnet.rpc :as rpc :refer [all-bastions]]
+            [bartnet.results :as results]
             [opsee.middleware.protobuilder :as pb]
             [opsee.middleware.core :refer :all]
             [bartnet.bastion-router :as router]
@@ -50,17 +51,20 @@
                                             :headers {"Content-Type" "application/x-protobuf"}}
                   (liberator.representation/as-response data ctx))))
 
-;(extend-protocol liberator.representation/Representation
-;  co.opsee.proto.Check
-;  (as-response [this ctx]
-;    {:body (.toByteArray this)
-;     :headers {"Content-Type" "application/x-protobuf"}}))
-
 (defn encode-protobuf [body]
   (.toByteArray body))
 
 (defn respond-with-entity? [ctx]
   (not= (get-in ctx [:request :request-method]) :delete))
+
+(defn add-instance-results [instance results]
+  (assoc instance :results (filter #(= (get-in instance [:instance :InstanceId]) (:key %)) results)))
+
+(defn add-group-results [group results]
+  (assoc group :results (filter #(= (or (get-in group [:group :LoadBalancerName]) (get-in group [:group :GroupId])) (:key %)) results)))
+
+(defn add-check-results [check results]
+  (assoc check :results (filter #(= (:id check) (:key %)) results)))
 
 (defn list-bastions [ctx]
   (let [login (:login ctx)
@@ -80,7 +84,7 @@
     (assoc check :target_id (ensure-target-created (:target check)))
     (dissoc (assoc check :target (retrieve-target (:target_id check))) :target_id)))
 
-(defn resolve-lastrun [customer-id check]
+(defn resolve-lastrun [check customer-id]
   (try
     (let [req (-> (CheckResourceRequest/newBuilder)
                   (.addChecks (pb/hash->proto Check check))
@@ -95,7 +99,11 @@
     (let [login (:login ctx)
           customer-id (:customer_id login)]
       (if-let [check (first (sql/get-check-by-id @db {:id id :customer_id customer-id}))]
-        {:check (dissoc (resolve-lastrun customer-id (resolve-target check)) :customer_id)}))))
+        {:check (-> check
+                    (resolve-target)
+                    (resolve-lastrun customer-id)
+                    (add-check-results (results/get-results {:login login :customer_id customer-id :check_id id}))
+                    (dissoc :customer_id))}))))
 
 (defn update-check! [id pb-check]
   (fn [ctx]
@@ -149,8 +157,12 @@
 (defn list-checks [ctx]
   (let [login (:login ctx)
         customer-id (:customer_id login)
-        checks (map #(resolve-target (dissoc % :customer_id)) (sql/get-checks-by-customer-id @db customer-id))]
-    (map #(resolve-lastrun customer-id %) checks)
+        results (results/get-results {:login login :customer_id customer-id})
+        checks (map #(-> %
+                         (resolve-target)
+                         (dissoc :customer_id)
+                         (add-check-results results)) (sql/get-checks-by-customer-id @db customer-id))]
+    (map #(resolve-lastrun % customer-id) checks)
     (log/info "checks" checks)
     {:checks checks}))
 
@@ -192,23 +204,14 @@
       (<= 200 status 299) (parse-string (:body response) keyword)
       :else (throw (Exception. (str "failed to get instances from the instance store " status))))))
 
-(defmulti results-merge (fn [[key _] _] key))
-
-(defn add-instance-results [instance results]
-  (if-let [r (first (filter #(= (get-in instance [:instance :InstanceId]) (:key %)) results))]
-    (update instance :results conj r)
-    (update instance :results #(if (nil? %) [] %))))
-
-(defn add-group-results [group results]
-  (if-let [r (first (filter #(= (or (get-in group [:group :LoadBalancerName]) (get-in group [:group :GroupId])) (:key %)) results))]
-    (update group :results conj r)
-    (update group :results #(if (nil? %) [] %))))
-
 (defn unpack-responses [results]
   (mapcat (fn [result]
             (cons (assoc result :key (:host result))
                   (map #(assoc result :key (:host %)
                                       :responses [%]) (:responses result)))) results))
+
+
+(defmulti results-merge (fn [[key _] _] key))
 
 (defmethod results-merge :instance [[key instance] results]
   (add-instance-results {key instance} results))

@@ -87,7 +87,8 @@
 (facts "checks endpoint works"
        (with-redefs [rpc/checker-client mock-checker-client
                      router/get-customer-bastions mock-get-customer-bastions
-                     router/get-service mock-get-service]
+                     router/get-service mock-get-service
+                     clj-http.client/get (mock-get {"/results" {:status 200 :body "[]"}})]
          (with-state-changes
            [(before :facts (doto
                             (do-setup)))]
@@ -131,7 +132,8 @@
 (facts "check endpoint works"
        (with-redefs [rpc/checker-client mock-checker-client
                      router/get-customer-bastions mock-get-customer-bastions
-                     router/get-service mock-get-service]
+                     router/get-service mock-get-service
+                     clj-http.client/get (mock-get {"/results" {:status 200 :body "[]"}})]
          (with-state-changes
            [(before :facts (doto
                             (do-setup)
@@ -269,14 +271,14 @@
         (:status response) => 200
         (:body response) => (is-json (just {:groups (contains
                                                       [(contains {:group (contains {:GroupId "sg-c852dbad"})
-                                                                  :results (just [(contains {:check_id "check2"})])})])}))))
+                                                                  :results (contains [(contains {:check_id "check2"})])})])}))))
     (fact "/groups/security/id"
       (let [response ((app) (-> (mock/request :get "/groups/security/sg-c852dbad")
                                 (mock/header "Authorization" auth-header)))]
         (:status response) => 200
         (:body response) => (is-json (just {:group (contains {:GroupId "sg-c852dbad"})
-                                            :results (just [(contains {:check_id "check2"})])
-                                            :instances (contains [(contains {:results (just [(contains {:check_id "check2"})])})])
+                                            :results (contains [(contains {:check_id "check2"})])
+                                            :instances (contains [(contains {:results (contains [(contains {:check_id "check2"})])})])
                                             :instance_count 4}))))
     (fact "/groups/elb"
       (let [response ((app) (-> (mock/request :get "/groups/elb")
@@ -284,7 +286,7 @@
         (:status response) => 200
         (:body response) => (is-json (just {:groups (contains
                                                       [(contains {:group (contains {:LoadBalancerName "lasape"})
-                                                                  :results (just [(contains {:check_id "check3"})])})])}))))
+                                                                  :results (contains [(contains {:check_id "check3"})])})])}))))
     (fact "/groups/elb/id")
     (fact "/instances/ec2")
     (fact "/instances/ec2/id")))
