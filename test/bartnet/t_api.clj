@@ -245,7 +245,27 @@
                      amazonica.aws.ec2/describe-instances (fn [creds & args]
                                                             (case (:endpoint creds)
                                                               "us-west-1" (:us-west-1 fixtures)
-                                                              "us-west-2" (:us-west-2 fixtures)))]
+                                                              "us-west-2" (:us-west-2 fixtures)))
+                     amazonica.aws.ec2/describe-subnets (fn [creds]
+                                                          (case (:endpoint creds)
+                                                            "us-west-1" {:subnets
+                                                                         [{:tags []
+                                                                           :subnet-id "subnet-abcd1111"
+                                                                           :default-for-az true
+                                                                           :state "available"
+                                                                           :vpc-id "vpc-79b1491c"
+                                                                           :map-public-ip-on-launch true
+                                                                           :available-ip-address-count 124
+                                                                           :cidr-block "172.31.0.0/24"}]}
+                                                            "us-west-2" {:subnets
+                                                                         [{:tags []
+                                                                           :subnet-id "subnet-zyxw2222"
+                                                                           :default-for-az true
+                                                                           :state "available"
+                                                                           :vpc-id "vpc-82828282"
+                                                                           :map-public-ip-on-launch true
+                                                                           :available-ip-address-count 124
+                                                                           :cidr-block "172.31.0.0/24"}]}))]
          (fact "aws api's get called for every region"
                (let [response ((app) (-> (mock/request :post "/scan-vpcs" (generate-string {:access-key "SDFSDFDSF"
                                                                                             :secret-key "sdfsdf+sasdasdasdsdfsdf"
@@ -255,11 +275,15 @@
                  (:body response) => (is-json (just [(contains {:region "us-west-1"
                                                                 :ec2-classic false
                                                                 :vpcs (just [(contains {:vpc-id "vpc-79b1491c"
-                                                                                        :count 1})])})
+                                                                                        :count 1
+                                                                                        :subnets (just [(contains {:subnet-id "subnet-abcd1111"
+                                                                                                                   :vpc-id "vpc-79b1491c"})])})])})
                                                      (contains {:region "us-west-2"
                                                                 :ec2-classic true
                                                                 :vpcs (just [(contains {:vpc-id "vpc-82828282"
-                                                                                        :count 1})])})]))))))
+                                                                                        :count 1
+                                                                                        :subnets (just [(contains {:subnet-id "subnet-zyxw2222"
+                                                                                                                   :vpc-id "vpc-82828282"})])})])})]))))))
 (facts "instance store"
   (with-redefs [clj-http.client/get (mock-get {"/groups/security" {:status 200 :body (:groups fixtures)}
                                                "/group/security/sg-c852dbad" {:status 200 :body (:group fixtures)}

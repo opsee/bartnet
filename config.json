@@ -17,18 +17,34 @@
     {
         "port":8080
     },
-    "bastion-server":
-    {
-        "port":4080
-    },
     "ami":{
         "owner-id":"933693344490",
         "tag":"stable",
         "keypair":"bastion-testing",
         "template-src":{"resource":"bastion-cf.template"}
     },
-    "mailgun":{
-        "api_key":"key-d45f90c5a3e2ac33a26cd4c30715b71b",
-        "url":"https://api.mailgun.net/v3/mg.opsee.co"
+    "bastion": {
+      "vpn-remote": "{{BASTION_VPN_REMOTE}}",
+      "dns-server": "{{BASTION_DNS}}",
+      "nsqd-host": "{{NSQ_PRODUCE_HOST}}:{{NSQ_PRODUCE_PORT}}"
+    },
+    "nsq": {
+      "lookup": {
+        "host": "{{NSQ_LOOKUP_HOST}}",
+        "port": {{NSQ_LOOKUP_PORT}}
+      },
+      "produce": {
+        "host": "{{NSQ_PRODUCE_HOST}}",
+        "port": {{NSQ_PRODUCE_PORT}}
+      }
+    },
+    "fieri": {
+      "addr": "{{FIERI_ADDR}}"
+    },
+    "vape": {
+      "addr": "{{VAPE_ADDR}}"
+    },
+    "beavis":{
+      "addr": "{{BEAVIS_ADDR}}"
     }
 }

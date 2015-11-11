@@ -12,7 +12,7 @@
             [ring.swagger.middleware :as rsm]
             [clj-http.client :as http]
             [ring.util.http-response :refer :all]
-            [amazonica.aws.ec2 :refer [describe-vpcs describe-account-attributes describe-instances]]
+            [amazonica.aws.ec2 :refer [describe-vpcs describe-account-attributes describe-instances describe-subnets]]
             [ring.middleware.params :refer [wrap-params]]
             [compojure.api.sweet :refer :all]
             [ring.middleware.format-response :refer [make-encoder]]
@@ -208,6 +208,7 @@
                               :secret-key (:secret-key req)
                               :endpoint region}
                           vpcs (describe-vpcs cd)
+                          subnets (describe-subnets cd)
                           attrs (describe-account-attributes cd)]]
                 {:region      region
                  :ec2-classic (ec2-classic? attrs)
@@ -219,8 +220,9 @@
                                                                (count (filter #(not= "terminated"
                                                                                      (get-in % [:state :name]))
                                                                               (:instances res))))
-                                                             (:reservations reservations)))]]
-                                (assoc vpc :count count))})}))
+                                                             (:reservations reservations)))
+                                          subnets (filter #(= (:vpc-id vpc) (:vpc-id %)) (:subnets subnets))]]
+                                (assoc vpc :count count :subnets subnets))})}))
 
 (defn call-instance-store! [meth opts]
   (fn [ctx]
@@ -323,6 +325,7 @@
 (def LaunchVpc "A VPC for launching"
   (sch/schema-with-name
    {:id sch/Str
+    (sch/optional-key :subnet_id) (sch/maybe sch/Str)
     (sch/optional-key :instance_id) (sch/maybe sch/Str)}
    "LaunchVpc"))
 
@@ -355,11 +358,25 @@
     :value sch/Str}
    "Tag"))
 
+(def Subnet
+  (sch/schema-with-name
+    {:tags [Tag]
+     :subnet-id sch/Str
+     :default-for-az sch/Bool
+     :state sch/Str
+     :availability-zone sch/Str
+     :vpc-id sch/Str
+     :map-public-ip-on-launch sch/Bool
+     :available-ip-address-count sch/Bool
+     :cidr-block sch/Str}
+    "Subnet"))
+
 (def ScanVpc
   (sch/schema-with-name
    {:state sch/Str
     :vpc-id sch/Str
     :tags [Tag]
+    :subnets [Subnet]
     :cidr-block sch/Str
     :dhcp-options-id sch/Str
     :instance-tenancy sch/Str
