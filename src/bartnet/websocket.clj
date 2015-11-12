@@ -24,8 +24,7 @@
                                        (send! ws (generate-string msg))
                                        (catch Throwable e (do
                                                             (s/close! stream)
-                                                            (log/error "Caught exception in nsq consumer for customer: " (:customer_id login))
-                                                            (log/error e))))))))
+                                                            (log/error e "Caught exception in nsq consumer for customer: " (:customer_id login)))))))))
                 (send! ws (generate-string {:command "authenticate"
                                             :state "access-denied"})))
               (send! ws (generate-string {:command "authenticate"
