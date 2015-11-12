@@ -15,18 +15,18 @@
 
 (defn target-fixtures [db]
   (do
-    (sql/insert-into-targets! db {:id "sg-123"
+    (sql/insert-into-targets! db {:id   "sg-123"
                                   :type "sg"
                                   :name "coreos"})))
 
 (defn check-fixtures [db]
   (do
-    (sql/insert-into-targets! db {:id "sg-123"
+    (sql/insert-into-targets! db {:id   "sg-123"
                                   :name "boreos"
                                   :type "sg"})
-    (sql/insert-into-checks! db {:id             "checkid123"
-                                 :name "boreos"
-                                 :customer_id "154ba57a-5188-11e5-8067-9b5f2d96dce1"
+    (sql/insert-into-checks! db {:id             "check1"
+                                 :name           "boreos"
+                                 :customer_id    "154ba57a-5188-11e5-8067-9b5f2d96dce1"
                                  :target_id      "sg-123"
                                  :interval       60
                                  :last_run       (-> (Timestamp/newBuilder)
