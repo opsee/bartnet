@@ -57,6 +57,12 @@
 (defn respond-with-entity? [ctx]
   (not= (get-in ctx [:request :request-method]) :delete))
 
+(defn get-http-body [response]
+  (let [status (:status response)]
+    (cond
+      (<= 200 status 299) (parse-string (:body response) keyword)
+      :else (throw (Exception. (str "failed to get instances from the instance store " status))))))
+
 (defn add-instance-results [instance results]
   (let [instance-id (get-in instance [:instance :InstanceId])]
     (assoc instance :results (sequence
@@ -72,7 +78,7 @@
   (assoc group :results (filter #(= (or (get-in group [:group :LoadBalancerName]) (get-in group [:group :GroupId])) (:host %)) results)))
 
 (defn add-check-results [check results]
-  (assoc check :results (filter #(= (:id check) (:check_id %)) results)))
+  (assoc check :results (filter #(= (:id check) (:service %)) results)))
 
 (defmulti results-merge (fn [[key _] _] key))
 
@@ -122,7 +128,7 @@
         {:check (-> check
                     (resolve-target)
                     (resolve-lastrun customer-id)
-                    (add-check-results (results/get-results {:login login :customer_id customer-id :check_id id}))
+                    (add-check-results (get-http-body (results/get-results {:login login :customer_id customer-id :check_id id})))
                     (dissoc :customer_id))}))))
 
 (defn update-check! [id pb-check]
@@ -177,14 +183,12 @@
 (defn list-checks [ctx]
   (let [login (:login ctx)
         customer-id (:customer_id login)
-        results (results/get-results {:login login :customer_id customer-id})
+        results (get-http-body (results/get-results {:login login :customer_id customer-id}))
         checks (map #(-> %
                          (resolve-target)
                          (dissoc :customer_id)
                          (add-check-results results)) (sql/get-checks-by-customer-id @db customer-id))]
     (map #(resolve-lastrun % customer-id) checks)
-    (log/info "checks" checks)
-    (log/info "results" results)
     {:checks checks}))
 
 (defn ec2-classic? [attrs]
@@ -217,12 +221,6 @@
                                                                               (:instances res))))
                                                              (:reservations reservations)))]]
                                 (assoc vpc :count count))})}))
-
-(defn get-http-body [response]
-  (let [status (:status response)]
-    (cond
-      (<= 200 status 299) (parse-string (:body response) keyword)
-      :else (throw (Exception. (str "failed to get instances from the instance store " status))))))
 
 (defn call-instance-store! [meth opts]
   (fn [ctx]

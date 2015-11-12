@@ -88,7 +88,7 @@
        (with-redefs [rpc/checker-client mock-checker-client
                      router/get-customer-bastions mock-get-customer-bastions
                      router/get-service mock-get-service
-                     clj-http.client/get (mock-get {"/results" {:status 200 :body "[]"}})]
+                     clj-http.client/get (mock-get {"/results" {:status 200 :body (:customer-query fixtures)}})]
          (with-state-changes
            [(before :facts (doto
                             (do-setup)))]
@@ -112,7 +112,8 @@
                                                     {:checks
                                                      (just
                                                        (contains
-                                                         {:check_spec
+                                                         {:results not-empty
+                                                          :check_spec
                                                           (contains {:value (contains {:name "A Good Check"})})}))}))))
              (fact "creates new checks"
                    (let [response ((app) (-> (mock/request :post "/checks" (generate-string
@@ -134,7 +135,7 @@
        (with-redefs [rpc/checker-client mock-checker-client
                      router/get-customer-bastions mock-get-customer-bastions
                      router/get-service mock-get-service
-                     clj-http.client/get (mock-get {"/results" {:status 200 :body "[]"}})]
+                     clj-http.client/get (mock-get {"/results" {:status 200 :body (:customer-query fixtures)}})]
          (with-state-changes
            [(before :facts (doto
                             (do-setup)
@@ -144,38 +145,40 @@
                                            (mock/header "Authorization" auth-header)))]
                    (:status response) => 404))
            (fact "checks need auth"
-                 (let [response ((app) (-> (mock/request :get "/checks/checkid123")
+                 (let [response ((app) (-> (mock/request :get "/checks/check1")
                                            (mock/header "Authorization" "sdfsdfsdfsdf")))]
                    (:status response) => 401))
            (fact "checks that exist get returned"
-                 (let [response ((app) (-> (mock/request :get "/checks/checkid123")
+                 (let [response ((app) (-> (mock/request :get "/checks/check1")
                                            (mock/header "Authorization" auth-header)))]
                    (:status response) => 200
-                   (:body response) => (is-json (contains {:id "checkid123" :check_spec (contains {:value (contains {:name "A Good Check"})})}))))
+                   (:body response) => (is-json (contains {:id "check1"
+                                                           :check_spec (contains {:value (contains {:name "A Good Check"})})
+                                                           :results not-empty}))))
            (fact "checks get deleted"
-                 (let [response ((app) (-> (mock/request :delete "/checks/checkid123")
+                 (let [response ((app) (-> (mock/request :delete "/checks/check1")
                                            (mock/header "Authorization" auth-header)))]
                    (:status response) => 204
                    (sql/get-check-by-id @db {:id "checkid123" :customer_id "154ba57a-5188-11e5-8067-9b5f2d96dce1"}) => empty?
                    (log/info "sdfsfdasdfadsf")
                    (log/info "gotsdfsdfsdf")))
            (fact "checks get updated"
-                 (let [response ((app) (-> (mock/request :put "/checks/checkid123" (generate-string
-                                                                                    {:interval 100
-                                                                                     :name "doop"
-                                                                                     :target {:name "goobernetty"
-                                                                                              :type "sg"
-                                                                                              :id "sg123"}
-                                                                                     :check_spec {:type_url "HttpCheck"
-                                                                                                  :value {:name "doop"
-                                                                                                          :path "/health"
-                                                                                                          :port 80
-                                                                                                          :verb "POST"
-                                                                                                          :protocol "http"}}}))
+                 (let [response ((app) (-> (mock/request :put "/checks/check1" (generate-string
+                                                                                 {:interval 100
+                                                                                  :name "doop"
+                                                                                  :target {:name "goobernetty"
+                                                                                           :type "sg"
+                                                                                           :id "sg123"}
+                                                                                  :check_spec {:type_url "HttpCheck"
+                                                                                               :value {:name "doop"
+                                                                                                       :path "/health"
+                                                                                                       :port 80
+                                                                                                       :verb "POST"
+                                                                                                       :protocol "http"}}}))
                                            (mock/header "Authorization" auth-header)))]
                    (:status response) => 200
                    (:body response) => (is-json (contains {:interval 100}))
-                   (sql/get-check-by-id @db {:id "checkid123" :customer_id "154ba57a-5188-11e5-8067-9b5f2d96dce1"}) => (just (contains {:interval 100}))))
+                   (sql/get-check-by-id @db {:id "check1" :customer_id "154ba57a-5188-11e5-8067-9b5f2d96dce1"}) => (just (contains {:interval 100}))))
            (fact "new checks get saved"
                  (let [response ((app) (-> (mock/request :post "/checks" (generate-string
                                                                           {:interval 10
