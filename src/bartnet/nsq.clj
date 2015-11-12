@@ -34,9 +34,11 @@
 (defn nsq-handler [bus]
   (reify NSQMessageCallback
     (message [_ msg]
-      (let [body (parse-string (String. (.getMessage msg)) true)]
-        (bus/publish! bus (:customer_id body) body)
-        (.finished msg)))))
+      (try
+        (let [body (parse-string (String. (.getMessage msg)) true)]
+          (bus/publish! bus (:customer_id body) body)
+          (.finished msg))
+        (catch Throwable e (log/error e "Failed to handle message: " msg))))))
 
 (defn launch-consumer [nsq-config bus]
   (let [lookup (nsq-lookup (:lookup nsq-config) (:produce nsq-config))
