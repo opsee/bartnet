@@ -14,17 +14,20 @@
 
 (defn gen-query [{id :id
                   check-id :check_id
-                  customer-id :customer_id}]
+                  customer-id :customer_id
+                  type :type}]
   (str "customer_id = " (q customer-id)
        (if id
          (str " and host = " (q id)))
        (if check-id
-         (str " and service = " (q check-id)))))
+         (str " and service = " (q check-id)))
+       (if type
+         (str " and type = " (q type)))))
 
 (defn get-results [ options]
   (let [login (:login options)
         token (login->token login)
-        query (gen-query options)]
+        query (gen-query (assoc options :type "result"))]
     (try
       (http/get (join "/" [@results-addr "results"])
                 {:throw-entire-message? true
