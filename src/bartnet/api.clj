@@ -64,7 +64,7 @@
   (assoc group :results (filter #(= (or (get-in group [:group :LoadBalancerName]) (get-in group [:group :GroupId])) (:key %)) results)))
 
 (defn add-check-results [check results]
-  (assoc check :results (filter #(= (:id check) (:key %)) results)))
+  (assoc check :results (filter #(= (:id check) (:check_id %)) results)))
 
 (defn list-bastions [ctx]
   (let [login (:login ctx)
