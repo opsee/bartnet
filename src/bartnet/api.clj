@@ -58,13 +58,33 @@
   (not= (get-in ctx [:request :request-method]) :delete))
 
 (defn add-instance-results [instance results]
-  (assoc instance :results (filter #(= (get-in instance [:instance :InstanceId]) (:key %)) results)))
+  (let [instance-id (get-in instance [:instance :InstanceId])]
+    (assoc instance :results (sequence
+                               (comp
+
+                                 (map (fn [result]
+                                        (update result :responses (fn [responses]
+                                                                    (filter #(= instance-id (:host %)) responses)))))
+                                 (filter #(not-empty (:responses %))))
+                                 results))))
 
 (defn add-group-results [group results]
-  (assoc group :results (filter #(= (or (get-in group [:group :LoadBalancerName]) (get-in group [:group :GroupId])) (:key %)) results)))
+  (assoc group :results (filter #(= (or (get-in group [:group :LoadBalancerName]) (get-in group [:group :GroupId])) (:host %)) results)))
 
 (defn add-check-results [check results]
   (assoc check :results (filter #(= (:id check) (:check_id %)) results)))
+
+(defmulti results-merge (fn [[key _] _] key))
+
+(defmethod results-merge :instance [[key instance] results]
+  (add-instance-results {key instance} results))
+(defmethod results-merge :instances [[key instances] results]
+  [key (for [instance instances] (add-instance-results instance results))])
+(defmethod results-merge :group [[key group] results]
+  (add-group-results {key group} results))
+(defmethod results-merge :groups [[key groups] results]
+  [key (for [group groups] (add-group-results group results))])
+(defmethod results-merge :instance_count [ic _] ic)
 
 (defn list-bastions [ctx]
   (let [login (:login ctx)
@@ -164,6 +184,7 @@
                          (add-check-results results)) (sql/get-checks-by-customer-id @db customer-id))]
     (map #(resolve-lastrun % customer-id) checks)
     (log/info "checks" checks)
+    (log/info "results" results)
     {:checks checks}))
 
 (defn ec2-classic? [attrs]
@@ -199,29 +220,9 @@
 
 (defn get-http-body [response]
   (let [status (:status response)]
-    (log/info "status" status)
     (cond
       (<= 200 status 299) (parse-string (:body response) keyword)
       :else (throw (Exception. (str "failed to get instances from the instance store " status))))))
-
-(defn unpack-responses [results]
-  (mapcat (fn [result]
-            (cons (assoc result :key (:host result))
-                  (map #(assoc result :key (:host %)
-                                      :responses [%]) (:responses result)))) results))
-
-
-(defmulti results-merge (fn [[key _] _] key))
-
-(defmethod results-merge :instance [[key instance] results]
-  (add-instance-results {key instance} results))
-(defmethod results-merge :instances [[key instances] results]
-  [key (for [instance instances] (add-instance-results instance results))])
-(defmethod results-merge :group [[key group] results]
-  (add-group-results {key group} results))
-(defmethod results-merge :groups [[key groups] results]
-  [key (for [group groups] (add-group-results group results))])
-(defmethod results-merge :instance_count [ic _] ic)
 
 (defn call-instance-store! [meth opts]
   (fn [ctx]
@@ -232,7 +233,8 @@
                                                             :login login))
             store (get-http-body store-req)
             results (get-http-body results-req)]
-        (into {} (map #(results-merge % (unpack-responses results))) store)))))
+        (log/info "results" results)
+        (into {} (map #(results-merge % results)) store)))))
 
 (defn get-customer! [ctx]
   (let [customer-id (get-in ctx [:login :customer_id])]
