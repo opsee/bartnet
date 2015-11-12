@@ -111,8 +111,17 @@
                             :instance-id instance-id
                             :state "launching"})))
 
-(defn send-slack-error-msg [msg]
-  (http/post slack-url {:form-params {:payload (generate-string {:text (str "error while launching bastion " msg)})}}))
+(defn send-slack-error-msg [customer-id email user-id region err]
+  (let [tmpl {:text "*BASTION LAUNCH FAILURE*"
+              :username "ErrorBot"
+              :icon_url "https://s3-us-west-1.amazonaws.com/opsee-public-images/slack-avi-48-red.png"
+              :attachments [{:text (str "Customer: " customer-id)
+                             :color "#f44336"
+                             :fields [{:title "Email" :value email :short true}
+                                      {:title "User ID" :value user-id :short true}
+                                      {:title "Region" :value region :short true}
+                                      {:title "Last Error" :value err}]}]}]
+    (http/post slack-url {:form-params {:payload (generate-string tmpl)}})))
 
 (defn launcher [creds bastion-creds bastion-config producer image-id instance-type vpc-id login keypair template-src executor]
       (fn []
@@ -120,6 +129,7 @@
             [id (:id bastion-creds)
              customer-id (:customer_id login)
              state (atom nil)
+             cloudfailure (atom nil)
              endpoint (keyword (:endpoint creds))
              template-map (if-let [res (:resource template-src)]
                                   {:template-body (-> res
@@ -158,6 +168,7 @@
                                      (nsq/publish! producer (assoc msg :command "launch-bastion"
                                                                        :customer_id customer-id))
                                      (log/info (get-in msg [:attributes :ResourceType]) (get-in msg [:attributes :ResourceStatus]))
+                                     (if (= (get-in msg [:attributes :ResourceStatus]) "CREATE_FAILED") (reset! cloudfailure (get-in msg [:attributes :ResourceStatusReason])))
                                      (reset! state (:state msg))
                                      (contains? #{"complete" "failed"} (:state msg)))))
                     (recur (sqs/receive-message creds {:queue-url queue-url
@@ -169,9 +180,7 @@
                                     :state "ok"
                                     :attributes {:status :success}})
             (if (= "failed" @state)
-              (send-slack-error-msg (str "BASTION LAUNCH FAILED - user-email: " (:email login)
-                                         " customer-id: " customer-id
-                                         " user-id " (:id login)))
+              (send-slack-error-msg customer-id (:email login) (:id login) (:endpoint creds) @cloudfailure)
               (instance/discover! {:access_key (:access-key creds)
                                    :secret_key (:secret-key creds)
                                    :region (:endpoint creds)
@@ -179,12 +188,7 @@
                                    :user_id (:id login)}))
             (catch Exception ex (do
                                   (log/error ex "Exception in thread")
-                                  (send-slack-error-msg
-                                    (str "BASTION LAUNCH EXCEPTION: "
-                                         (.getMessage ex)
-                                         " - user-email: " (:email login)
-                                         " customer-id: " (:customer_id login)
-                                         " user-id " (:id login)))))
+                                  (send-slack-error-msg customer-id (:email login) (:id login) (:endpoint creds) (.getMessage ex))))
             (finally (do
                        (log/info "cleaning up")
                        (.cancel launch-beater false)
