@@ -26,12 +26,23 @@
             "Description" : "The VPC in which to deploy the instance",
             "Type": "String",
             "ConstraintDescription" : "Must be a valid VPC ID"
+        },
+        "SubnetId" : {
+            "Description" : "The subnet in which to deploy the instance (optional)",
+            "Default": "",
+            "Type": "String"
         }
     },
     "Conditions": {
         "NoKey": {
             "Fn::Equals": [
                 {"Ref": "KeyName"},
+                ""
+            ]
+        },
+        "NoSubnet": {
+            "Fn::Equals": [
+                {"Ref": "SubnetId"},
                 ""
             ]
         }
@@ -166,6 +177,13 @@
                         "NoKey",
                         {"Ref": "AWS::NoValue"},
                         {"Ref":"KeyName"}
+                    ]
+                },
+                "SubnetId": {
+                    "Fn::If": [
+                        "NoSubnet",
+                        {"Ref": "AWS::NoValue"},
+                        {"Ref":"SubnetId"}
                     ]
                 },
                 "SecurityGroupIds": [{"Ref": "BastionSecurityGroup"}],

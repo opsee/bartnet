@@ -126,7 +126,7 @@
                                       {:title "Last Error" :value err}]}]}]
     (http/post slack-url {:form-params {:payload (generate-string tmpl)}})))
 
-(defn launcher [creds bastion-creds bastion-config producer image-id instance-type vpc-id login keypair template-src executor]
+(defn launcher [creds bastion-creds bastion-config producer image-id instance-type vpc-id subnet-id login keypair template-src executor]
       (fn []
           (try-let
             [id (:id bastion-creds)
@@ -157,6 +157,7 @@
                                                {:parameter-key "UserData" :parameter-value (encode-user-data
                                                                                              (generate-user-data customer-id bastion-creds bastion-config))}
                                                {:parameter-key "VpcId" :parameter-value vpc-id}
+                                               {:parameter-key "SubnetId" :parameter-value subnet-id}
                                                {:parameter-key "KeyName" :parameter-value keypair}]
                                   :tags [{:key "Name" :value (str "Opsee Bastion " customer-id)}]
                                   :notification-arns [topic-arn]} template-map))
@@ -217,12 +218,13 @@
             vpcs (for [vpc (:vpcs region-obj)]
                    (do (log/info vpc)
                        (let [bastion-creds (get-bastion-creds customer-id)
-                             vpc-id (:id vpc)]
+                             vpc-id (:id vpc)
+                             subnet-id (:subnet_id vpc)]
                          (.submit
                           executor
                           (launcher creds bastion-creds bastion-config producer
                                     image-id instance-size
-                                    vpc-id login keypair
+                                    vpc-id subnet-id login keypair
                                     template-src scheduler))
                          (assoc vpc :instance_id (:id bastion-creds)))))]
         (assoc region-obj :vpcs vpcs)))))

@@ -13,3 +13,4 @@ pom.xml.asc
 *.sublime-workspace
 src/co/opsee/proto/*
 schema.sql
+bartnetenv
