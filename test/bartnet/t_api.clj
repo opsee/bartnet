@@ -88,7 +88,7 @@
        (with-redefs [rpc/checker-client mock-checker-client
                      router/get-customer-bastions mock-get-customer-bastions
                      router/get-service mock-get-service
-                     clj-http.client/get (mock-get {"/results" {:status 200 :body (:customer-query fixtures)}})]
+                     clj-http.client/get (mock-http {"/results" {:status 200 :body (:customer-query fixtures)}})]
          (with-state-changes
            [(before :facts (doto
                             (do-setup)))]
@@ -135,7 +135,8 @@
        (with-redefs [rpc/checker-client mock-checker-client
                      router/get-customer-bastions mock-get-customer-bastions
                      router/get-service mock-get-service
-                     clj-http.client/get (mock-get {"/results" {:status 200 :body (:customer-query fixtures)}})]
+                     clj-http.client/get (mock-http {"/results" {:status 200 :body (:customer-query fixtures)}})
+                     clj-http.client/delete (mock-http {"/results/checkid123" {:status 204 :body ""}})]
          (with-state-changes
            [(before :facts (doto
                             (do-setup)
@@ -285,16 +286,16 @@
                                                                                         :subnets (just [(contains {:subnet-id "subnet-zyxw2222"
                                                                                                                    :vpc-id "vpc-82828282"})])})])})]))))))
 (facts "instance store"
-  (with-redefs [clj-http.client/get (mock-get {"/groups/security" {:status 200 :body (:groups fixtures)}
-                                               "/group/security/sg-c852dbad" {:status 200 :body (:group fixtures)}
-                                               "/groups/elb" {:status 200 :body (:elbs fixtures)}
-                                               "/group/elb/lasape" {:status 200 :body (:elb fixtures)}
-                                               "/instances/ec2" {:status 200 :body (:instances fixtures)}
-                                               "/instance/ec2/i-38aae6fa" {:status 200 :body (:instance fixtures)}
-                                               {:url "/results"
-                                                :query-params {:q "customer_id = \"154ba57a-5188-11e5-8067-9b5f2d96dce1\" and type = \"result\""}} {:status 200 :body (:customer-query fixtures)}
-                                               {:url "/results"
-                                                :query-params {:q "customer_id = \"154ba57a-5188-11e5-8067-9b5f2d96dce1\" and host = \"sg-c852dbad\" and type = \"result\""}} {:status 200 :body (:group-query fixtures)}})]
+  (with-redefs [clj-http.client/get (mock-http {"/groups/security" {:status 200 :body (:groups fixtures)}
+                                                "/group/security/sg-c852dbad" {:status 200 :body (:group fixtures)}
+                                                "/groups/elb" {:status 200 :body (:elbs fixtures)}
+                                                "/group/elb/lasape" {:status 200 :body (:elb fixtures)}
+                                                "/instances/ec2" {:status 200 :body (:instances fixtures)}
+                                                "/instance/ec2/i-38aae6fa" {:status 200 :body (:instance fixtures)}
+                                                {:url "/results"
+                                                 :query-params {:q "customer_id = \"154ba57a-5188-11e5-8067-9b5f2d96dce1\" and type = \"result\""}} {:status 200 :body (:customer-query fixtures)}
+                                                {:url "/results"
+                                                 :query-params {:q "customer_id = \"154ba57a-5188-11e5-8067-9b5f2d96dce1\" and host = \"sg-c852dbad\" and type = \"result\""}} {:status 200 :body (:group-query fixtures)}})]
     (fact "/groups/security"
       (let [response ((app) (-> (mock/request :get "/groups/security")
                                 (mock/header "Authorization" auth-header)))]

@@ -36,3 +36,14 @@
       (catch Exception ex
         (do (log/error "encountered error talking to beavis" token query)
             (throw ex))))))
+
+(defn delete-results [login check-id]
+  (let [token (login->token login)
+        url (join "/" [@results-addr "results" check-id])]
+    (try
+      (http/delete url
+                   {:throw-entire-message? true
+                    :headers {"Authorization" token}})
+      (catch Exception ex
+        (do (log/error "encountered error talking to beavis" token url)
+            (throw ex))))))
