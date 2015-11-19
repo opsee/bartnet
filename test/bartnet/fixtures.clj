@@ -81,7 +81,7 @@
     (:path (url path))
     (catch Exception _ path)))
 
-(defn mock-get [mappings]
+(defn mock-http [mappings]
   (fn [uri opts]
     (let [response (match-path mappings (safe-url uri) opts)]
       (log/info "response" response)
