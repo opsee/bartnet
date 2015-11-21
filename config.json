@@ -26,7 +26,9 @@
     "bastion": {
       "vpn-remote": "{{BASTION_VPN_REMOTE}}",
       "dns-server": "{{BASTION_DNS}}",
-      "nsqd-host": "{{NSQ_PRODUCE_HOST}}:{{NSQ_PRODUCE_PORT}}"
+      "nsqd-host": "{{NSQ_PRODUCE_HOST}}:{{NSQ_PRODUCE_PORT}}",
+      "bartnet-host": "{{BARTNET_HOST}}",
+      "bastion-auth-type":"{{BASTION_AUTH_TYPE}}"
     },
     "nsq": {
       "lookup": {

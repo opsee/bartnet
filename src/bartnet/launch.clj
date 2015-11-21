@@ -67,7 +67,7 @@
                     (str (name k) "=" v))
                   env)))
 
-(defn generate-user-data [customer-id bastion-creds bastion-config] ;ca cert key]
+(defn generate-user-data [customer-id customer-email bastion-creds bastion-config] ;ca cert key]
   (str
    "#cloud-config\n"
    (yaml/generate-string
@@ -80,11 +80,15 @@
                                ; At that point we'll want to associate a customer with a specific
                                ; bastion version and expose a mechanism to change that version.
                                ; Until then, always launch with the stable version.
+
+                               :CUSTOMER_EMAIL customer-email
                                :BASTION_VERSION "stable"
                                :BASTION_ID (:id bastion-creds)
                                :VPN_PASSWORD (:password bastion-creds)
                                :VPN_REMOTE (:vpn-remote bastion-config)
                                :DNS_SERVER (:dns-server bastion-config)
+                               :BARTNET_HOST (:bartnet-host bastion-config)
+                               :BASTION_AUTH_TYPE (:bastion-auth-type bastion-config)
                                :NSQD_HOST (:nsqd-host bastion-config)})}]
      :coreos {:update
               {:reboot-strategy "etcd-lock"
@@ -131,6 +135,7 @@
           (try-let
             [id (:id bastion-creds)
              customer-id (:customer_id login)
+             customer-email (:email login)
              state (atom nil)
              cloudfailure (atom nil)
              endpoint (keyword (:endpoint creds))
@@ -155,7 +160,7 @@
                                   :parameters [{:parameter-key "ImageId" :parameter-value image-id}
                                                {:parameter-key "InstanceType" :parameter-value instance-type}
                                                {:parameter-key "UserData" :parameter-value (encode-user-data
-                                                                                             (generate-user-data customer-id bastion-creds bastion-config))}
+                                                                                             (generate-user-data customer-id customer-email bastion-creds bastion-config))}
                                                {:parameter-key "VpcId" :parameter-value vpc-id}
                                                {:parameter-key "SubnetId" :parameter-value subnet-id}
                                                {:parameter-key "KeyName" :parameter-value keypair}]
@@ -205,6 +210,7 @@
         regions (:regions msg)
         instance-size (:instance-size msg)
         customer-id (:customer_id login)
+        customer-email (:email login)
         owner-id (:owner-id ami-config)
         tag (:tag ami-config)
         keypair (if (:admin login) (:keypair ami-config) "")

@@ -8,20 +8,24 @@
 			var wsUri = "ws://" + host + "/stream/";
 			var launchUri = "http://" + host + "/bastions/launch";
 			var checkUri = "http://" + host + "/bastions";
-			var bearer = ""
+            var bearer = ""
+            var basic = {email:'', customer_id:'', id:'', admin:true}
+            
+            var basic_token = btoa(JSON.stringify(basic));
+            console.log(basic_token);
 			var output;
 			var customer_id ="" ;
 
 			function init() {
 				output = document.getElementById("output");
-				startWebsocket();
+				//startWebsocket();
 			}
 
 			function startLaunch() {
 				var req = new XMLHttpRequest();
 				req.open("POST", launchUri, true);
 				req.setRequestHeader("Content-Type", "application/json");
-				req.setRequestHeader("Authorization", "Bearer " + bearer);
+				req.setRequestHeader("Authorization", "Basic " + basic_token);
 				req.send(JSON.stringify({
 					"access-key": "",
 					"secret-key": "",
