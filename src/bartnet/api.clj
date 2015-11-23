@@ -162,7 +162,8 @@
                                       (.setId id)
                                       .build))
                       .build)]
-          (all-bastions customer-id #(rpc/delete-check % req)))))))
+          (all-bastions customer-id #(rpc/delete-check % req)))
+        (results/delete-results login id)))))
 
 (defn create-check! [^Check check]
   (fn [ctx]
