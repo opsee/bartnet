@@ -5,8 +5,8 @@
             [instaparse.core :as insta]
             [clostache.parser :refer [render-resource]]
             [clojure.java.io :as io]
-            [amazonica.aws.cloudformation :refer [create-stack]]
-            [amazonica.aws.ec2 :refer [describe-images]]
+            [amazonica.aws.cloudformation :refer [create-stack delete-stack describe-stack-resources]]
+            [amazonica.aws.ec2 :refer [describe-images describe-security-groups revoke-security-group-ingress]]
             [amazonica.aws.sns :as sns]
             [amazonica.aws.sqs :as sqs]
             [clojure.tools.logging :as log]
@@ -19,7 +19,21 @@
             [clojure.core.match :refer [match]]
             [bartnet.instance :as instance])
   (:import [java.util.concurrent ExecutorService TimeUnit ScheduledFuture]
-           [java.util Base64]))
+           [java.util Base64]
+           (com.amazonaws AmazonServiceException)))
+
+(defn robustify [aws-call]
+  (loop [value (atom ::retry)]
+    (try
+      (reset! value (aws-call))
+      (catch com.amazonaws.AmazonServiceException ex
+        (when-not (= "RequestLimitExceeded" (.getErrorCode ex))
+          (throw ex))))
+    (if-not (= ::retry @value)
+      @value
+      (do
+        (Thread/sleep 1000)
+        (recur value)))))
 
 (def formatter (f/formatters :date-time))
 
@@ -235,3 +249,20 @@
                          (assoc vpc :instance_id (:id bastion-creds)))))]
         (assoc region-obj :vpcs vpcs)))))
 
+(defn unlaunch-bastion [creds stack-name]
+  (let [security-group-id (-> (filter #(= "AWS::EC2::SecurityGroup" (:resource-type %))
+                                      (-> (robustify #(describe-stack-resources creds {:stack-name stack-name}))
+                                          :stack-resources))
+                              first
+                              :physical-resource-id)]
+    (log/info "unfucking" security-group-id)
+    (doseq [security-group (-> (robustify #(describe-security-groups creds :filters [{:name "ip-permission.group-id" :values [security-group-id]}]))
+                               :security-groups)]
+      (log/info "revoke" security-group-id "from" security-group)
+      (try
+        (robustify #(revoke-security-group-ingress creds
+                                                   :group-id (:group-id security-group)
+                                                   :ip-permissions [{:user-id-group-pairs [{:group-id security-group-id}]
+                                                                     :ip-protocol -1}]))
+        (catch AmazonServiceException _))))
+  (robustify #(delete-stack creds {:stack-name stack-name})))
