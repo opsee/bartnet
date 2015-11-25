@@ -95,7 +95,7 @@
 (defn list-bastions [ctx]
   (let [login (:login ctx)
         instance-ids (router/get-customer-bastions (:customer_id login))]
-    {:bastions instance-ids}))
+    {:bastions (reduce conj [] instance-ids)}))
 
 (defn ensure-target-created [target]
   (if (empty? (sql/get-target-by-id @db (:id target)))
