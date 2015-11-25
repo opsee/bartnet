@@ -46,7 +46,8 @@
   ; We dissoc access-key and secret-key here, because they are the customer's credentials and, for whatever
   ; reason, customers can't find our AMIs like this even when they're public. Removing them from the "creds" hash
   ; will cause the AWS client to get the credentials it needs from the environment or instance profile. -greg
-  (let [{images :images} (describe-images (dissoc creds :access-key :secret-key) :owners [owner-id] :filters [{:name "tag:release" :values [tag]}])]
+  (let [{images :images} (describe-images (dissoc creds :access-key :secret-key) :owners [owner-id] :filters [{:name "tag:release" :values [tag]}
+                                                                                                              {:name "is-public" :values [true]}])]
     (first (sort-by :name #(compare %2 %1) images))))
 
 (defn get-bastion-creds [customer-id]
