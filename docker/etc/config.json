@@ -48,5 +48,6 @@
   },
   "beavis":{
     "addr": "{{BEAVIS_ADDR}}"
-  }
+  },
+  "yeller":"{{YELLER_API_KEY}}"
 }

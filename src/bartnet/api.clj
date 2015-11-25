@@ -423,6 +423,12 @@
     :no-doc true
     "A ok")
 
+
+  (GET* "/eat-shit" []
+    :no-doc true
+    (fn [request]
+      (throw (Exception. "this is just a test"))))
+
   (POST* "/scan-vpcs" []
     :summary "Scans the regions requested for any VPC's and instance counts."
     :body [vpc-req ScanVpcsRequest]
@@ -540,4 +546,5 @@
                                             #"null"]
               :access-control-allow-methods [:get :put :post :patch :delete])
    (vary-origin)
-   (wrap-params)))
+   (wrap-params)
+   (setup-yeller)))
