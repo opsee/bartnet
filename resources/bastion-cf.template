@@ -186,7 +186,7 @@
                         {"Ref":"SubnetId"}
                     ]
                 },
-                "AssociatePublicIpAddress": True,
+                "AssociatePublicIpAddress": true,
                 "SecurityGroupIds": [{"Ref": "BastionSecurityGroup"}],
                 "UserData": {"Ref":"UserData"}
             }

@@ -76,19 +76,17 @@
    (yaml/generate-string
     {:users [{:name "opsee"
               :groups ["sudo" "docker"]
-              :ssh-authorized-keys
-              [support-ssh-key]}]
+              :ssh-authorized-keys [support-ssh-key]}]
      :write_files [{:path "/etc/opsee/bastion-env.sh"
                     :permissions "0644"
                     :owner "root"
                     :content (generate-env-shell
                               {:CUSTOMER_ID customer-id
+                               :CUSTOMER_EMAIL customer-email
                                ; It's possible at some point that we want to make this configurable.
                                ; At that point we'll want to associate a customer with a specific
                                ; bastion version and expose a mechanism to change that version.
                                ; Until then, always launch with the stable version.
-
-                               :CUSTOMER_EMAIL customer-email
                                :BASTION_VERSION "stable"
                                :BASTION_ID (:id bastion-creds)
                                :VPN_PASSWORD (:password bastion-creds)
@@ -98,7 +96,7 @@
                                :BASTION_AUTH_TYPE (:bastion-auth-type bastion-config)
                                :NSQD_HOST (:nsqd-host bastion-config)})}]
      :coreos {:update
-              {:reboot-strategy "etcd-lock"
+              {:reboot-strategy "off"
                :group "beta"}}})))
 
 (defn parse-cloudformation-msg [instance-id msg]
