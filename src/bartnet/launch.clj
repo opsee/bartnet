@@ -31,6 +31,8 @@
 
 (def slack-url "https://hooks.slack.com/services/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")
 
+(def support-ssh-key "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDP+VmyztGmJJTe6YtMtrKazGy3tQC/Pku156Ae10TMzCjvtiol+eL11FKyvNvlENM5EWwIQEng5w3J616kRa92mWr9OWALBn4HJZcztS2YLAXyiC+GLauil6W6xnGzS0DmU5RiYSSPSrmQEwHvmO2umbG190srdaDn/ZvAwptC1br/zc/7ya3XqxHugw1V9kw+KXzTWSC95nPkhOFoaA3nLcMvYWfoTbsU/G08qQy8medqyK80LJJntedpFAYPUrVdGY2J7F2y994YLfapPGzDjM7nR0sRWAZbFgm/BSD0YM8KA0mfGZuKPwKSLMtTUlsmv3l6GJl5a7TkyOlK3zzYtVGO6dnHdZ3X19nldreE3DywpjDrKIfYF2L42FKnpTGFgvunsg9vPdYOiJyIfk6lYsGE6h451OAmV0dxeXhtbqpw4/DsSHtLm5kKjhjRwunuQXEg8SfR3kesJjq6rmhCjLc7bIKm3rSU07zbXSR40JHO1Mc9rqzg2bCk3inJmCKWbMnDvWU1RD475eATEKoG/hv0/7EOywDnFe1m4yi6yZh7XlvakYsxDBPO9/FMlZm2T+cn+TyTmDiw9tEAIEAEiiu18CUNIii1em7XtFDmXjGFWfvteQG/2A98/uDGbmlXd64F2OtU/ulDRJXFGaji8tqxQ/To+2zIeIptLjtqBw==")
+
 (def cf-parser
   (insta/parser
    "message = line+
@@ -72,7 +74,11 @@
   (str
    "#cloud-config\n"
    (yaml/generate-string
-    {:write_files [{:path "/etc/opsee/bastion-env.sh"
+    {:users [{:name "opsee"
+              :groups ["sudo" "docker"]
+              :ssh-authorized-keys
+              [support-ssh-key]}]
+     :write_files [{:path "/etc/opsee/bastion-env.sh"
                     :permissions "0644"
                     :owner "root"
                     :content (generate-env-shell
