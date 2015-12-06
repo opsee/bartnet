@@ -2,6 +2,7 @@
   (:require [bartnet.instance :as instance]
             [bartnet.sql :as sql]
             [bartnet.rpc :as rpc :refer [all-bastions]]
+            [bartnet.aws-rpc :as aws-rpc]
             [bartnet.results :as results]
             [opsee.middleware.protobuilder :as pb]
             [opsee.middleware.core :refer :all]
@@ -27,6 +28,7 @@
             [liberator.dev :refer [wrap-trace]]
             [liberator.core :refer [resource defresource]])
   (:import (co.opsee.proto TestCheckRequest TestCheckResponse CheckResourceRequest Check)
+           (co.opsee.proto RebootInstancesRequest StartInstancesRequest StopInstancesRequest RebootInstancesResult StartInstancesResult StopInstancesResult)
            (com.google.protobuf GeneratedMessage)
            (java.io ByteArrayInputStream)))
 
@@ -181,6 +183,29 @@
       (log/info "chechf" db-check)
       {:checks db-check})))
 
+
+(defn reboot-instances! [^RebootInstancesRequest rebootInstancesRequest]
+  (fn [ctx]
+    (let [login (:login ctx)
+          response (all-bastions (:customer_id login) #(aws-rpc/reboot-instances % rebootInstancesRequest))]
+      (log/info "resp" response)
+      {:reboot-instances-result response})))
+
+
+(defn start-instances! [^StartInstancesRequest startInstancesRequest]
+  (fn [ctx]
+    (let [login (:login ctx)
+          response (all-bastions (:customer_id login) #(aws-rpc/start-instances % startInstancesRequest))]
+      (log/info "resp" response)
+      {:start-instances-result response})))
+
+(defn stop-instances! [^StopInstancesRequest stopInstancesRequest]
+  (fn [ctx]
+    (let [login (:login ctx)
+          response (all-bastions (:customer_id login) #(aws-rpc/stop-instances % stopInstancesRequest))]
+      (log/info "resp" response)
+      {:stop-instances-result response})))
+
 (defn list-checks [ctx]
   (let [login (:login ctx)
         customer-id (:customer_id login)
@@ -311,6 +336,30 @@
   :post! (create-check! checks)
   :handle-created :checks
   :handle-ok list-checks)
+
+
+(defresource start-instances-resource [startInstancesRequest]
+  :available-media-types ["application/json"]
+  :allowed-methods [:post]
+  :authorized? (authorized?)
+  :post! (start-instances! startInstancesRequest)
+  :handle-ok :start-instances-result)
+
+
+(defresource stop-instances-resource [stopInstancesRequest]
+  :available-media-types ["application/json"]
+  :allowed-methods [:post]
+  :authorized? (authorized?)
+  :post! (stop-instances! stopInstancesRequest)
+  :handle-ok :stop-instances-result)
+
+
+(defresource reboot-instances-resource [rebootInstancesRequest]
+  :available-media-types ["application/json"]
+  :allowed-methods [:post]
+  :authorized? (authorized?)
+  :post! (reboot-instances! rebootInstancesRequest)
+  :handle-ok :reboot-instances-result)
 
 (defresource scan-vpc-resource [req]
   :available-media-types ["application/json"]
@@ -454,6 +503,27 @@
       :return (pb/proto->schema TestCheckResponse)
       (test-check-resource testCheck)))
 
+  (context* "/aws" []
+    :tags ["aws"]
+
+    (POST* "/start-instances" []
+      :summary "Reboot an instance by id"
+      :proto [startInstancesRequest StartInstancesRequest]
+      :return (pb/proto->schema StartInstancesResult)
+        (start-instances-resource startInstancesRequest))
+
+    (POST* "/stop-instances" []
+      :summary "Reboot an instance by id"
+      :proto [stopInstancesRequest StopInstancesRequest]
+      :return (pb/proto->schema StartInstancesResult)
+        (stop-instances-resource stopInstancesRequest))
+
+    (POST* "/reboot-instances" []
+      :summary "Reboot an instance by id"
+      :proto [rebootInstancesRequest RebootInstancesRequest]
+      :return (pb/proto->schema RebootInstancesResult)
+        (reboot-instances-resource rebootInstancesRequest)))
+    
   (context* "/checks" []
     :tags ["checks"]
 
@@ -484,7 +554,7 @@
       :proto [check Check]
       :return (pb/proto->schema Check)
       (check-resource id check)))
-
+ 
   (context* "/instances" []
     :tags ["instances"]
 
@@ -500,8 +570,6 @@
       :summary "Retrieve a single ec2 instance."
       (instances-resource {:type type :id id})))
 
-  (GET* "/instance/:type/:id" [type id]
-    (instances-resource {:type type :id id}))
 
   (context* "/groups" []
     :tags ["groups"]
@@ -517,9 +585,6 @@
     (GET* "/:type/:id" [type id]
       :summary "Retrieve a list of instances belonging to a security group."
       (groups-resource {:id id :type type})))
-
-  (GET* "/group/:type/:id" [type id]
-    (groups-resource {:id id :type type}))
 
   (GET* "/customer" []
     :summary "Retrieve a customer from the instance store."

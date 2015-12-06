@@ -8,6 +8,7 @@
 			var wsUri = "ws://" + host + "/stream/";
 			var launchUri = "http://" + host + "/bastions/launch";
 			var checkUri = "http://" + host + "/bastions";
+			var awsUri = "http://" + host + "/aws";
             var bearer = ""
             var basic = {email:'', customer_id:'', id:'', admin:true}
             
@@ -21,13 +22,44 @@
 				//startWebsocket();
 			}
 
+            function startInstance() {
+				var req = new XMLHttpRequest();
+				req.open("POST", awsUri + "/start-instances", true);
+				req.setRequestHeader("Content-Type", "application/json");
+				req.setRequestHeader("Authorization", "Basic " + basic_token);
+				req.send(JSON.stringify({
+                    "dryRun": false,
+					"InstanceIds": ["i-53bcc6e1"]
+				}));
+			}
+	
+			function stopInstance() {
+				var req = new XMLHttpRequest();
+				req.open("POST", awsUri + "/stop-instances", true);
+				req.setRequestHeader("Content-Type", "application/json");
+				req.setRequestHeader("Authorization", "Basic " + basic_token);
+				req.send(JSON.stringify({
+                    "dryRun": false,
+					"InstanceIds": ["i-53bcc6e1"]
+				}));
+			}
+			function rebootInstance() {
+				var req = new XMLHttpRequest();
+				req.open("POST", awsUri + "/reboot-instances", true);
+				req.setRequestHeader("Content-Type", "application/json");
+				req.setRequestHeader("Authorization", "Basic " + basic_token);
+				req.send(JSON.stringify({
+                    "dryRun": false,
+					"InstanceIds": ["i-53bcc6e1"]
+				}));
+			}
+
 			function startLaunch() {
 				var req = new XMLHttpRequest();
 				req.open("POST", launchUri, true);
 				req.setRequestHeader("Content-Type", "application/json");
 				req.setRequestHeader("Authorization", "Basic " + basic_token);
 				req.send(JSON.stringify({
-					"access-key": "",
 					"secret-key": "",
 					"regions": [
 						{
@@ -40,7 +72,6 @@
 					"instance-size": "t2.micro"
 				}));
 			}
-
 			function startWebsocket() {
 				var websocket = new WebSocket(wsUri);
 				websocket.onopen = function(evt) {
@@ -87,6 +118,9 @@
 	</head>
 	<body>
 	<button label="launch bastion" onclick="startLaunch();">launch bastion</button>
+	<button label="launch bastion" onclick="rebootInstance();">reboot instance</button>
+	<button label="launch bastion" onclick="stopInstance();">stop instance</button>
+	<button label="launch bastion" onclick="startInstance();">start instance</button>
 	<div id="output">
 
 	</div>
