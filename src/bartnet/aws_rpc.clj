@@ -42,6 +42,35 @@
         stub (ec2Grpc/newBlockingStub channel)]
     (->Realec2Client channel stub)))
 
+
+(defn try-bastions [customer-id action]
+  (let [exception (atom nil)]
+    (loop [bastions (router/get-customer-bastions customer-id)]
+      (if-let [bastion (first bastions)]
+        (if-let [addr (router/get-service customer-id bastion "aws_command")]
+          (let [client (ec2-client addr)]
+            (if-let [result (try
+                              (action client)
+                              (catch Exception ex
+                                (reset! exception ex)
+                                nil)
+                              (finally (shutdown client)))]
+              result
+              (recur (rest bastions)))))
+        (if @exception
+          (throw (Exception. "Error occurred talking to bastion." @exception))
+          (throw (Exception. "No bastions could be reached.")))))))
+
+(defn all-bastions [customer-id action]
+  (doall
+   (for [bastion (router/get-customer-bastions customer-id)]
+     (if-let [addr (router/get-service customer-id bastion "aws_command")]
+       (let [client (ec2-client addr)]
+         (try
+           (action client)
+           (catch Exception ex (log/warn ex "Error talking to bastion " bastion))
+           (finally (shutdown client))))))))
+
 (defn specific-bastion [customer-id action host port]
   (let [client (ec2-client {:host host :port port})]
          (try

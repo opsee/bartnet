@@ -187,7 +187,7 @@
 (defn reboot-instances! [^RebootInstancesRequest rebootInstancesRequest]
   (fn [ctx]
     (let [login (:login ctx)
-          response (all-bastions (:customer_id login) #(aws-rpc/reboot-instances % rebootInstancesRequest))]
+          response (aws-rpc/all-bastions (:customer_id login) #(aws-rpc/reboot-instances % rebootInstancesRequest))]
       (log/info "resp" response)
       {:reboot-instances-result response})))
 
@@ -195,14 +195,14 @@
 (defn start-instances! [^StartInstancesRequest startInstancesRequest]
   (fn [ctx]
     (let [login (:login ctx)
-          response (all-bastions (:customer_id login) #(aws-rpc/start-instances % startInstancesRequest))]
+          response (aws-rpc/all-bastions (:customer_id login) #(aws-rpc/start-instances % startInstancesRequest))]
       (log/info "resp" response)
       {:start-instances-result response})))
 
 (defn stop-instances! [^StopInstancesRequest stopInstancesRequest]
   (fn [ctx]
     (let [login (:login ctx)
-          response (all-bastions (:customer_id login) #(aws-rpc/stop-instances % stopInstancesRequest))]
+          response (aws-rpc/all-bastions (:customer_id login) #(aws-rpc/stop-instances % stopInstancesRequest))]
       (log/info "resp" response)
       {:stop-instances-result response})))
 
