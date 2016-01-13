@@ -21,9 +21,9 @@ notify:
     - url: https://hooks.slack.com/services/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
 test:
   override:
-    - docker run --link postgres -e LEIN_USERNAME=$LEIN_USERNAME -e LEIN_PASSPHRASE=$LEIN_PASSPHRASE -v ~/.m2:/root/.m2 -v `pwd`:/build quay.io/opsee/build-clj
+    - docker run --link bartnet_postgres_1:postgres -e DB_HOST=postgres -e LEIN_USERNAME=$LEIN_USERNAME -e LEIN_PASSPHRASE=$LEIN_PASSPHRASE -v ~/.m2:/root/.m2 -v `pwd`:/build quay.io/opsee/build-clj
     - lein docker
-    - docker run --link nsqd --link nsqlookupd --link postgres -d -e NSQ_LOOKUP_HOST=nsqlookupd -e NSQ_LOOKUP_PORT=4161 -e NSQ_PRODUCE_HOST=nsqd -e NSQ_PRODUCE_PORT=4150 -p 8080:8080 quay.io/opsee/bartnet; sleep 20
+    - docker run --link bartnet_nsqd_1:nsqd --link bartnet_nsqlookupd_1:nsqlookdup --link bartnet_postgres_1:postgres -d -e DB_HOST=postgres -e NSQ_LOOKUP_HOST=nsqlookupd -e NSQ_LOOKUP_PORT=4161 -e NSQ_PRODUCE_HOST=nsqd -e NSQ_PRODUCE_PORT=4150 -p 8080:8080 quay.io/opsee/bartnet; sleep 20
     - ./test_liveness.sh
 deployment:
   hub:
