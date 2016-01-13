@@ -1,0 +1,20 @@
+postgres:
+  environment:
+    PSQL_TRUST_LOCALNET: 'true'
+    DB_USER: postgres
+    DB_PASS: ''
+    DB_NAME: bartnet_test
+  image: sameersbn/postgresql:9.4-3
+nsqlookupd:
+  image: nsqio/nsq
+  command: /nsqlookupd
+  expose: 
+    - 4160
+nsqd:
+  image: nsqio/nsq
+  links:
+    - nsqlookupd
+  command: /nsqd --broadcast-address=localhost --lookupd-tcp-address=nsqlookupd:4160
+  expose:
+    - 4150
+    - 4151

@@ -8,13 +8,9 @@ dependencies:
     - curl -k -L -o docker/bin/ec2-env https://s3-us-west-2.amazonaws.com/opsee-releases/go/ec2-env/ec2-env
   override:
     - docker info
-    - docker pull quay.io/opsee/build-clj
-    - docker pull sameersbn/postgresql:9.4-3
-    - docker pull nsqio/nsq
+    - docker-compose version
+    - docker-compose up
     - lein deps
-    - docker run --name postgresql -d -e PSQL_TRUST_LOCALNET=true -e DB_USER=postgres -e DB_PASS= -e DB_NAME=bartnet_test sameersbn/postgresql:9.4-3
-    - docker run --name lookupd -d -p 4160:4160 -p 4161:4161 nsqio/nsq /nsqlookupd
-    - docker run --name nsqd -d nsqio/nsq /nsqd --broadcast-address=localhost --lookupd-tcp-address=localhost:4160
 machine:
   java:
     version: oraclejdk8
@@ -25,9 +21,9 @@ notify:
     - url: https://hooks.slack.com/services/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
 test:
   override:
-    - docker run --link postgresql:postgresql -e LEIN_USERNAME=$LEIN_USERNAME -e LEIN_PASSPHRASE=$LEIN_PASSPHRASE -v ~/.m2:/root/.m2 -v `pwd`:/build quay.io/opsee/build-clj
+    - docker run --link postgres -e LEIN_USERNAME=$LEIN_USERNAME -e LEIN_PASSPHRASE=$LEIN_PASSPHRASE -v ~/.m2:/root/.m2 -v `pwd`:/build quay.io/opsee/build-clj
     - lein docker
-    - docker run -d -e NSQ_LOOKUP_HOST=localhost -e NSQ_LOOKUP_PORT=4161 -e NSQ_PRODUCE_HOST=localhost -e NSQ_PRODUCE_PORT=4150 -p 8080:8080 quay.io/opsee/bartnet; sleep 20
+    - docker run --link nsqd --link nsqlookupd --link postgres -d -e NSQ_LOOKUP_HOST=nsqlookupd -e NSQ_LOOKUP_PORT=4161 -e NSQ_PRODUCE_HOST=nsqd -e NSQ_PRODUCE_PORT=4150 -p 8080:8080 quay.io/opsee/bartnet; sleep 20
     - ./test_liveness.sh
 deployment:
   hub:
