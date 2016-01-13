@@ -4,7 +4,6 @@ checkout:
     - git submodule update --init
 dependencies:
   pre:
-    - createdb bartnet_test
     - curl -k -L -o docker/bin/ec2-env https://s3-us-west-2.amazonaws.com/opsee-releases/go/ec2-env/ec2-env
   override:
     - docker info
