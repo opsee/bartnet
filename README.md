@@ -8,23 +8,19 @@ Firstly you'll need to do codegen for protobufs/grpc. Protobuf defs are in a git
 
 Secondly, you need AWS API keys for our snapshot jars.  Set the env variables thusly: LEIN_USERNAME=aws access key id LEIN_PASSPHRASE=aws secret key.
 
-## Testing
+## Building and Testing
 
-```lein midje```
-
-## Building
-
-``` lein uberjar```
+`make`
 
 ## Docker
 
 ### Building
 
-```lein docker```
+`make docker`
 
 ### Running
 
-```docker run p 8080:8080 bartnet```
+`make run`
 
 You can then test against the Bartnet API on port 8080. For requests that require authentication (p much all of them), you'll have to send an Authorization header with a bearer token like so:
 
