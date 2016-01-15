@@ -27,7 +27,7 @@
             [schema.core :as sch]
             [liberator.dev :refer [wrap-trace]]
             [liberator.core :refer [resource defresource]])
-  (:import (co.opsee.proto TestCheckRequest TestCheckResponse CheckResourceRequest Check)
+  (:import (co.opsee.proto TestCheckRequest TestCheckResponse CheckResourceRequest Check Assertion)
            (co.opsee.proto RebootInstancesRequest StartInstancesRequest StopInstancesRequest RebootInstancesResult StartInstancesResult StopInstancesResult)
            (com.google.protobuf GeneratedMessage)
            (java.io ByteArrayInputStream)))
@@ -137,6 +137,8 @@
   (fn [ctx]
     (let [login (:login ctx)
           customer-id (:customer_id login)
+          db-assertions (sql/get-assertions @db {:customer_id customer-id :check_id id})
+          assertions (map #(-> (.toBuilder (pb/hash->proto Assertion %)) .build) db-assertions)
           updated-check (pb/proto->hash pb-check)
           old-check (:check ctx)]
       (let [merged (merge old-check (assoc (resolve-target updated-check) :id id))]
@@ -144,7 +146,10 @@
         (if (sql/update-check! @db (assoc merged :customer_id customer-id))
           (let [final-check (dissoc (resolve-target (first (sql/get-check-by-id @db {:id id :customer_id customer-id}))) :customer_id)
                 _ (log/info "final-check" final-check)
-                check (pb/hash->proto Check final-check)
+                check (-> (.toBuilder (pb/hash->proto Check final-check))
+                          .clearAssertions
+                          (.addAllAssertions assertions)
+                          .build)
                 checks (-> (CheckResourceRequest/newBuilder)
                            (.addChecks check)
                            .build)]
@@ -171,8 +176,12 @@
   (fn [ctx]
     (let [login (:login ctx)
           customer-id (:customer_id login)
+          check-id (identifiers/generate)
+          db-assertions (sql/get-assertions @db {:customer_id customer-id :check_id check-id})
+          assertions (map #(-> (.toBuilder %) .build) db-assertions)
           check' (-> (.toBuilder check)
-                     (.setId (identifiers/generate))
+                     (.setId check-id)
+                     (.addAllAssertions assertions)
                      .build)
           checks (-> (CheckResourceRequest/newBuilder)
                      (.addChecks check')
@@ -180,7 +189,7 @@
           db-check (resolve-target (pb/proto->hash check'))]
       (sql/insert-into-checks! @db (assoc db-check :customer_id customer-id))
       (all-bastions (:customer_id login) #(rpc/create-check % checks))
-      (log/info "chechf" db-check)
+      (log/info "check" db-check)
       {:checks db-check})))
 
 

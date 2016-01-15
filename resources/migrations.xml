@@ -323,4 +323,51 @@
       <column name="name" type="varchar(255)"><constraints nullable="false"/></column>
     </addColumn>
   </changeSet>
+  <changeSet id="23" author="greg">
+    <preConditions onFail="MARK_RAN">
+      <not>
+        <sqlCheck expectedResult="t">
+          select exists (select 1 from pg_type where typname = 'relationship_type');
+        </sqlCheck>
+    </not>
+    </preConditions>
+    <sql>
+      CREATE TYPE relationship_type AS enum (
+        'equal',
+        'notEqual',
+        'empty',
+        'notEmpty',
+        'contain',
+        'notContain',
+        'regExp'
+      );
+    </sql>
+  </changeSet>
+  <changeSet id="24" author="greg">
+    <preConditions onFail="MARK_RAN">
+      <not>
+        <tableExists tableName="assertions"/>
+      </not>
+    </preConditions>
+    <createTable tableName="assertions">
+      <column name="check_id" type="VARCHAR(255)">
+        <constraints nullable="false"/>
+      </column>
+      <column name="customer_id" type="UUID">
+        <constraints nullable="false"/>
+      </column>
+      <column name="key" type="VARCHAR(255)">
+        <constraints nullable="false"/>
+      </column>
+      <column name="relationship" type="relationship_type">
+        <constraints nullable="false"/>
+      </column>
+      <column name="value" type="VARCHAR(255)">
+        <constraints nullable="false"/>
+      </column>
+      <column name="operand" type="VARCHAR(255)">
+        <constraints nullable="false"/>
+      </column>
+    </createTable>
+  </changeSet>
 </databaseChangeLog>

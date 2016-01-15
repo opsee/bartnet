@@ -32,3 +32,14 @@ select * from checks where customer_id=:customer_id::UUID;
 -- name: delete-check-by-id!
 -- Deletes a check record by id.
 delete from checks where id=:id and customer_id=:customer_id::UUID;
+
+-----------------------------------------------------------------------------
+
+-- name: get-assertions
+-- Retrieves assertions for a check by their check_id and customer_id
+select * from assertions where customer_id=:customer_id::UUID and check_id=:check_id;
+
+-- name: insert-into-assertions!
+-- Insert an assertion
+insert into assertions (check_id, customer_id, key, value, relationship, operand) values
+                  (:check_id, :customer_id::UUID, :key, :value, :relationship::relationship_type, :operand);
