@@ -48,13 +48,16 @@
 (def executor (Executors/utilizationExecutor 0.9 10))
 (def scheduler (ScheduledThreadPoolExecutor. 10))
 (def ws-server (atom nil))
+(def rpc-message-received (atom nil))
 
 (defn mock-checker-client [addr]
   (reify rpc/CheckerClient
     (shutdown [_])
     (test-check [_ check])
-    (create-check [_ check])
-    (update-check [_ check])
+    (create-check [_ check]
+      (reset! rpc-message-received check))
+    (update-check [_ check]
+      (reset! rpc-message-received check))
     (retrieve-check [_ check])
     (delete-check [_ check])))
 
@@ -131,6 +134,7 @@
                                              (mock/header "Authorization" auth-header)))]
                      (:status response) => 201
                      (sql/get-checks-by-customer-id @db "154ba57a-5188-11e5-8067-9b5f2d96dce1") => (contains (contains {:interval 10}))))))))
+
 (facts "check endpoint works"
        (with-redefs [rpc/checker-client mock-checker-client
                      router/get-customer-bastions mock-get-customer-bastions
@@ -138,9 +142,12 @@
                      clj-http.client/get (mock-http {"/results" {:status 200 :body (:customer-query fixtures)}})
                      clj-http.client/delete (mock-http {"/results/checkid123" {:status 204 :body ""}})]
          (with-state-changes
-           [(before :facts (doto
-                            (do-setup)
-                             check-fixtures))]
+           [(before :facts (do
+                             (doto
+                               (do-setup)
+                               (check-fixtures)
+                               (assertions-fixtures))
+                             (reset! rpc-message-received nil)))]
            (fact "checks that don't exist will 404"
                  (let [response ((app) (-> (mock/request :get "/checks/derpderp")
                                            (mock/header "Authorization" auth-header)))]
@@ -179,7 +186,8 @@
                                            (mock/header "Authorization" auth-header)))]
                    (:status response) => 200
                    (:body response) => (is-json (contains {:interval 100}))
-                   (sql/get-check-by-id @db {:id "check1" :customer_id "154ba57a-5188-11e5-8067-9b5f2d96dce1"}) => (just (contains {:interval 100}))))
+                   (sql/get-check-by-id @db {:id "check1" :customer_id "154ba57a-5188-11e5-8067-9b5f2d96dce1"}) => (just (contains {:interval 100}))
+                   (.getAssertionsCount (.getChecks @rpc-message-received 0)) => 2))
            (fact "new checks get saved"
                  (let [response ((app) (-> (mock/request :post "/checks" (generate-string
                                                                           {:interval 10

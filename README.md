@@ -12,6 +12,10 @@ Secondly, you need AWS API keys for our snapshot jars.  Set the env variables th
 
 `make`
 
+### queries.sql
+
+You have to run `lein clean` if you edit queries.sql.
+
 ## Docker
 
 ### Building
