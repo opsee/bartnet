@@ -39,6 +39,22 @@
                                                           :verb "GET"
                                                           :protocol "http"}}})))
 
+(defn assertions-fixtures [db]
+      (sql/insert-into-assertions! db {:check_id "check1"
+                                       :customer_id "154ba57a-5188-11e5-8067-9b5f2d96dce1"
+                                       :key "body"
+                                       :value ""
+                                       :relationship "equal"
+                                       :operand "foo"
+                                       })
+      (sql/insert-into-assertions! db {:check_id "check1"
+                                       :customer_id "154ba57a-5188-11e5-8067-9b5f2d96dce1"
+                                       :key "header"
+                                       :value "accept-encoding"
+                                       :relationship "equal"
+                                       :operand "gzip"
+                                       }))
+
 (def fixtures (parse-string (slurp-from-classpath "fixtures.json") true))
 
 (defmulti url-matcher (fn [path req] [(class path) (class req)]))

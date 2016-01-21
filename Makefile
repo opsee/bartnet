@@ -10,6 +10,9 @@ deps:
 	@docker-compose up -d
 	@lein deps
 
+sql:
+	@docker run --link bartnet_postgres_1:postgres -it sameersbn/postgresql:9.4-3 psql -U postgres -h postgres bartnet_test
+
 docker: build
 	@lein docker
 
