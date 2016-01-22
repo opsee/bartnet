@@ -102,7 +102,8 @@
                    (:body response) => (is-json (just {:checks empty?}))))
            (fact "tests a check")
            (with-state-changes
-             [(before :facts (check-fixtures @db))]
+             [(before :facts (do (check-fixtures @db)
+                             (assertions-fixtures @db)))]
              (fact "checks need auth"
                    (let [response ((app) (-> (mock/request :get "/checks")
                                              (mock/header "Authorization" "asasdasd")))]
@@ -116,6 +117,7 @@
                                                      (just
                                                        (contains
                                                          {:results not-empty
+                                                          :assertions not-empty
                                                           :check_spec
                                                           (contains {:value (contains {:name "A Good Check"})})}))}))))
              (fact "creates new checks"

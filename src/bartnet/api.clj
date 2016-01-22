@@ -82,6 +82,14 @@
 (defn add-check-results [check results]
   (assoc check :results (filter #(= (:id check) (:service %)) results)))
 
+(defn add-check-assertions [check db]
+  (assoc 
+    check 
+    :assertions 
+    (sql/get-assertions db {:check_id (:id check) 
+                            :customer_id (:customer_id check)
+                            })))
+
 (defmulti results-merge (fn [[key _] _] key))
 
 (defmethod results-merge :instance [[key instance] results]
@@ -220,6 +228,7 @@
         customer-id (:customer_id login)
         results (get-http-body (results/get-results {:login login :customer_id customer-id}))
         checks (map #(-> %
+                         (add-check-assertions @db)
                          (resolve-target)
                          (dissoc :customer_id)
                          (add-check-results results)) (sql/get-checks-by-customer-id @db customer-id))]
