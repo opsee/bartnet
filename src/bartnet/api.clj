@@ -161,6 +161,9 @@
                 checks (-> (CheckResourceRequest/newBuilder)
                            (.addChecks check)
                            .build)]
+            ;; delete results from beavis first so that we avoid a race between the bastion and us
+            ;; calling beavis
+            (results/delete-results login id)
             (all-bastions (:customer_id login) #(rpc/update-check % checks))
 
             {:check final-check}))))))
