@@ -235,6 +235,16 @@
     (map #(resolve-lastrun % customer-id) checks)
     {:checks checks}))
 
+(defn gql-list-checks [ctx]
+  (let [login (:login ctx)
+        customer-id (:customer_id login)
+        checks (map #(-> %
+                         (add-check-assertions @db)
+                         (resolve-target)
+                         (dissoc :customer_id)) (sql/get-checks-by-customer-id @db customer-id))]
+    (map #(resolve-lastrun % customer-id) checks)
+    {:checks checks}))
+
 (defn ec2-classic? [attrs]
   (let [ttr (:account-attributes attrs)
         supported (first (filter
@@ -354,6 +364,13 @@
   :post! (create-check! checks)
   :handle-created :checks
   :handle-ok list-checks)
+
+(defresource gql-checks-resource [checks]
+  :as-response (pb-as-response CheckResourceRequest)
+  :available-media-types ["application/json" "application/x-protobuf"]
+  :allowed-methods [:get]
+  :authorized? (authorized?)
+  :handle-ok gql-list-checks)
 
 
 (defresource start-instances-resource [startInstancesRequest]
@@ -541,7 +558,16 @@
       :proto [rebootInstancesRequest RebootInstancesRequest]
       :return (pb/proto->schema RebootInstancesResult)
         (reboot-instances-resource rebootInstancesRequest)))
+  
+  (context* "/gql" []
+    :tags ["gql"]
     
+    (GET* "/checks" []
+      :summary "list all checks without hitting beabus"
+      :produces ["application/json"]
+      :return [(pb/proto->schema Check)]
+      (gql-checks-resource nil)))
+
   (context* "/checks" []
     :tags ["checks"]
 
