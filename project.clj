@@ -68,7 +68,7 @@
                  [de.ubercode.clostache/clostache "1.4.0"]
                  [instaparse "1.4.0"]
                  [org.clojure/core.match "0.3.0-alpha4"]
-                 [co.opsee/opsee-middleware "0.1.23"]
+                 [co.opsee/opsee-middleware "0.1.24"]
                  [manifold "0.1.0"]
                  [clj-disco "0.0.1"]
                  [org.bitbucket.b_c/jose4j "0.4.4"]])
