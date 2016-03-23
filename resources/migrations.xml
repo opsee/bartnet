@@ -370,4 +370,10 @@
       </column>
     </createTable>
   </changeSet>
+  <changeSet id="25" author="greg" failOnError="false" runInTransaction="false">
+    <sql>
+      alter type relationship_type add value 'greaterThan';
+      alter type relationship_type add value 'lessThan';
+    </sql>
+  </changeSet>
 </databaseChangeLog>
