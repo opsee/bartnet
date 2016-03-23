@@ -19,6 +19,7 @@ update checks set customer_id = :customer_id::UUID,
                   "interval" = :interval,
                   target_id = :target_id,
                   last_run = :last_run,
+                  name = :name,
                   check_spec = :check_spec where id=:id;
 
 -- name: get-check-by-id
