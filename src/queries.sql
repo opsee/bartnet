@@ -44,3 +44,7 @@ select * from assertions where customer_id=:customer_id::UUID and check_id=:chec
 -- Insert an assertion
 insert into assertions (check_id, customer_id, key, value, relationship, operand) values
                   (:check_id, :customer_id::UUID, :key, :value, :relationship::relationship_type, :operand);
+
+-- name: delete-assertions!
+-- Delete an assertion by the associated customer ID and check ID
+delete from assertions where customer_id=:customer_id::UUID and check_id=:check_id;
