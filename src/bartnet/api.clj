@@ -8,6 +8,7 @@
             [opsee.middleware.core :refer :all]
             [bartnet.bastion-router :as router]
             [clojure.tools.logging :as log]
+            [clojure.java.jdbc :as jdbc]
             [ring.middleware.cors :refer [wrap-cors]]
             [liberator.representation :refer [Representation ring-response render-map-generic]]
             [ring.swagger.middleware :as rsm]
@@ -86,9 +87,9 @@
   (assoc 
     check 
     :assertions 
-    (sql/get-assertions db {:check_id (:id check) 
-                            :customer_id (:customer_id check)
-                            })))
+    (let [db_assertions (sql/get-assertions db {:check_id (:id check) 
+                                                :customer_id (:customer_id check)})]
+      (map #(dissoc % :customer_id :check_id) db_assertions))))
 
 (defmulti results-merge (fn [[key _] _] key))
 
@@ -138,6 +139,7 @@
         {:check (-> check
                     (resolve-target)
                     (resolve-lastrun customer-id)
+                    (add-check-assertions @db)
                     (add-check-results (get-http-body (results/get-results {:login login :customer_id customer-id :check_id id})))
                     (dissoc :customer_id))}))))
 
@@ -145,25 +147,26 @@
   (fn [ctx]
     (let [login (:login ctx)
           customer-id (:customer_id login)
-          db-assertions (sql/get-assertions @db {:customer_id customer-id :check_id id})
-          assertions (map #(-> (.toBuilder (pb/hash->proto Assertion %)) .build) db-assertions)
           updated-check (pb/proto->hash pb-check)
+          assertions (:assertions updated-check)
           old-check (:check ctx)]
       (let [merged (merge old-check (assoc (resolve-target updated-check) :id id))]
-        (log/info merged)
-        (if (sql/update-check! @db (assoc merged :customer_id customer-id))
-          (let [final-check (dissoc (resolve-target (first (sql/get-check-by-id @db {:id id :customer_id customer-id}))) :customer_id)
-                _ (log/info "final-check" final-check)
-                check (-> (.toBuilder (pb/hash->proto Check final-check))
-                          .clearAssertions
-                          (.addAllAssertions assertions)
-                          .build)
-                checks (-> (CheckResourceRequest/newBuilder)
-                           (.addChecks check)
-                           .build)]
-            (all-bastions (:customer_id login) #(rpc/update-check % checks))
-
-            {:check final-check}))))))
+        (log/info "merged" merged)
+        (jdbc/with-db-transaction [t @db]
+          (if (sql/update-check! t (assoc merged :customer_id customer-id))
+            (sql/delete-assertions! t {:customer_id customer-id :check_id id})
+            (doall (map #(sql/insert-into-assertions! t (assoc % :check_id id :customer_id customer-id)) assertions)))
+            (let [updated-assertions (sql/get-assertions t {:id id :customer_id customer-id})
+                  final-check (dissoc (resolve-target (first (sql/get-check-by-id t {:id id :customer_id customer-id}))) :customer_id)
+                  final-check' (assoc final-check :assertions assertions)
+                  _ (log/info "final-check" final-check')
+                  check (-> (.toBuilder (pb/hash->proto Check final-check'))
+                            .build)
+                  checks (-> (CheckResourceRequest/newBuilder)
+                             (.addChecks check)
+                             .build)]
+              (all-bastions (:customer_id login) #(rpc/update-check % checks))
+              {:check final-check'}))))))
 
 (defn delete-check! [id]
   (fn [ctx]
@@ -172,6 +175,7 @@
           check (first (sql/get-check-by-id @db {:id id :customer_id customer-id}))]
       (do
         (sql/delete-check-by-id! @db {:id id :customer_id customer-id})
+        (sql/delete-assertions! @db {:id id :customer_id customer-id})
         (let [req (-> (CheckResourceRequest/newBuilder)
                       (.addChecks (-> (Check/newBuilder)
                                       (.setId id)
@@ -185,16 +189,15 @@
     (let [login (:login ctx)
           customer-id (:customer_id login)
           check-id (identifiers/generate)
-          db-assertions (sql/get-assertions @db {:customer_id customer-id :check_id check-id})
-          assertions (map #(-> (.toBuilder %) .build) db-assertions)
+          assertions (.getAssertionsList check)
           check' (-> (.toBuilder check)
                      (.setId check-id)
-                     (.addAllAssertions assertions)
                      .build)
           checks (-> (CheckResourceRequest/newBuilder)
                      (.addChecks check')
                      .build)
           db-check (resolve-target (pb/proto->hash check'))]
+      (doall (map #(sql/insert-into-assertions! @db (assoc % :check_id check-id :customer_id customer-id)) (map pb/proto->hash assertions)))
       (sql/insert-into-checks! @db (assoc db-check :customer_id customer-id))
       (all-bastions (:customer_id login) #(rpc/create-check % checks))
       (log/info "check" db-check)

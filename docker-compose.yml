@@ -5,16 +5,18 @@ postgres:
     DB_PASS: ''
     DB_NAME: bartnet_test
   image: sameersbn/postgresql:9.4-3
+  ports:
+    - 5432
 nsqlookupd:
   image: nsqio/nsq
   command: /nsqlookupd
-  expose: 
+  ports:
     - 4160
 nsqd:
   image: nsqio/nsq
   links:
     - nsqlookupd
   command: /nsqd --broadcast-address=localhost --lookupd-tcp-address=nsqlookupd:4160
-  expose:
+  ports:
     - 4150
     - 4151

@@ -132,10 +132,18 @@
                                                                                                   :path "/health_check"
                                                                                                   :port 80
                                                                                                   :verb "GET"
-                                                                                                  :protocol "http"}}}))
+                                                                                                  :protocol "http"}}
+                                                                             :assertions [{:key "foo"
+                                                                                           :value "bar"
+                                                                                           :relationship "equal"
+                                                                                           :operand "bar"
+                                                                                           }]}))
                                              (mock/header "Authorization" auth-header)))]
                      (:status response) => 201
-                     (sql/get-checks-by-customer-id @db "154ba57a-5188-11e5-8067-9b5f2d96dce1") => (contains (contains {:interval 10}))))))))
+                     (let [check (first (sql/get-checks-by-customer-id @db "154ba57a-5188-11e5-8067-9b5f2d96dce1"))]
+                       check => (contains {:interval 10})
+                       (first (sql/get-assertions @db {:customer_id "154ba57a-5188-11e5-8067-9b5f2d96dce1"
+                                                       :check_id (:id check)})) => (contains {:key "foo"}))))))))
 
 (facts "check endpoint works"
        (with-redefs [rpc/checker-client mock-checker-client
@@ -164,7 +172,8 @@
                    (:status response) => 200
                    (:body response) => (is-json (contains {:id "check1"
                                                            :check_spec (contains {:value (contains {:name "A Good Check"})})
-                                                           :results not-empty}))))
+                                                           :results not-empty
+                                                           :assertions not-empty}))))
            (fact "checks get deleted"
                  (let [response ((app) (-> (mock/request :delete "/checks/check1")
                                            (mock/header "Authorization" auth-header)))]
@@ -184,12 +193,17 @@
                                                                                                        :path "/health"
                                                                                                        :port 80
                                                                                                        :verb "POST"
-                                                                                                       :protocol "http"}}}))
+                                                                                                       :protocol "http"}}
+                                                                             :assertions [{:key "foo"
+                                                                                           :value "bar"
+                                                                                           :relationship "equal"
+                                                                                           :operand "bar"
+                                                                                           }]}))
                                            (mock/header "Authorization" auth-header)))]
                    (:status response) => 200
                    (:body response) => (is-json (contains {:interval 100}))
                    (sql/get-check-by-id @db {:id "check1" :customer_id "154ba57a-5188-11e5-8067-9b5f2d96dce1"}) => (just (contains {:interval 100}))
-                   (.getAssertionsCount (.getChecks @rpc-message-received 0)) => 2))
+                   (.getAssertionsCount (.getChecks @rpc-message-received 0)) => 1))
            (fact "new checks get saved"
                  (let [response ((app) (-> (mock/request :post "/checks" (generate-string
                                                                           {:interval 10
@@ -202,7 +216,12 @@
                                                                                                 :path "/health_check"
                                                                                                 :port 80
                                                                                                 :verb "GET"
-                                                                                                :protocol "http"}}}))
+                                                                                                :protocol "http"}}
+                                                                           :assertions [{:key "foo"
+                                                                                         :value "bar"
+                                                                                         :relationship "equal"
+                                                                                         :operand "bar"
+                                                                                         }]}))
                                            (mock/header "Authorization" auth-header)))]
                    (:status response) => 201)))))
 

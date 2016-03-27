@@ -7,6 +7,8 @@ build: deps
 deps:
 	@docker info
 	@docker-compose version
+	@docker-compose stop
+	@docker-compose rm -f
 	@docker-compose up -d
 	@lein deps
 
