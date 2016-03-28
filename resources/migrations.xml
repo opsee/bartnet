@@ -381,4 +381,9 @@
       alter table assertions alter column value drop not null;
     </sql>
   </changeSet>
+  <changeSet id="27" author="markiscool" failOnError="false" runInTransaction="false">
+    <sql>
+      alter table assertions alter column operand drop not null;
+    </sql>
+  </changeSet>
 </databaseChangeLog>
