@@ -151,7 +151,7 @@
           assertions (:assertions updated-check)
           old-check (:check ctx)]
       (let [merged (merge old-check (assoc (resolve-target updated-check) :id id))]
-        (log/info "merged" merged)
+        (log/debug "merged" merged)
         (jdbc/with-db-transaction [t @db]
           (if (sql/update-check! t (assoc merged :customer_id customer-id))
             (sql/delete-assertions! t {:customer_id customer-id :check_id id})
@@ -159,7 +159,7 @@
             (let [updated-assertions (sql/get-assertions t {:id id :customer_id customer-id})
                   final-check (dissoc (resolve-target (first (sql/get-check-by-id t {:id id :customer_id customer-id}))) :customer_id)
                   final-check' (assoc final-check :assertions assertions)
-                  _ (log/info "final-check" final-check')
+                  _ (log/debug "final-check" final-check')
                   check (-> (.toBuilder (pb/hash->proto Check final-check'))
                             .build)
                   checks (-> (CheckResourceRequest/newBuilder)
@@ -200,7 +200,7 @@
       (doall (map #(sql/insert-into-assertions! @db (assoc % :check_id check-id :customer_id customer-id)) (map pb/proto->hash assertions)))
       (sql/insert-into-checks! @db (assoc db-check :customer_id customer-id))
       (all-bastions (:customer_id login) #(rpc/create-check % checks))
-      (log/info "check" db-check)
+      (log/debug "check" db-check)
       {:checks db-check})))
 
 
