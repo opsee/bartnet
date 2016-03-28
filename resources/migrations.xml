@@ -376,4 +376,9 @@
       alter type relationship_type add value 'lessThan';
     </sql>
   </changeSet>
+  <changeSet id="26" author="mark" failOnError="false" runInTransaction="false">
+    <sql>
+      alter table assertions alter column value drop not null;
+    </sql>
+  </changeSet>
 </databaseChangeLog>
