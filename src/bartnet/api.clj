@@ -152,36 +152,49 @@
           old-check (:check ctx)]
       (let [merged (merge old-check (assoc (resolve-target updated-check) :id id))]
         (log/debug "merged" merged)
-        (when (sql/update-check! @db (assoc merged :customer_id customer-id))
-            (sql/delete-assertions! @db {:customer_id customer-id :check_id id})
-            (doall (map #(sql/insert-into-assertions! @db (assoc % :check_id id :customer_id customer-id)) assertions)))
-        (let [updated-assertions (sql/get-assertions @db {:check_id id :customer_id customer-id})
-              final-check (dissoc (resolve-target (first (sql/get-check-by-id @db {:id id :customer_id customer-id}))) :customer_id)
-              final-check' (assoc final-check :assertions updated-assertions)
-              _ (log/debug "final-check" final-check')
-              check (-> (.toBuilder (pb/hash->proto Check final-check'))
-                        .build)
-              checks (-> (CheckResourceRequest/newBuilder)
-                         (.addChecks check)
-                         .build)]
-            (all-bastions (:customer_id login) #(rpc/update-check % checks))
-            {:check final-check'})))))
+        (jdbc/with-db-transaction [t @db]
+          (do
+            (when (sql/update-check! t (assoc merged :customer_id customer-id))
+                (sql/delete-assertions! t {:customer_id customer-id :check_id id})
+                (doall (map #(sql/insert-into-assertions! t (assoc % :check_id id :customer_id customer-id)) assertions)))
+            (let [updated-assertions (sql/get-assertions t {:check_id id :customer_id customer-id})
+                  final-check (dissoc (resolve-target (first (sql/get-check-by-id t {:id id :customer_id customer-id}))) :customer_id)
+                  final-check' (assoc final-check :assertions updated-assertions)
+                  _ (log/debug "final-check" final-check')
+                  check (-> (.toBuilder (pb/hash->proto Check final-check'))
+                            .build)
+                  checks (-> (CheckResourceRequest/newBuilder)
+                             (.addChecks check)
+                             .build)]
+                (all-bastions (:customer_id login) #(rpc/update-check % checks))
+                {:check final-check'})))))))
 
 (defn delete-check! [id]
   (fn [ctx]
     (let [login (:login ctx)
           customer-id (:customer_id login)
           check (first (sql/get-check-by-id @db {:id id :customer_id customer-id}))]
-      (do
-        (sql/delete-check-by-id! @db {:id id :customer_id customer-id})
-        (sql/delete-assertions! @db {:id id :customer_id customer-id})
-        (let [req (-> (CheckResourceRequest/newBuilder)
-                      (.addChecks (-> (Check/newBuilder)
-                                      (.setId id)
-                                      .build))
-                      .build)]
-          (all-bastions customer-id #(rpc/delete-check % req)))
-        (results/delete-results login id)))))
+      (jdbc/with-db-transaction [t @db]
+        (do
+          ;; If we fail to delete from the DB at this point, we throw an exception,
+          ;; rollback, and then jdbc rethrows.
+          (sql/delete-check-by-id! t {:id id :customer_id customer-id})
+          (sql/delete-assertions! t {:id id :customer_id customer-id})
+          ;; if we throw an exception here, same as above, nothing committed.
+          (let [req (-> (CheckResourceRequest/newBuilder)
+                        (.addChecks (-> (Check/newBuilder)
+                                        (.setId id)
+                                        .build))
+                        .build)]
+            ;; if we throw an exception here, everything gets rolled back, np.
+            (all-bastions customer-id #(rpc/delete-check % req)))))
+      ;; If the above succeeds and deleteing results fails, then we will end up
+      ;; with some data lying around somewhere. We log when this happens and swallow
+      ;; the error.
+      (try
+        (results/delete-results login id)
+        (catch Throwable ex
+          (log/error ex "Failed to delete results, but deleted check."))))))
 
 (defn create-check! [^Check check]
   (fn [ctx]
@@ -196,11 +209,14 @@
                      (.addChecks check')
                      .build)
           db-check (resolve-target (pb/proto->hash check'))]
-      (doall (map #(sql/insert-into-assertions! @db (assoc % :check_id check-id :customer_id customer-id)) (map pb/proto->hash assertions)))
-      (sql/insert-into-checks! @db (assoc db-check :customer_id customer-id))
-      (all-bastions (:customer_id login) #(rpc/create-check % checks))
-      (log/debug "check" db-check)
-      {:checks db-check})))
+      (jdbc/with-db-transaction [t @db]
+          (do
+            (doall (map #(sql/insert-into-assertions! t (assoc % :check_id check-id :customer_id customer-id)) (map pb/proto->hash assertions)))
+            (sql/insert-into-checks! t (assoc db-check :customer_id customer-id))
+            ;; If we throw an exception here, the transaction will be rolled back.
+            (all-bastions (:customer_id login) #(rpc/create-check % checks))
+            (log/debug "check" db-check)
+            {:checks db-check})))))
 
 
 (defn reboot-instances! [^RebootInstancesRequest rebootInstancesRequest]
