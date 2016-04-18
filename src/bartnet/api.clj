@@ -587,7 +587,7 @@
   (context* "/gql" []
     :tags ["gql"]
 
-    (GET* "/:id" [id]
+    (GET* "/checks/:id" [id]
       :summary "Retrieve a check by its ID."
       :produces ["application/x-protobuf"]
       :return (pb/proto->schema Check)
