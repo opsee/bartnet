@@ -131,6 +131,17 @@
       (assoc check :last_run (:last_run max-check)))
     (catch Exception _ check)))
 
+(defn gql-check-exists? [id]
+  (fn [ctx]
+    (let [login (:login ctx)
+          customer-id (:customer_id login)]
+      (if-let [check (first (sql/get-check-by-id @db {:id id :customer_id customer-id}))]
+        {:check (-> check
+                    (resolve-target)
+                    (resolve-lastrun customer-id)
+                    (add-check-assertions @db)
+                    (dissoc :customer_id))}))))
+
 (defn check-exists? [id]
   (fn [ctx]
     (let [login (:login ctx)
@@ -358,6 +369,18 @@
   :delete! (delete-check! id)
   :handle-ok :check)
 
+(defresource gql-check-resource [id check]
+  :as-response (pb-as-response Check)
+  :available-media-types ["application/json" "application/x-protobuf"]
+  :allowed-methods [:get :put :delete]
+  :authorized? (authorized?)
+  :exists? (gql-check-exists? id)
+  :put! (update-check! id check)
+  :new? false
+  :respond-with-entity? respond-with-entity?
+  :delete! (delete-check! id)
+  :handle-ok :check)
+
 (defresource checks-resource [checks]
   :as-response (pb-as-response CheckResourceRequest)
   :available-media-types ["application/json" "application/x-protobuf"]
@@ -563,7 +586,13 @@
   
   (context* "/gql" []
     :tags ["gql"]
-    
+
+    (GET* "/:id" [id]
+      :summary "Retrieve a check by its ID."
+      :produces ["application/x-protobuf"]
+      :return (pb/proto->schema Check)
+      (gql-check-resource id nil))
+
     (GET* "/checks" []
       :summary "list all checks without hitting beabus"
       :produces ["application/json"]
