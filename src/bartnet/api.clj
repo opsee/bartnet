@@ -388,6 +388,7 @@
   :allowed-methods [:get :post]
   :authorized? (authorized?)
   :post! (create-check! checks)
+  :handle-created (fn [ctx] ctx)
   :handle-ok list-checks)
 
 (defresource gql-checks-resource [checks]
