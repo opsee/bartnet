@@ -206,12 +206,13 @@
           checks (-> (CheckResourceRequest/newBuilder)
                      (.addChecks check')
                      .build)
-          db-check (resolve-target (pb/proto->hash check'))]
+          ided-check (pb/proto->hash check')
+          db-check (resolve-target ided-check)]
       (doall (map #(sql/insert-into-assertions! @db (assoc % :check_id check-id :customer_id customer-id)) (map pb/proto->hash assertions)))
       (sql/insert-into-checks! @db (assoc db-check :customer_id customer-id))
       (all-bastions (:customer_id login) #(rpc/create-check % checks))
-      (log/debug "check" db-check)
-      {:checks db-check})))
+      (log/debug "check" ided-check)
+      {:checks ided-check})))
 
 
 (defn reboot-instances! [^RebootInstancesRequest rebootInstancesRequest]
