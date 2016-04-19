@@ -139,7 +139,7 @@
                                                                                            :operand "bar"
                                                                                            }]}))
                                              (mock/header "Authorization" auth-header)))]
-                     (:status response) => 201
+                     (:status response) => 303
                      (let [check (first (sql/get-checks-by-customer-id @db "154ba57a-5188-11e5-8067-9b5f2d96dce1"))]
                        check => (contains {:interval 10})
                        (first (sql/get-assertions @db {:customer_id "154ba57a-5188-11e5-8067-9b5f2d96dce1"
@@ -223,7 +223,7 @@
                                                                                          :operand "bar"
                                                                                          }]}))
                                            (mock/header "Authorization" auth-header)))]
-                   (:status response) => 201)))))
+                   (:status response) => 303)))))
 
 (facts "VPC scanning without EC2-Classic"
        (with-redefs [amazonica.aws.ec2/describe-account-attributes (fn [creds]
