@@ -212,7 +212,7 @@
       (sql/insert-into-checks! @db (assoc db-check :customer_id customer-id))
       (all-bastions (:customer_id login) #(rpc/create-check % checks))
       (log/debug "check" ided-check)
-      {:checks ided-check})))
+      {:checks [ided-check]})))
 
 
 (defn reboot-instances! [^RebootInstancesRequest rebootInstancesRequest]
@@ -388,7 +388,6 @@
   :allowed-methods [:get :post]
   :authorized? (authorized?)
   :post! (create-check! checks)
-  :handle-created :checks
   :handle-ok list-checks)
 
 (defresource gql-checks-resource [checks]
