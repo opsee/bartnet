@@ -352,7 +352,8 @@
   :handle-ok list-bastions)
 
 (defresource test-check-resource [testCheck]
-  :available-media-types ["application/json"]
+  :as-response (pb-as-response TestCheckResponse)
+  :available-media-types ["application/json" "application/x-protobuf"]
   :allowed-methods [:post]
   :authorized? (authorized?)
   :post! (test-check! testCheck)
