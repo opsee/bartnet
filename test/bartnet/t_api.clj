@@ -126,6 +126,7 @@
                                                                              :name "A Good Check"
                                                                              :target {:name "goobernetty"
                                                                                       :type "sg"
+                                                                                      :customer_id "154ba57a-5188-11e5-8067-9b5f2d96dce1"
                                                                                       :id "sg123679"}
                                                                              :check_spec {:type_url "HttpCheck"
                                                                                           :value {:name "A Good Check"
@@ -187,6 +188,7 @@
                                                                                   :name "doop"
                                                                                   :target {:name "goobernetty"
                                                                                            :type "sg"
+                                                                                           :customer_id "154ba57a-5188-11e5-8067-9b5f2d96dce1"
                                                                                            :id "sg123"}
                                                                                   :check_spec {:type_url "HttpCheck"
                                                                                                :value {:name "doop"
@@ -210,6 +212,7 @@
                                                                            :name "A Good Check"
                                                                            :target {:name "goobernetty"
                                                                                     :type "sg"
+                                                                                    :customer_id "154ba57a-5188-11e5-8067-9b5f2d96dce1"
                                                                                     :id "sg123"}
                                                                            :check_spec {:type_url "HttpCheck"
                                                                                         :value {:name "A Good Check"
