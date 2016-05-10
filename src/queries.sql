@@ -1,6 +1,6 @@
 -- name: insert-into-targets!
 -- Inserts a new record into the targets table.
-insert into targets (id, type, customer_id, name) values (:id, :type, :customer_id, :name);
+insert into targets (id, type, customer_id, name) values (:id, :type, :customer_id::UUID, :name);
 
 -- name: get-target
 -- Retrieves a target by its id.
