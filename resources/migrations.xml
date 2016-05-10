@@ -386,7 +386,7 @@
       alter table assertions alter column operand drop not null;
     </sql>
   </changeSet>
-  <changeSet id="28" author="mike">
+  <changeSet id="28" author="mike" runInTransaction="true" failOnError="true">
       <sql>
           alter table targets add column customer_id UUID;
           update targets set customer_id = checks.customer_id from checks where targets.id = checks.target_id;
