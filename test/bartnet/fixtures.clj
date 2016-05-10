@@ -17,12 +17,14 @@
   (do
     (sql/insert-into-targets! db {:id   "sg-123"
                                   :type "sg"
+                                  :customer_id "154ba57a-5188-11e5-8067-9b5f2d96dce1"
                                   :name "coreos"})))
 
 (defn check-fixtures [db]
   (do
     (sql/insert-into-targets! db {:id   "sg-123"
                                   :name "boreos"
+                                  :customer_id "154ba57a-5188-11e5-8067-9b5f2d96dce1"
                                   :type "sg"})
     (sql/insert-into-checks! db {:id             "check1"
                                  :name           "boreos"
