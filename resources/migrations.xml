@@ -386,4 +386,15 @@
       alter table assertions alter column operand drop not null;
     </sql>
   </changeSet>
+  <changeSet id="28" author="mike" runInTransaction="true" failOnError="true">
+      <sql>
+          alter table targets add column customer_id UUID;
+          update targets set customer_id = checks.customer_id from checks where targets.id = checks.target_id;
+          delete from targets where customer_id is null;
+          alter table targets alter column customer_id set not null;
+          alter table checks drop constraint fk_checks_targets;
+          create unique index targets_temp_pkey on targets(customer_id, id, type);
+          alter table targets drop constraint pk_targets, add constraint pk_targets primary key using index targets_temp_pkey;
+    </sql>
+  </changeSet>
 </databaseChangeLog>
