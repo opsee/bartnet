@@ -108,18 +108,25 @@
         instance-ids (router/get-customer-bastions (:customer_id login))]
     {:bastions (reduce conj [] instance-ids)}))
 
+(defn resolve-type [check]
+    (let [t (:type_url (:check_spec check))]
+        (case t
+            "HttpCheck" "elb" ; XXX (mrb) this is the problem, we can't resolve a target type from just the info in a check
+            "CloudWatchCheck" "dbinstance"
+            "host")))
+
 (defn ensure-target-created [target]
-  (if (empty? (sql/get-target-by-id @db (:id target)))
+  (if (empty? (sql/get-target @db target))
     (sql/insert-into-targets! @db target))
   (:id target))
 
-(defn retrieve-target [target-id]
-  (first (sql/get-target-by-id @db target-id)))
+(defn retrieve-target [target]
+  (first (sql/get-target @db target)))
 
-(defn resolve-target [check]
+(defn resolve-target [check customer-id]
   (if (:target check)
-    (assoc check :target_id (ensure-target-created (:target check)))
-    (dissoc (assoc check :target (retrieve-target (:target_id check))) :target_id)))
+    (assoc check :target_id (ensure-target-created (assoc (:target check) :customer_id customer-id)))
+    (dissoc (assoc check :target (retrieve-target (assoc {} :id (:target_id check) :type (resolve-type check) :customer_id customer-id))) :target_id)))
 
 (defn resolve-lastrun [check customer-id]
   (try
@@ -137,7 +144,7 @@
           customer-id (:customer_id login)]
       (if-let [check (first (sql/get-check-by-id @db {:id id :customer_id customer-id}))]
         {:check (-> check
-                    (resolve-target)
+                    (resolve-target customer-id)
                     (resolve-lastrun customer-id)
                     (add-check-assertions @db)
                     (dissoc :customer_id))}))))
@@ -148,7 +155,7 @@
           customer-id (:customer_id login)]
       (if-let [check (first (sql/get-check-by-id @db {:id id :customer_id customer-id}))]
         {:check (-> check
-                    (resolve-target)
+                    (resolve-target customer-id)
                     (resolve-lastrun customer-id)
                     (add-check-assertions @db)
                     (add-check-results (get-http-body (results/get-results {:login login :customer_id customer-id :check_id id})))
@@ -161,13 +168,13 @@
           updated-check (pb/proto->hash pb-check)
           assertions (:assertions updated-check)
           old-check (:check ctx)]
-      (let [merged (merge old-check (assoc (resolve-target updated-check) :id id))]
+      (let [merged (merge old-check (assoc (resolve-target updated-check customer-id) :id id))]
         (log/debug "merged" merged)
         (when (sql/update-check! @db (assoc merged :customer_id customer-id))
             (sql/delete-assertions! @db {:customer_id customer-id :check_id id})
             (doall (map #(sql/insert-into-assertions! @db (assoc % :check_id id :customer_id customer-id)) assertions)))
         (let [updated-assertions (sql/get-assertions @db {:check_id id :customer_id customer-id})
-              final-check (dissoc (resolve-target (first (sql/get-check-by-id @db {:id id :customer_id customer-id}))) :customer_id)
+              final-check (dissoc (resolve-target (first (sql/get-check-by-id @db {:id id :customer_id customer-id})) customer-id) :customer_id)
               final-check' (assoc final-check :assertions updated-assertions)
               _ (log/debug "final-check" final-check')
               check (-> (.toBuilder (pb/hash->proto Check final-check'))
@@ -207,7 +214,7 @@
                      (.addChecks check')
                      .build)
           ided-check (pb/proto->hash check')
-          db-check (resolve-target ided-check)]
+          db-check (resolve-target ided-check customer-id)]
       (doall (map #(sql/insert-into-assertions! @db (assoc % :check_id check-id :customer_id customer-id)) (map pb/proto->hash assertions)))
       (sql/insert-into-checks! @db (assoc db-check :customer_id customer-id))
       (all-bastions (:customer_id login) #(rpc/create-check % checks))
@@ -243,7 +250,7 @@
         results (get-http-body (results/get-results {:login login :customer_id customer-id}))
         checks (map #(-> %
                          (add-check-assertions @db)
-                         (resolve-target)
+                         (resolve-target customer-id)
                          (dissoc :customer_id)
                          (add-check-results results)) (sql/get-checks-by-customer-id @db customer-id))]
     (map #(resolve-lastrun % customer-id) checks)
@@ -254,7 +261,7 @@
         customer-id (:customer_id login)
         checks (map #(-> %
                          (add-check-assertions @db)
-                         (resolve-target)
+                         (resolve-target customer-id)
                          (dissoc :customer_id)) (sql/get-checks-by-customer-id @db customer-id))]
     (map #(resolve-lastrun % customer-id) checks)
     {:checks checks}))
