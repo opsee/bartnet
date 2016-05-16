@@ -385,5 +385,18 @@
     <sql>
       alter table assertions alter column operand drop not null;
     </sql>
-  </changeSet>
+</changeSet>
+<changeSet id="28" author="mike" runInTransaction="true" failOnError="true">
+    <sql>
+        alter table checks add column target_name varchar(255);
+        alter table checks add column target_type varchar(255);
+        update checks c set target_name = t.name from targets t where c.target_id = t.id;
+        update checks c set target_type = t.type from targets t where c.target_id = t.id;
+        alter table checks drop constraint fk_checks_targets;
+        drop table targets;
+        alter table checks alter COLUMN target_id set not null;
+        alter table checks alter COLUMN target_type set not null;
+        alter table checks drop column last_run;
+    </sql>
+</changeSet>
 </databaseChangeLog>

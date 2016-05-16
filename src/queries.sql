@@ -1,26 +1,17 @@
--- name: insert-into-targets!
--- Inserts a new record into the targets table.
-insert into targets (id, type, name) values (:id, :type, :name);
-
--- name: get-target-by-id
--- Retrieves a target by its id.
-select * from targets where id=:id;
-
------------------------------------------------------------------------------
-
 -- name: insert-into-checks!
 -- Inserts a new record into the checks table.
-insert into checks (id, name, customer_id, "interval", target_id, last_run, check_spec) values
-                  (:id, :name, :customer_id::UUID, :interval, :target_id, :last_run, :check_spec::jsonb);
+insert into checks (id, name, customer_id, "interval", target_id, check_spec, target_name, target_type) values
+                  (:id, :name, :customer_id::UUID, :interval, :target_id, :check_spec::jsonb, :target_name, :target_type);
 
 -- name: update-check!
 -- Updates an existing health_check record.
 update checks set customer_id = :customer_id::UUID,
                   "interval" = :interval,
                   target_id = :target_id,
-                  last_run = :last_run,
                   name = :name,
-                  check_spec = :check_spec where id=:id;
+                  check_spec = :check_spec,
+                  target_name = :target_name,
+                  target_type = :target_type where id=:id;
 
 -- name: get-check-by-id
 -- Retrieves a health check record.

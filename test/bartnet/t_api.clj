@@ -44,6 +44,13 @@
 ; it will expire in 10 yrs. hopefully that is long enough so that computers won't exist anymore
 (def auth-header "Bearer eyJhbGciOiJBMTI4R0NNS1ciLCJlbmMiOiJBMTI4R0NNIiwiaXYiOiJXQWlLQ2Z1azk3TlBzM1ZYIiwidGFnIjoiaU56RG1LdjloQmE0TS1YU19YcEpPZyJ9.HqXl4bq3k3E9GQ7FtsWHaQ.SONY24NgxzEZk7c3.yYd7WZX3O8ChDIVFlG--kLr_bDfkNXcR7eAnCyZ-QhFKmlbKGKE9A1-uudKRPuZ05LEAxolOrZ0lPRkW7CM3jdEdYBcUITinztgz-POIdMOXdUjFODpNOVxlcHKtZo2JH1wNdzEobBtAmVbdkl2aNUJMhVSKWbsLV3efvKQ-wVfO3kHDNmYHJlp2DKh0-8yul4UcoDytkEDOfTrpGlZrxStXRNhSf0KhRK11fh3dXvyzj07OEdYuNVbqhtfyycBPUQUJnP1xDZTpDtZ3n7lJaA.OGbujXobjndTRus8wmCqIg")
 
+; mike@do.it / 375f5afc-1880-11e6-a61e-6fdd17fa0f56
+(def user2-auth-header (str "Basic eyJhY3RpdmUiOnRydWUsImlkIjo5OSwiZW1haWwiOiJtaWtlQGRvLml0IiwidmVyaWZpZWQiOnRy"
+                            "dWUsImN1c3RvbWVyX2lkIjoiMzc1ZjVhZmMtMTg4MC0xMWU2LWE2MWUtNmZkZDE3ZmEwZjU2Iiwi"
+                            "ZXhwIjoxNzU2NzgwOTQxLCJzdWIiOiJtaWtlQGRvLml0IiwiaWF0IjoxNDUxMjEyMTQxMCwibmFt"
+                            "ZSI6Im1pa2UiLCJhZG1pbiI6ZmFsc2V9Cg=="))
+
+
 (def bus (bus/event-bus))
 (def executor (Executors/utilizationExecutor 0.9 10))
 (def scheduler (ScheduledThreadPoolExecutor. 10))
@@ -118,8 +125,8 @@
                                                        (contains
                                                          {:results not-empty
                                                           :assertions not-empty
-                                                          :check_spec
-                                                          (contains {:value (contains {:name "A Good Check"})})}))}))))
+                                                          :check_spec (contains {:value (contains {:name "A Good Check"})})
+                                                          :target (contains {:type "sg"})}))}))))
              (fact "creates new checks"
                    (let [response ((app) (-> (mock/request :post "/checks" (generate-string
                                                                             {:interval 10
@@ -144,6 +151,31 @@
                        check => (contains {:interval 10})
                        (first (sql/get-assertions @db {:customer_id "154ba57a-5188-11e5-8067-9b5f2d96dce1"
                                                        :check_id (:id check)})) => (contains {:key "foo"}))))))))
+
+(facts "check targets are valid"
+       (with-redefs [rpc/checker-client mock-checker-client
+                     router/get-customer-bastions mock-get-customer-bastions
+                     router/get-service mock-get-service
+                     clj-http.client/get (mock-http {"/results" {:status 200 :body (:customer-query-2 fixtures)}})]
+         (with-state-changes
+           [(before :facts (doto
+                            (do-setup)))]
+           (fact "tests a check")
+           (with-state-changes
+             [(before :facts (do (check-fixtures-2 @db)
+                             (assertions-fixtures-2 @db)))]
+             (fact "checks get returned"
+                   (let [response ((app) (-> (mock/request :get "/checks")
+                                             (mock/header "Authorization" user2-auth-header)))]
+                     (:status response) => 200
+                     (:body response) => (is-json (just
+                                                    {:checks
+                                                     (just [(contains {:id "check2"
+                                                                       :check_spec (contains {:type_url "CloudWatchCheck"})
+                                                                       :target (contains {:type "dbinstance"})})
+                                                            (contains {:id "check1"
+                                                                       :check_spec (contains {:type_url "HttpCheck"})
+                                                                       :target (contains {:type "elb"})})])}))))))))
 
 (facts "check endpoint works"
        (with-redefs [rpc/checker-client mock-checker-client

@@ -13,31 +13,53 @@
            (java.util.regex Pattern)
            (clojure.lang PersistentArrayMap PersistentVector Seqable IPersistentMap)))
 
-(defn target-fixtures [db]
-  (do
-    (sql/insert-into-targets! db {:id   "sg-123"
-                                  :type "sg"
-                                  :name "coreos"})))
-
 (defn check-fixtures [db]
   (do
-    (sql/insert-into-targets! db {:id   "sg-123"
-                                  :name "boreos"
-                                  :type "sg"})
     (sql/insert-into-checks! db {:id             "check1"
                                  :name           "boreos"
                                  :customer_id    "154ba57a-5188-11e5-8067-9b5f2d96dce1"
                                  :target_id      "sg-123"
+                                 :target_type    "sg"
+                                 :target_name    "boreos"
                                  :interval       60
-                                 :last_run       (-> (Timestamp/newBuilder)
-                                                     (.setSeconds 1440802961)
-                                                     .build)
                                  :check_spec     {:type_url "HttpCheck"
                                                   :value {:name "A Good Check"
                                                           :path "/health_check"
                                                           :port 80
                                                           :verb "GET"
                                                           :protocol "http"}}})))
+
+(defn check-fixtures-2 [db]
+  (do
+    (sql/insert-into-checks! db {:id             "check1"
+                                 :name           "my-service elb"
+                                 :customer_id    "375f5afc-1880-11e6-a61e-6fdd17fa0f56"
+                                 :target_id      "my-service"
+                                 :interval       60
+                                 :target_type    "elb"
+                                 :target_name    "my-service"
+                                 :check_spec     {:type_url "HttpCheck"
+                                                  :value {:name "elb check"
+                                                          :path "/health"
+                                                          :port 9092
+                                                          :verb "GET"}}})
+    (sql/insert-into-checks! db {:id             "check2"
+                                 :name           "my-serice rds"
+                                 :customer_id    "375f5afc-1880-11e6-a61e-6fdd17fa0f56"
+                                 :target_id      "my-service"
+                                 :interval       60
+                                 :target_name    "my-service"
+                                 :target_type    "dbinstance"
+                                 :check_spec     {:type_url "CloudWatchCheck"
+                                                  :value {:metrics (vector
+                                                                     {:name  "CPUUtilization"
+                                                                      :namespace "AWS/RDS"}
+                                                                     {:name "DatabaseConnections"
+                                                                      :namespace "AWS/RDS"}
+                                                                     {:name "FreeStorageSpace"
+                                                                      :namespace "AWS/RDS"}
+                                                                     )}}})))
+
 
 (defn assertions-fixtures [db]
       (sql/insert-into-assertions! db {:check_id "check1"
@@ -49,6 +71,22 @@
                                        })
       (sql/insert-into-assertions! db {:check_id "check1"
                                        :customer_id "154ba57a-5188-11e5-8067-9b5f2d96dce1"
+                                       :key "header"
+                                       :value "accept-encoding"
+                                       :relationship "equal"
+                                       :operand "gzip"
+                                       }))
+
+(defn assertions-fixtures-2 [db]
+      (sql/insert-into-assertions! db {:check_id "check1"
+                                       :customer_id "375f5afc-1880-11e6-a61e-6fdd17fa0f56"
+                                       :key "body"
+                                       :value ""
+                                       :relationship "equal"
+                                       :operand "foo"
+                                       })
+      (sql/insert-into-assertions! db {:check_id "check1"
+                                       :customer_id "375f5afc-1880-11e6-a61e-6fdd17fa0f56"
                                        :key "header"
                                        :value "accept-encoding"
                                        :relationship "equal"
