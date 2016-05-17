@@ -108,18 +108,14 @@
         instance-ids (router/get-customer-bastions (:customer_id login))]
     {:bastions (reduce conj [] instance-ids)}))
 
-(defn ensure-target-created [target]
-  (if (empty? (sql/get-target-by-id @db (:id target)))
-    (sql/insert-into-targets! @db target))
-  (:id target))
-
-(defn retrieve-target [target-id]
-  (first (sql/get-target-by-id @db target-id)))
-
 (defn resolve-target [check]
-  (if (:target check)
-    (assoc check :target_id (ensure-target-created (:target check)))
-    (dissoc (assoc check :target (retrieve-target (:target_id check))) :target_id)))
+  (if-let [target (:target check)]
+    (assoc check :target_id (:id target) :target_name (:name target) :target_type (:type target))
+    (dissoc (assoc check :target {
+                                  :id (:target_id check)
+                                  :name (:target_name check)
+                                  :type (:target_type check)})
+            :target_id :target_name :target_type)))
 
 (defn resolve-lastrun [check customer-id]
   (try
