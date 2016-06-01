@@ -1,11 +1,12 @@
 -- name: insert-into-checks!
 -- Inserts a new record into the checks table.
-insert into checks (id, name, customer_id, "interval", target_id, check_spec, target_name, target_type) values
-                  (:id, :name, :customer_id::UUID, :interval, :target_id, :check_spec::jsonb, :target_name, :target_type);
+insert into checks (id, name, customer_id, execution_group_id, "interval", target_id, check_spec, target_name, target_type) values
+                  (:id, :name, :customer_id::UUID, :execution_group_id::UUID, :interval, :target_id, :check_spec::jsonb, :target_name, :target_type);
 
 -- name: update-check!
 -- Updates an existing health_check record.
 update checks set customer_id = :customer_id::UUID,
+                  execution_group_id = :execution_group_id::UUID,
                   "interval" = :interval,
                   target_id = :target_id,
                   name = :name,
@@ -20,6 +21,10 @@ select * from checks where id=:id and customer_id=:customer_id::UUID;
 -- name: get-checks-by-customer-id
 -- Retrieves a list of health checks by env id.
 select * from checks where customer_id=:customer_id::UUID;
+
+-- name: get-checks-by-execution-group-id
+-- Retrieves a list of health checks by execution group id.
+select * from checks where 
 
 -- name: delete-check-by-id!
 -- Deletes a check record by id.

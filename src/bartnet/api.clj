@@ -135,8 +135,7 @@
         {:check (-> check
                     (resolve-target)
                     (resolve-lastrun customer-id)
-                    (add-check-assertions @db)
-                    (dissoc :customer_id))}))))
+                    (add-check-assertions @db))}))))
 
 (defn check-exists? [id]
   (fn [ctx]
@@ -147,8 +146,7 @@
                     (resolve-target)
                     (resolve-lastrun customer-id)
                     (add-check-assertions @db)
-                    (add-check-results (get-http-body (results/get-results {:login login :customer_id customer-id :check_id id})))
-                    (dissoc :customer_id))}))))
+                    (add-check-results (get-http-body (results/get-results {:login login :customer_id customer-id :check_id id}))))}))))
 
 (defn update-check! [id pb-check]
   (fn [ctx]
@@ -163,7 +161,7 @@
             (sql/delete-assertions! @db {:customer_id customer-id :check_id id})
             (doall (map #(sql/insert-into-assertions! @db (assoc % :check_id id :customer_id customer-id)) assertions)))
         (let [updated-assertions (sql/get-assertions @db {:check_id id :customer_id customer-id})
-              final-check (dissoc (resolve-target (first (sql/get-check-by-id @db {:id id :customer_id customer-id}))) :customer_id)
+              final-check (resolve-target (first (sql/get-check-by-id @db {:id id :customer_id customer-id})))
               final-check' (assoc final-check :assertions updated-assertions)
               _ (log/debug "final-check" final-check')
               check (-> (.toBuilder (pb/hash->proto Check final-check'))
@@ -240,7 +238,6 @@
         checks (map #(-> %
                          (add-check-assertions @db)
                          (resolve-target)
-                         (dissoc :customer_id)
                          (add-check-results results)) (sql/get-checks-by-customer-id @db customer-id))]
     (map #(resolve-lastrun % customer-id) checks)
     {:checks checks}))
@@ -250,8 +247,7 @@
         customer-id (:customer_id login)
         checks (map #(-> %
                          (add-check-assertions @db)
-                         (resolve-target)
-                         (dissoc :customer_id)) (sql/get-checks-by-customer-id @db customer-id))]
+                         (resolve-target)) (sql/get-checks-by-customer-id @db customer-id))]
     (map #(resolve-lastrun % customer-id) checks)
     {:checks checks}))
 
