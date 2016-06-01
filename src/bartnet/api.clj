@@ -242,7 +242,7 @@
     (map #(resolve-lastrun % customer-id) checks)
     {:checks checks}))
 
-(defn list-checks [id]
+(defn exgid-list-checks [id]
   (fn [ctx]
     (let [login (:login ctx)
           checks (map #(-> %
