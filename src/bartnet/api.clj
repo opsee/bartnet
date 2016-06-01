@@ -155,9 +155,10 @@
           updated-check (pb/proto->hash pb-check)
           assertions (:assertions updated-check)
           old-check (:check ctx)]
-      (let [merged (merge old-check (assoc (resolve-target updated-check) :id id))]
+      (let [merged (merge old-check (assoc (resolve-target updated-check) :id id))
+            exgid (:execution_group_id merged)]
         (log/debug "merged" merged)
-        (when (sql/update-check! @db (assoc merged :customer_id customer-id))
+        (when (sql/update-check! @db (assoc merged :customer_id customer-id :execution_group_id (or exgid customer-id)))
             (sql/delete-assertions! @db {:customer_id customer-id :check_id id})
             (doall (map #(sql/insert-into-assertions! @db (assoc % :check_id id :customer_id customer-id)) assertions)))
         (let [updated-assertions (sql/get-assertions @db {:check_id id :customer_id customer-id})
@@ -204,7 +205,7 @@
           ided-check (pb/proto->hash check')
           db-check (resolve-target ided-check)]
       (doall (map #(sql/insert-into-assertions! @db (assoc % :check_id check-id :customer_id customer-id)) (map pb/proto->hash assertions)))
-      (sql/insert-into-checks! @db (assoc db-check :customer_id customer-id :execution_group_id exgid))
+      (sql/insert-into-checks! @db (assoc db-check :customer_id customer-id :execution_group_id (or exgid customer-id)))
       (all-bastions (:customer_id login) #(rpc/create-check % checks))
       (log/debug "check" ided-check)
       {:checks-resource {:checks [ided-check]}})))

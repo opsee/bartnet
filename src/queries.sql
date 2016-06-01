@@ -1,7 +1,7 @@
 -- name: insert-into-checks!
 -- Inserts a new record into the checks table.
 insert into checks (id, name, customer_id, execution_group_id, "interval", target_id, check_spec, target_name, target_type) values
-                  (:id, :name, :customer_id::UUID, coalesce(:execution_group_id::UUID, :customer_id::UUID), :interval, :target_id, :check_spec::jsonb, :target_name, :target_type);
+                  (:id, :name, :customer_id::UUID, :execution_group_id::UUID, :interval, :target_id, :check_spec::jsonb, :target_name, :target_type);
 
 -- name: update-check!
 -- Updates an existing health_check record.
