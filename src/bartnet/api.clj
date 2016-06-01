@@ -192,6 +192,7 @@
   (fn [ctx]
     (let [login (:login ctx)
           customer-id (:customer_id login)
+          exgid (:execution_group_id check)
           check-id (identifiers/generate)
           assertions (.getAssertionsList check)
           check' (-> (.toBuilder check)
@@ -203,7 +204,7 @@
           ided-check (pb/proto->hash check')
           db-check (resolve-target ided-check)]
       (doall (map #(sql/insert-into-assertions! @db (assoc % :check_id check-id :customer_id customer-id)) (map pb/proto->hash assertions)))
-      (sql/insert-into-checks! @db (assoc db-check :customer_id customer-id))
+      (sql/insert-into-checks! @db (assoc db-check :customer_id customer-id :execution_group_id exgid))
       (all-bastions (:customer_id login) #(rpc/create-check % checks))
       (log/debug "check" ided-check)
       {:checks-resource {:checks [ided-check]}})))
