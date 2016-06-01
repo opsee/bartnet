@@ -242,6 +242,14 @@
     (map #(resolve-lastrun % customer-id) checks)
     {:checks checks}))
 
+(defn list-checks [id]
+  (fn [ctx]
+    (let [login (:login ctx)
+          checks (map #(-> %
+                           (add-check-assertions @db)
+                           (resolve-target)) (sql/get-checks-by-execution-group-id @db id))]
+      {:checks checks})))
+
 (defn gql-list-checks [ctx]
   (let [login (:login ctx)
         customer-id (:customer_id login)
@@ -383,6 +391,13 @@
   :post! (create-check! checks)
   :handle-created :checks-resource
   :handle-ok list-checks)
+
+(defresource checks-exgid-resource [id]
+  :as-response (pb-as-response CheckResourceRequest)
+  :available-media-types ["application/json" "application/x-protobuf"]
+  :allowed-methods [:get]
+  :authorized? (authorized?)
+  :handle-ok (exgid-list-checks id))
 
 (defresource gql-checks-resource [checks]
   :as-response (pb-as-response CheckResourceRequest)
@@ -623,6 +638,12 @@
       :proto [check Check]
       :return (pb/proto->schema Check)
       (check-resource id check)))
+
+    (GET* "/exgid/:id" [id]
+      :summary "List all checks by execution group id"
+      :produces ["application/json" "application/x-protobuf"]
+      :return [(pb/proto->schema Check)]
+      (checks-exgid-resource id))
  
   (context* "/instances" []
     :tags ["instances"]

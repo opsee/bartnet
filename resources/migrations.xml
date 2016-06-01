@@ -402,8 +402,8 @@
 <changeSet id="29" author="markisbest" runInTransaction="true" failOnError="true">
     <sql>
         alter table checks add column execution_group_id UUID;
-				update checks set execution_group_id = customer_id;
-				create unique index execution_group_id_idx on checks (customer_id, execution_group_id);
+        update checks set execution_group_id = customer_id;
+        create unique index execution_group_id_idx on checks (execution_group_id);
     </sql>
 </changeSet>
 </databaseChangeLog>
