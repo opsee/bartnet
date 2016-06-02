@@ -549,12 +549,6 @@
     (fn [request]
       (throw (Exception. "this is just a test"))))
 
-  (POST* "/scan-vpcs" []
-    :summary "Scans the regions requested for any VPC's and instance counts."
-    :body [vpc-req ScanVpcsRequest]
-    :return [ScanVpcsResponse]
-    (scan-vpc-resource vpc-req))
-
   (context* "/bastions" []
     :tags ["bastions"]
 
@@ -562,39 +556,12 @@
       :no-doc true
       (bastions-resource))
 
-    (POST* "/launch" []
-      :summary "Launch bastions in the given VPC's."
-      :body [launch-cmd LaunchCmd]
-      :return [LaunchCmd]
-      (launch-bastions-resource launch-cmd))
-
     (POST* "/test-check" []
       :summary "Tells the bastion to test out a check and return the response"
       :proto [testCheck TestCheckRequest]
       :return (pb/proto->schema TestCheckResponse)
       (test-check-resource testCheck)))
 
-  (context* "/aws" []
-    :tags ["aws"]
-
-    (POST* "/start-instances" []
-      :summary "Reboot an instance by id"
-      :proto [startInstancesRequest StartInstancesRequest]
-      :return (pb/proto->schema StartInstancesResult)
-        (start-instances-resource startInstancesRequest))
-
-    (POST* "/stop-instances" []
-      :summary "Reboot an instance by id"
-      :proto [stopInstancesRequest StopInstancesRequest]
-      :return (pb/proto->schema StartInstancesResult)
-        (stop-instances-resource stopInstancesRequest))
-
-    (POST* "/reboot-instances" []
-      :summary "Reboot an instance by id"
-      :proto [rebootInstancesRequest RebootInstancesRequest]
-      :return (pb/proto->schema RebootInstancesResult)
-        (reboot-instances-resource rebootInstancesRequest)))
-  
   (context* "/gql" []
     :tags ["gql"]
 
@@ -641,47 +608,12 @@
       :return (pb/proto->schema Check)
       (check-resource id check)))
 
-  (context* "/instances" []
-    :tags ["instances"]
-
-    (GET* "/" []
-      :summary "Retrieve a list of instances."
-      (instances-resource nil))
-
-    (GET* "/:type" [type]
-      :summary "Retrieve a list of instances by type."
-      (instances-resource {:type type}))
-
-    (GET* "/:type/:id" [type id]
-      :summary "Retrieve a single ec2 instance."
-      (instances-resource {:type type :id id})))
-
-
-  (context* "/groups" []
-    :tags ["groups"]
-
-    (GET* "/" []
-      :summary "Retrieve a list of groups."
-      (groups-resource nil))
-
-    (GET* "/:type" [type]
-      :summary "Retrieve a list of security groups."
-      (groups-resource {:type type}))
-
-    (GET* "/:type/:id" [type id]
-      :summary "Retrieve a list of instances belonging to a security group."
-      (groups-resource {:id id :type type})))
-
-  (GET* "/customer" []
-    :summary "Retrieve a customer from the instance store."
-    (customers-resource))
-
-  (GET* "/checks/exgid/:id" [id]
-    :summary "List all checks by execution group id"
-    :produces ["application/json" "application/x-protobuf"]
-    :return [(pb/proto->schema Check)]
-    (checks-exgid-resource id))
-
+    (GET* "/exgid/:id" [id]
+      :summary "List all checks by execution group id"
+      :produces ["application/json" "application/x-protobuf"]
+      :return [(pb/proto->schema Check)]
+      (checks-exgid-resource id))
+ 
   (rt/not-found "Not found."))
 
 (defn handler [exe sched message-bus prod con database conf]
