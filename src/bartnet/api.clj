@@ -140,17 +140,16 @@
     (let [login (:login ctx)
           customer-id (:customer_id login)
           check (first (sql/get-check-by-id @db {:id id :customer_id customer-id}))]
-      (when-let [old-check (sql/get-check-by-id @db {:id id :customer_id customer-id})]
-        (let [exgid (or (:execution_group_id old-check) customer-id)]
-          (sql/delete-check-by-id! @db {:id id :customer_id customer-id})
-          (sql/delete-assertions! @db {:id id :customer_id customer-id})
-          (let [req (-> (CheckResourceRequest/newBuilder)
-                        (.addChecks (-> (Check/newBuilder)
-                                        (.setId id)
-                                        .build))
-                        .build)]
-            (all-bastions exgid #(rpc/delete-check % req)))
-          (results/delete-results login id))))))
+      (let [exgid (or (:execution_group_id check) customer-id)]
+        (sql/delete-check-by-id! @db {:id id :customer_id customer-id})
+        (sql/delete-assertions! @db {:id id :customer_id customer-id})
+        (let [req (-> (CheckResourceRequest/newBuilder)
+                      (.addChecks (-> (Check/newBuilder)
+                                      (.setId id)
+                                      .build))
+                      .build)]
+          (all-bastions exgid #(rpc/delete-check % req)))
+        (results/delete-results login id)))))
 
 (defn create-check! [^Check check]
   (fn [ctx]
