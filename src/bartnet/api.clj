@@ -641,12 +641,6 @@
       :return (pb/proto->schema Check)
       (check-resource id check)))
 
-    (GET* "/exgid/:id" [id]
-      :summary "List all checks by execution group id"
-      :produces ["application/json" "application/x-protobuf"]
-      :return [(pb/proto->schema Check)]
-      (checks-exgid-resource id))
- 
   (context* "/instances" []
     :tags ["instances"]
 
@@ -681,6 +675,12 @@
   (GET* "/customer" []
     :summary "Retrieve a customer from the instance store."
     (customers-resource))
+
+  (GET* "/checks/exgid/:id" [id]
+    :summary "List all checks by execution group id"
+    :produces ["application/json" "application/x-protobuf"]
+    :return [(pb/proto->schema Check)]
+    (checks-exgid-resource id))
 
   (rt/not-found "Not found."))
 
