@@ -18,7 +18,6 @@
             [clj-time.format :as f]
             [ring.adapter.jetty9 :refer [run-jetty]]
             [clojure.java.io :as io]
-            [bartnet.instance :as instance]
             [bartnet.nsq :as nsq]
             [schema.core :as sch]
             [manifold.bus :as bus]
@@ -123,8 +122,7 @@
                                                     {:checks
                                                      (just
                                                        (contains
-                                                         {:results not-empty
-                                                          :assertions not-empty
+                                                         {:assertions not-empty
                                                           :check_spec (contains {:value (contains {:name "A Good Check"})})
                                                           :target (contains {:type "sg"})}))}))))
              (fact "creates new checks"
@@ -204,7 +202,6 @@
                    (:status response) => 200
                    (:body response) => (is-json (contains {:id "check1"
                                                            :check_spec (contains {:value (contains {:name "A Good Check"})})
-                                                           :results not-empty
                                                            :assertions not-empty}))))
            (fact "checks get deleted"
                  (let [response ((app) (-> (mock/request :delete "/checks/check1")
