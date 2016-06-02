@@ -404,6 +404,7 @@
         alter table checks add column execution_group_id UUID;
         update checks set execution_group_id = customer_id;
         create unique index execution_group_id_idx on checks (execution_group_id);
+        alter table checks alter column execution_group_id set not null;
     </sql>
 </changeSet>
 </databaseChangeLog>

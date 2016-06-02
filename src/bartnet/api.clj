@@ -84,8 +84,7 @@
     (let [req (-> (CheckResourceRequest/newBuilder)
                   (.addChecks (pb/hash->proto Check check))
                   .build)
-          exgid (or (:execution_group_id check) customer-id)
-          retr-checks (all-bastions exgid #(rpc/retrieve-check % req))
+          retr-checks (all-bastions (:execution_group_id check) #(rpc/retrieve-check % req))
           max-check (max-key #(:seconds (:last_run %)) retr-checks)]
       (assoc check :last_run (:last_run max-check)))
     (catch Exception _ check)))
@@ -118,9 +117,8 @@
           assertions (:assertions updated-check)
           old-check (:check ctx)]
       (let [merged (merge old-check (assoc (resolve-target updated-check) :id id))
-            exgid (or (:execution_group_id merged) customer-id)]
         (log/debug "merged" merged)
-        (when (sql/update-check! @db (assoc merged :customer_id customer-id :execution_group_id exgid))
+        (when (sql/update-check! @db (assoc merged :customer_id customer-id))
             (sql/delete-assertions! @db {:customer_id customer-id :check_id id})
             (doall (map #(sql/insert-into-assertions! @db (assoc % :check_id id :customer_id customer-id)) assertions)))
         (let [updated-assertions (sql/get-assertions @db {:check_id id :customer_id customer-id})
@@ -132,7 +130,7 @@
               checks (-> (CheckResourceRequest/newBuilder)
                          (.addChecks check)
                          .build)]
-            (all-bastions exgid #(rpc/update-check % checks))
+            (all-bastions (:execution_group_id merged) #(rpc/update-check % checks))
             {:check final-check'})))))
 
 (defn delete-check! [id]
@@ -140,7 +138,7 @@
     (let [login (:login ctx)
           customer-id (:customer_id login)
           check (first (sql/get-check-by-id @db {:id id :customer_id customer-id}))]
-      (let [exgid (or (:execution_group_id check) customer-id)]
+      (do
         (sql/delete-check-by-id! @db {:id id :customer_id customer-id})
         (sql/delete-assertions! @db {:id id :customer_id customer-id})
         (let [req (-> (CheckResourceRequest/newBuilder)
@@ -148,7 +146,7 @@
                                       (.setId id)
                                       .build))
                       .build)]
-          (all-bastions exgid #(rpc/delete-check % req)))
+          (all-bastions (:execution_group_id check) #(rpc/delete-check % req)))
         (results/delete-results login id)))))
 
 (defn create-check! [^Check check]
