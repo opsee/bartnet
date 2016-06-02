@@ -108,8 +108,7 @@
         {:check (-> check
                     (resolve-target)
                     (resolve-lastrun customer-id)
-                    (add-check-assertions @db)
-                    (add-check-results (get-http-body (results/get-results {:login login :customer_id customer-id :check_id id}))))}))))
+                    (add-check-assertions @db))}))))
 
 (defn update-check! [id pb-check]
   (fn [ctx]
@@ -180,8 +179,7 @@
         results (get-http-body (results/get-results {:login login :customer_id customer-id}))
         checks (map #(-> %
                          (add-check-assertions @db)
-                         (resolve-target)
-                         (add-check-results results)) (sql/get-checks-by-customer-id @db customer-id))]
+                         (resolve-target)) (sql/get-checks-by-customer-id @db customer-id))]
     (map #(resolve-lastrun % customer-id) checks)
     {:checks checks}))
 
