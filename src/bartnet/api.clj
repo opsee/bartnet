@@ -36,6 +36,7 @@
 (def bus (atom nil))
 (def producer (atom nil))
 (def consumer (atom nil))
+(def magic-exgid "127a7354-290e-11e6-b178-2bc1f6aefc14")
 
 (extend-type GeneratedMessage
   Representation
@@ -116,7 +117,7 @@
           updated-check (pb/proto->hash pb-check)
           assertions (:assertions updated-check)
           old-check (:check ctx)]
-      (let [merged (merge old-check (assoc (resolve-target updated-check) :id id))
+      (let [merged (merge old-check (assoc (resolve-target updated-check) :id id))]
         (log/debug "merged" merged)
         (when (sql/update-check! @db (assoc merged :customer_id customer-id))
             (sql/delete-assertions! @db {:customer_id customer-id :check_id id})
@@ -153,7 +154,10 @@
   (fn [ctx]
     (let [login (:login ctx)
           customer-id (:customer_id login)
-          exgid (or (:execution_group_id check) customer-id)
+          check-type (get-in check [:target :type])
+          exgid (if (= "external_host" check-type)
+                  magic-exgid
+                  (or (:execution_group_id check) customer-id))
           check-id (identifiers/generate)
           assertions (.getAssertionsList check)
           check' (-> (.toBuilder check)
@@ -183,9 +187,13 @@
 (defn exgid-list-checks [id]
   (fn [ctx]
     (let [login (:login ctx)
+          customer-id (:customer_id login)
+          db-checks (if (= customer-id magic-exgid)
+                      (sql/get-global-checks-by-execution-group-id @db id)
+                      (sql/get-checks-by-execution-group-id @db {:id id :customer_id customer-id}))
           checks (map #(-> %
                            (add-check-assertions @db)
-                           (resolve-target)) (sql/get-checks-by-execution-group-id @db id))]
+                           (resolve-target)) db-checks)]
       {:checks checks})))
 
 (defn gql-list-checks [ctx]

@@ -18,7 +18,7 @@
     (sql/insert-into-checks! db {:id             "check1"
                                  :name           "boreos"
                                  :customer_id    "154ba57a-5188-11e5-8067-9b5f2d96dce1"
-                                 :execution_group_id nil
+                                 :execution_group_id "154ba57a-5188-11e5-8067-9b5f2d96dce1"
                                  :target_id      "sg-123"
                                  :target_type    "sg"
                                  :target_name    "boreos"
@@ -35,7 +35,7 @@
     (sql/insert-into-checks! db {:id             "check1"
                                  :name           "my-service elb"
                                  :customer_id    "375f5afc-1880-11e6-a61e-6fdd17fa0f56"
-                                 :execution_group_id nil
+                                 :execution_group_id "154ba57a-5188-11e5-8067-9b5f2d96dce1"
                                  :target_id      "my-service"
                                  :interval       60
                                  :target_type    "elb"
@@ -48,7 +48,7 @@
     (sql/insert-into-checks! db {:id             "check2"
                                  :name           "my-serice rds"
                                  :customer_id    "375f5afc-1880-11e6-a61e-6fdd17fa0f56"
-                                 :execution_group_id nil
+                                 :execution_group_id "154ba57a-5188-11e5-8067-9b5f2d96dce1"
                                  :target_id      "my-service"
                                  :interval       60
                                  :target_name    "my-service"

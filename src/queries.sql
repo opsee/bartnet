@@ -22,9 +22,13 @@ select * from checks where id=:id and customer_id=:customer_id::UUID;
 -- Retrieves a list of health checks by env id.
 select * from checks where customer_id=:customer_id::UUID;
 
--- name: get-checks-by-execution-group-id
+-- name: get-global-checks-by-execution-group-id
 -- Retrieves a list of health checks by execution group id.
 select * from checks where execution_group_id=:execution_group_id::UUID;
+
+-- name: get-checks-by-execution-group-id
+-- Retrieves a list of health checks by execution group id.
+select * from checks where execution_group_id=:execution_group_id::UUID and customer_id=:customer_id::UUID;
 
 -- name: delete-check-by-id!
 -- Deletes a check record by id.
