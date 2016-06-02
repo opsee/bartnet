@@ -1,12 +1,9 @@
 (ns bartnet.api
-  (:require [bartnet.instance :as instance]
-            [bartnet.sql :as sql]
+  (:require [bartnet.sql :as sql]
             [bartnet.rpc :as rpc :refer [all-bastions]]
-            [bartnet.aws-rpc :as aws-rpc]
             [bartnet.results :as results]
             [opsee.middleware.protobuilder :as pb]
             [opsee.middleware.core :refer :all]
-            [bartnet.bastion-router :as router]
             [clojure.tools.logging :as log]
             [clojure.java.jdbc :as jdbc]
             [ring.middleware.cors :refer [wrap-cors]]
@@ -24,7 +21,6 @@
             [ring.swagger.schema :as schema]
             [cheshire.core :refer :all]
             [bartnet.identifiers :as identifiers]
-            [bartnet.launch :as launch]
             [schema.core :as sch]
             [liberator.dev :refer [wrap-trace]]
             [liberator.core :refer [resource defresource]])
@@ -66,23 +62,6 @@
       (<= 200 status 299) (parse-string (:body response) keyword)
       :else (throw (Exception. (str "failed to get instances from the instance store " status))))))
 
-(defn add-instance-results [instance results]
-  (let [instance-id (get-in instance [:instance :InstanceId])]
-    (assoc instance :results (sequence
-                               (comp
-
-                                 (map (fn [result]
-                                        (update result :responses (fn [responses]
-                                                                    (filter #(= instance-id (:host %)) responses)))))
-                                 (filter #(not-empty (:responses %))))
-                                 results))))
-
-(defn add-group-results [group results]
-  (assoc group :results (filter #(= (or (get-in group [:group :LoadBalancerName]) (get-in group [:group :GroupId])) (:host %)) results)))
-
-(defn add-check-results [check results]
-  (assoc check :results (filter #(= (:id check) (:service %)) results)))
-
 (defn add-check-assertions [check db]
   (assoc 
     check 
@@ -90,23 +69,6 @@
     (let [db_assertions (sql/get-assertions db {:check_id (:id check) 
                                                 :customer_id (:customer_id check)})]
       (map #(dissoc % :customer_id :check_id) db_assertions))))
-
-(defmulti results-merge (fn [[key _] _] key))
-
-(defmethod results-merge :instance [[key instance] results]
-  (add-instance-results {key instance} results))
-(defmethod results-merge :instances [[key instances] results]
-  [key (for [instance instances] (add-instance-results instance results))])
-(defmethod results-merge :group [[key group] results]
-  (add-group-results {key group} results))
-(defmethod results-merge :groups [[key groups] results]
-  [key (for [group groups] (add-group-results group results))])
-(defmethod results-merge :instance_count [ic _] ic)
-
-(defn list-bastions [ctx]
-  (let [login (:login ctx)
-        instance-ids (router/get-customer-bastions (:customer_id login))]
-    {:bastions (reduce conj [] instance-ids)}))
 
 (defn resolve-target [check]
   (if-let [target (:target check)]
@@ -122,7 +84,8 @@
     (let [req (-> (CheckResourceRequest/newBuilder)
                   (.addChecks (pb/hash->proto Check check))
                   .build)
-          retr-checks (all-bastions customer-id #(rpc/retrieve-check % req))
+          exgid (or (:execution_group_id check) customer-id)
+          retr-checks (all-bastions exgid #(rpc/retrieve-check % req))
           max-check (max-key #(:seconds (:last_run %)) retr-checks)]
       (assoc check :last_run (:last_run max-check)))
     (catch Exception _ check)))
@@ -156,9 +119,9 @@
           assertions (:assertions updated-check)
           old-check (:check ctx)]
       (let [merged (merge old-check (assoc (resolve-target updated-check) :id id))
-            exgid (:execution_group_id merged)]
+            exgid (or (:execution_group_id merged) customer-id)]
         (log/debug "merged" merged)
-        (when (sql/update-check! @db (assoc merged :customer_id customer-id :execution_group_id (or exgid customer-id)))
+        (when (sql/update-check! @db (assoc merged :customer_id customer-id :execution_group_id exgid))
             (sql/delete-assertions! @db {:customer_id customer-id :check_id id})
             (doall (map #(sql/insert-into-assertions! @db (assoc % :check_id id :customer_id customer-id)) assertions)))
         (let [updated-assertions (sql/get-assertions @db {:check_id id :customer_id customer-id})
@@ -170,7 +133,7 @@
               checks (-> (CheckResourceRequest/newBuilder)
                          (.addChecks check)
                          .build)]
-            (all-bastions (:customer_id login) #(rpc/update-check % checks))
+            (all-bastions exgid #(rpc/update-check % checks))
             {:check final-check'})))))
 
 (defn delete-check! [id]
@@ -178,22 +141,23 @@
     (let [login (:login ctx)
           customer-id (:customer_id login)
           check (first (sql/get-check-by-id @db {:id id :customer_id customer-id}))]
-      (do
-        (sql/delete-check-by-id! @db {:id id :customer_id customer-id})
-        (sql/delete-assertions! @db {:id id :customer_id customer-id})
-        (let [req (-> (CheckResourceRequest/newBuilder)
-                      (.addChecks (-> (Check/newBuilder)
-                                      (.setId id)
-                                      .build))
-                      .build)]
-          (all-bastions customer-id #(rpc/delete-check % req)))
-        (results/delete-results login id)))))
+      (when-let [old-check (sql/get-check-by-id @db {:id id :customer_id customer-id})]
+        (let [exgid (or (:execution_group_id old-check) customer-id)]
+          (sql/delete-check-by-id! @db {:id id :customer_id customer-id})
+          (sql/delete-assertions! @db {:id id :customer_id customer-id})
+          (let [req (-> (CheckResourceRequest/newBuilder)
+                        (.addChecks (-> (Check/newBuilder)
+                                        (.setId id)
+                                        .build))
+                        .build)]
+            (all-bastions exgid #(rpc/delete-check % req)))
+          (results/delete-results login id))))))
 
 (defn create-check! [^Check check]
   (fn [ctx]
     (let [login (:login ctx)
           customer-id (:customer_id login)
-          exgid (:execution_group_id check)
+          exgid (or (:execution_group_id check) customer-id)
           check-id (identifiers/generate)
           assertions (.getAssertionsList check)
           check' (-> (.toBuilder check)
@@ -205,33 +169,10 @@
           ided-check (pb/proto->hash check')
           db-check (resolve-target ided-check)]
       (doall (map #(sql/insert-into-assertions! @db (assoc % :check_id check-id :customer_id customer-id)) (map pb/proto->hash assertions)))
-      (sql/insert-into-checks! @db (assoc db-check :customer_id customer-id :execution_group_id (or exgid customer-id)))
-      (all-bastions (:customer_id login) #(rpc/create-check % checks))
+      (sql/insert-into-checks! @db (assoc db-check :customer_id customer-id :execution_group_id exgid))
+      (all-bastions exgid #(rpc/create-check % checks))
       (log/debug "check" ided-check)
       {:checks-resource {:checks [ided-check]}})))
-
-
-(defn reboot-instances! [^RebootInstancesRequest rebootInstancesRequest]
-  (fn [ctx]
-    (let [login (:login ctx)
-          response (aws-rpc/all-bastions (:customer_id login) #(aws-rpc/reboot-instances % rebootInstancesRequest))]
-      (log/info "resp" response)
-      {:reboot-instances-result response})))
-
-
-(defn start-instances! [^StartInstancesRequest startInstancesRequest]
-  (fn [ctx]
-    (let [login (:login ctx)
-          response (aws-rpc/all-bastions (:customer_id login) #(aws-rpc/start-instances % startInstancesRequest))]
-      (log/info "resp" response)
-      {:start-instances-result response})))
-
-(defn stop-instances! [^StopInstancesRequest stopInstancesRequest]
-  (fn [ctx]
-    (let [login (:login ctx)
-          response (aws-rpc/all-bastions (:customer_id login) #(aws-rpc/stop-instances % stopInstancesRequest))]
-      (log/info "resp" response)
-      {:stop-instances-result response})))
 
 (defn list-checks [ctx]
   (let [login (:login ctx)
@@ -261,97 +202,12 @@
     (map #(resolve-lastrun % customer-id) checks)
     {:checks checks}))
 
-(defn ec2-classic? [attrs]
-  (let [ttr (:account-attributes attrs)
-        supported (first (filter
-                          #(= "supported-platforms" (:attribute-name %))
-                          ttr))]
-    (not (empty? (filter
-                  #(or (.equalsIgnoreCase "EC2-Classic" (:attribute-value %))
-                       (.equalsIgnoreCase "EC2" (:attribute-value %)))
-                  (:attribute-values supported))))))
-
-(defn scan-vpcs [req]
-  (fn [ctx]
-    {:regions (for [region (:regions req)
-                    :let [cd {:access-key (:access-key req)
-                              :secret-key (:secret-key req)
-                              :endpoint region}
-                          vpcs (describe-vpcs cd)
-                          subnets (describe-subnets cd)
-                          attrs (describe-account-attributes cd)]]
-                {:region      region
-                 :ec2-classic (ec2-classic? attrs)
-                 :vpcs        (for [vpc (:vpcs vpcs)
-                                    :let [reservations (describe-instances cd :filters [{:name "vpc-id"
-                                                                                         :values [(:vpc-id vpc)]}])
-                                          count (reduce +
-                                                        (map (fn [res]
-                                                               (count (filter #(not= "terminated"
-                                                                                     (get-in % [:state :name]))
-                                                                              (:instances res))))
-                                                             (:reservations reservations)))
-                                          subnets (filter #(= (:vpc-id vpc) (:vpc-id %)) (:subnets subnets))]]
-                                (assoc vpc :count count :subnets subnets))})}))
-
-(defn call-instance-store! [meth opts]
-  (fn [ctx]
-    (let [login (:login ctx)
-          customer-id (:customer_id login)]
-      (let [{store-req :store results-req :results} (meth (assoc (or opts {})
-                                                            :customer_id customer-id
-                                                            :login login))
-            store (get-http-body store-req)
-            results (get-http-body results-req)]
-        (log/info "results" results)
-        (into {} (map #(results-merge % results)) store)))))
-
-(defn get-customer! [ctx]
-  (let [customer-id (get-in ctx [:login :customer_id])]
-    (instance/get-customer! {:customer_id customer-id})))
-
 (defn test-check! [testCheck]
   (fn [ctx]
     (let [login (:login ctx)
           response (rpc/try-bastions (:customer_id login) #(rpc/test-check % testCheck))]
       (log/info "resp" response)
       {:test-results response})))
-
-(defn launch-bastions! [launch-cmd]
-  (fn [ctx]
-    (let [login (:login ctx)]
-      {:regions (launch/launch-bastions @executor @scheduler @producer login launch-cmd (:ami @config) (:bastion @config))})))
-
-(defresource instances-resource [opts]
-  :available-media-types ["application/json"]
-  :allowed-methods [:get]
-  :authorized? (authorized?)
-  :handle-ok (call-instance-store! instance/list-instances! opts))
-
-(defresource groups-resource [opts]
-  :available-media-types ["application/json"]
-  :allowed-methods [:get]
-  :authorized? (authorized?)
-  :handle-ok (call-instance-store! instance/list-groups! opts))
-
-(defresource customers-resource []
-  :available-media-types ["application/json"]
-  :allowed-methods [:get]
-  :authorized? (authorized?)
-  :handle-ok get-customer!)
-
-(defresource launch-bastions-resource [launch-cmd]
-  :available-media-types ["application/json"]
-  :allowed-methods [:post]
-  :authorized? (authorized?)
-  :post! (launch-bastions! launch-cmd)
-  :handle-created :regions)
-
-(defresource bastions-resource []
-  :available-media-types ["application/json"]
-  :allowed-methods [:get]
-  :authorized? (authorized?)
-  :handle-ok list-bastions)
 
 (defresource test-check-resource [testCheck]
   :as-response (pb-as-response TestCheckResponse)
@@ -408,114 +264,6 @@
   :authorized? (authorized?)
   :handle-ok gql-list-checks)
 
-
-(defresource start-instances-resource [startInstancesRequest]
-  :available-media-types ["application/json"]
-  :allowed-methods [:post]
-  :authorized? (authorized?)
-  :post! (start-instances! startInstancesRequest)
-  :handle-ok :start-instances-result)
-
-
-(defresource stop-instances-resource [stopInstancesRequest]
-  :available-media-types ["application/json"]
-  :allowed-methods [:post]
-  :authorized? (authorized?)
-  :post! (stop-instances! stopInstancesRequest)
-  :handle-ok :stop-instances-result)
-
-
-(defresource reboot-instances-resource [rebootInstancesRequest]
-  :available-media-types ["application/json"]
-  :allowed-methods [:post]
-  :authorized? (authorized?)
-  :post! (reboot-instances! rebootInstancesRequest)
-  :handle-ok :reboot-instances-result)
-
-(defresource scan-vpc-resource [req]
-  :available-media-types ["application/json"]
-  :allowed-methods [:post]
-  :post! (scan-vpcs req)
-  :handle-created :regions)
-
-(def EC2Region (sch/enum "ap-northeast-1" "ap-southeast-1" "ap-southeast-2"
-                         "eu-central-1" "eu-west-1"
-                         "sa-east-1"
-                         "us-east-1" "us-west-1" "us-west-2"))
-
-(def LaunchVpc "A VPC for launching"
-  (sch/schema-with-name
-   {:id sch/Str
-    (sch/optional-key :subnet_id) (sch/maybe sch/Str)
-    (sch/optional-key :instance_id) (sch/maybe sch/Str)}
-   "LaunchVpc"))
-
-(def LaunchRegion "An ec2 region for launching"
-  (sch/schema-with-name
-   {:region EC2Region
-    :vpcs [LaunchVpc]}
-   "LaunchRegion"))
-
-(def LaunchCmd "A schema for launching bastions"
-  (sch/schema-with-name
-   {:access-key sch/Str
-    :secret-key sch/Str
-    :regions [LaunchRegion]
-    :instance-size (sch/enum "t2.micro" "t2.small" "t2.medium" "t2.large"
-                             "m4.large" "m4.xlarge" "m4.2xlarge" "m4.4xlarge" "m4.10xlarge"
-                             "m3.medium" "m3.large" "m3.xlarge" "m3.2xlarge")}
-   "LaunchCmd"))
-
-(def ScanVpcsRequest
-  (sch/schema-with-name
-   {:access-key sch/Str
-    :secret-key sch/Str
-    :regions [EC2Region]}
-   "ScanVpcsRequest"))
-
-(def Tag
-  (sch/schema-with-name
-   {:key sch/Str
-    :value sch/Str}
-   "Tag"))
-
-(def Subnet
-  (sch/schema-with-name
-    {:tags [Tag]
-     :subnet-id sch/Str
-     :default-for-az sch/Bool
-     :state sch/Str
-     :availability-zone sch/Str
-     :vpc-id sch/Str
-     :map-public-ip-on-launch sch/Bool
-     :available-ip-address-count sch/Bool
-     :cidr-block sch/Str}
-    "Subnet"))
-
-(def ScanVpc
-  (sch/schema-with-name
-   {:state sch/Str
-    :vpc-id sch/Str
-    :tags [Tag]
-    :subnets [Subnet]
-    :cidr-block sch/Str
-    :dhcp-options-id sch/Str
-    :instance-tenancy sch/Str
-    :is-default sch/Bool}
-   "ScanVpc"))
-
-(def ScanVpcsRegion
-  (sch/schema-with-name
-   {:region EC2Region
-    :ec2-class sch/Bool
-    :vpcs [ScanVpc]}
-   "ScanVpcsRegion"))
-
-(def ScanVpcsResponse
-  (sch/schema-with-name
-   {:regions [ScanVpcsRegion]}
-   "ScanVpcsResponse"))
-
 (defapi bartnet-api
   {:exceptions {:exception-handler robustify-errors}
    :coercion   (fn [_] (-> mw/default-coercion-matchers
@@ -543,7 +291,6 @@
     :no-doc true
     "A ok")
 
-
   (GET* "/eat-shit" []
     :no-doc true
     (fn [request]
@@ -551,10 +298,6 @@
 
   (context* "/bastions" []
     :tags ["bastions"]
-
-    (GET* "/" []
-      :no-doc true
-      (bastions-resource))
 
     (POST* "/test-check" []
       :summary "Tells the bastion to test out a check and return the response"
