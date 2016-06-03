@@ -209,7 +209,7 @@
   (fn [ctx]
     (let [login (:login ctx)
           customer-id (:customer_id login)
-          check (:check testCheck)
+          check (:check (pb/proto->hash testCheck))
           check-type (get-in check [:target :type])
           exgid (if (= "external_host" check-type)
                   magic-exgid
