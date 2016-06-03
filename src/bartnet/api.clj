@@ -215,6 +215,8 @@
                   magic-exgid
                   (or (:execution_group_id check) customer-id))
           response (rpc/try-bastions exgid #(rpc/test-check % testCheck))]
+      (log/info "exgid" exgid)
+      (log/info "check" check)
       (log/info "resp" response)
       {:test-results response})))
 
