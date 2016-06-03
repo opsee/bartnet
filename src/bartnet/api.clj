@@ -208,7 +208,13 @@
 (defn test-check! [testCheck]
   (fn [ctx]
     (let [login (:login ctx)
-          response (rpc/try-bastions (:customer_id login) #(rpc/test-check % testCheck))]
+          customer-id (:customer_id login)
+          check (:check testCheck)
+          check-type (get-in check [:target :type])
+          exgid (if (= "external_host" check-type)
+                  magic-exgid
+                  (or (:execution_group_id check) customer-id))
+          response (rpc/try-bastions exgid #(rpc/test-check % testCheck))]
       (log/info "resp" response)
       {:test-results response})))
 
