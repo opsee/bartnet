@@ -408,4 +408,30 @@
         alter table checks alter column execution_group_id set not null;
     </sql>
 </changeSet>
+<changeSet id="30" author="greg" runInTransaction="true" failOnError="true">
+  <createTable tableName="check_states">
+    <column name="check_id" type="varchar(255)"><constraints primaryKey="true" nullable="false"/></column>
+    <column name="customer_id" type="UUID"><constraints nullable="false"/></column>
+    <column name="state_id" type="integer"><constraints nullable="false"/></column>
+    <column name="state_name" type="varchar(255)"><constraints nullable="false"/></column>
+    <column name="time_entered" type="timestamp with time zone"><constraints nullable="false"/></column>
+    <column name="last_updated" type="timestamp with time zone"><constraints nullable="false"/></column>
+  </createTable>
+  <createTable tableName="check_state_memos">
+    <column name="check_id" type="varchar(255)"><constraints primaryKey="true" nullable="false"/></column>
+    <column name="customer_id" type="UUID"><constraints nullable="false"/></column>
+    <column name="bastion_id" type="UUID"><constraints nullable="false"/></column>
+    <column name="failing_count" type="integer"><constraints nullable="false"/></column>
+    <column name="response_count" type="integer"><constraints nullable="false"/></column>
+    <column name="last_updated" type="integer"><constraints nullable="false"/></column>
+  </createTable>
+	<sql>
+		create index bastion_id_idx on check_state_memos (bastion_id);
+		alter table checks add column min_failing_count integer;
+		alter table checks alter column min_failing_count set default 1;
+		alter table checks add column min_failing_time integer;
+		alter table checks alter column min_failing_time set default 90;
+		update checks set min_failing_count=1, min_failing_time=90 where min_failing_count is null or min_failing_time is null;
+	</sql>
+</changeSet>
 </databaseChangeLog>
