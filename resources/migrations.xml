@@ -423,7 +423,7 @@
     <column name="bastion_id" type="UUID"><constraints nullable="false"/></column>
     <column name="failing_count" type="integer"><constraints nullable="false"/></column>
     <column name="response_count" type="integer"><constraints nullable="false"/></column>
-    <column name="last_updated" type="integer"><constraints nullable="false"/></column>
+    <column name="last_updated" type="timestamp with time zone"><constraints nullable="false"/></column>
   </createTable>
 	<sql>
 		create index bastion_id_idx on check_state_memos (bastion_id);
