@@ -1,7 +1,7 @@
 -- name: insert-into-checks!
 -- Inserts a new record into the checks table.
-insert into checks (id, name, customer_id, execution_group_id, "interval", target_id, check_spec, target_name, target_type) values
-                  (:id, :name, :customer_id::UUID, :execution_group_id::UUID, :interval, :target_id, :check_spec::jsonb, :target_name, :target_type);
+insert into checks (id, name, customer_id, execution_group_id, "interval", target_id, check_spec, target_name, target_type, min_failing_time, min_failing_count) values
+                  (:id, :name, :customer_id::UUID, :execution_group_id::UUID, :interval, :target_id, :check_spec::jsonb, :target_name, :target_type, :min_failing_time, :min_failing_count);
 
 -- name: update-check!
 -- Updates an existing health_check record.
@@ -12,6 +12,8 @@ update checks set customer_id = :customer_id::UUID,
                   name = :name,
                   check_spec = :check_spec,
                   target_name = :target_name,
+                  min_failing_count = :min_failing_count,
+                  min_failing_time = :min_failing_time,
                   target_type = :target_type where id=:id;
 
 -- name: get-check-by-id
