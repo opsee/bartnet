@@ -125,7 +125,7 @@
         (let [updated-assertions (sql/get-assertions @db {:check_id id :customer_id customer-id})
               final-check (resolve-target (first (sql/get-check-by-id @db {:id id :customer_id customer-id})))
               final-check' (assoc final-check :assertions updated-assertions)
-              _ (log/debug "final-check" final-check')
+              _ (log/info "final-check" final-check')
               check (-> (.toBuilder (pb/hash->proto Check final-check'))
                         .build)
               checks (-> (CheckResourceRequest/newBuilder)

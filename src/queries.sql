@@ -1,7 +1,7 @@
 -- name: insert-into-checks!
 -- Inserts a new record into the checks table.
 insert into checks (id, name, customer_id, execution_group_id, "interval", target_id, check_spec, target_name, target_type, min_failing_time, min_failing_count) values
-                  (:id, :name, :customer_id::UUID, :execution_group_id::UUID, :interval, :target_id, :check_spec::jsonb, :target_name, :target_type, :min_failing_time, :min_failing_count);
+                  (:id, :name, :customer_id::UUID, :execution_group_id::UUID, :interval, :target_id, :check_spec::jsonb, :target_name, :target_type, coalesce(:min_failing_time, 90), coalesce(:min_failing_count, 1));
 
 -- name: update-check!
 -- Updates an existing health_check record.
@@ -12,17 +12,17 @@ update checks set customer_id = :customer_id::UUID,
                   name = :name,
                   check_spec = :check_spec,
                   target_name = :target_name,
-                  min_failing_count = :min_failing_count,
-                  min_failing_time = :min_failing_time,
+                  min_failing_count = coalesce(:min_failing_count, 1),
+                  min_failing_time = coalesce(:min_failing_time, 90),
                   target_type = :target_type where id=:id;
 
 -- name: get-check-by-id
 -- Retrieves a health check record.
-select checks.*, states.failing_count, states.response_count, states.state_name from checks left outer join check_states as states on (checks.id = states.check_id) where checks.id=:id and checks.customer_id=:customer_id::UUID;
+select checks.*, coalesce(states.failing_count, 0), coalesce(states.response_count, 0), states.state_name from checks left outer join check_states as states on (checks.id = states.check_id) where checks.id=:id and checks.customer_id=:customer_id::UUID;
 
 -- name: get-checks-by-customer-id
 -- Retrieves a list of health checks by env id.
-select checks.*, states.failing_count, states.response_count, states.state_name from checks left outer join check_states as states on (checks.id = states.check_id) where checks.customer_id=:customer_id::UUID;
+select checks.*, coalesce(states.failing_count, 0), coalesce(states.response_count, 0), states.state_name from checks left outer join check_states as states on (checks.id = states.check_id) where checks.customer_id=:customer_id::UUID;
 
 -- name: get-global-checks-by-execution-group-id
 -- Retrieves a list of health checks by execution group id.
@@ -30,7 +30,7 @@ select * from checks where execution_group_id=:execution_group_id::UUID;
 
 -- name: get-checks-by-execution-group-id
 -- Retrieves a list of health checks by execution group id.
-select checks.*, states.failing_count, states.response_count, states.state_name from checks left outer join check_states as states on (checks.id = states.check_id from checks where checks.execution_group_id=:execution_group_id::UUID and checks.customer_id=:customer_id::UUID;
+select checks.*, coalesce(states.failing_count, 0), coalesce(states.response_count, 0), states.state_name from checks left outer join check_states as states on (checks.id = states.check_id from checks where checks.execution_group_id=:execution_group_id::UUID and checks.customer_id=:customer_id::UUID;
 
 -- name: delete-check-by-id!
 -- Deletes a check record by id.
