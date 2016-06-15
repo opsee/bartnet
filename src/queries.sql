@@ -18,11 +18,11 @@ update checks set customer_id = :customer_id::UUID,
 
 -- name: get-check-by-id
 -- Retrieves a health check record.
-select checks.*, coalesce(states.failing_count, 0), coalesce(states.response_count, 0), states.state_name from checks left outer join check_states as states on (checks.id = states.check_id) where checks.id=:id and checks.customer_id=:customer_id::UUID;
+select checks.*, coalesce(states.failing_count, 0), coalesce(states.response_count, 0), coalesce(states.state_name, 'INITIALIZING') from checks left outer join check_states as states on (checks.id = states.check_id) where checks.id=:id and checks.customer_id=:customer_id::UUID;
 
 -- name: get-checks-by-customer-id
 -- Retrieves a list of health checks by env id.
-select checks.*, coalesce(states.failing_count, 0), coalesce(states.response_count, 0), states.state_name from checks left outer join check_states as states on (checks.id = states.check_id) where checks.customer_id=:customer_id::UUID;
+select checks.*, coalesce(states.failing_count, 0), coalesce(states.response_count, 0), coalesce(states.state_name, 'INITIALIZING') from checks left outer join check_states as states on (checks.id = states.check_id) where checks.customer_id=:customer_id::UUID;
 
 -- name: get-global-checks-by-execution-group-id
 -- Retrieves a list of health checks by execution group id.
@@ -30,7 +30,7 @@ select * from checks where execution_group_id=:execution_group_id::UUID;
 
 -- name: get-checks-by-execution-group-id
 -- Retrieves a list of health checks by execution group id.
-select checks.*, coalesce(states.failing_count, 0), coalesce(states.response_count, 0), states.state_name from checks left outer join check_states as states on (checks.id = states.check_id from checks where checks.execution_group_id=:execution_group_id::UUID and checks.customer_id=:customer_id::UUID;
+select checks.*, coalesce(states.failing_count, 0), coalesce(states.response_count, 0), coalesce(states.state_name, 'INITIALIZING') from checks left outer join check_states as states on (checks.id = states.check_id from checks where checks.execution_group_id=:execution_group_id::UUID and checks.customer_id=:customer_id::UUID;
 
 -- name: delete-check-by-id!
 -- Deletes a check record by id.
