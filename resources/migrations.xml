@@ -440,4 +440,11 @@
         alter table check_states add column response_count integer not null;
     </sql>
 </changeSet>
+<changeSet id="32" author="gregiscool2" runInTransaction="true" failOnError="true">
+    <sql>
+        update checks set min_failing_count=1, min_failing_time=90 where min_failing_count is null or min_failing_time is null;
+        alter table checks alter column min_failing_count set not null;
+        alter table checks alter column min_failing_time set not null;
+    </sql>
+</changeSet>
 </databaseChangeLog>

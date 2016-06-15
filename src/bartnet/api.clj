@@ -205,29 +205,6 @@
     (map #(resolve-lastrun % customer-id) checks)
     {:checks checks}))
 
-(defn test-check! [testCheck]
-  (fn [ctx]
-    (let [login (:login ctx)
-          customer-id (:customer_id login)
-          check (:check (pb/proto->hash testCheck))
-          check-type (get-in check [:target :type])
-          exgid (if (= "external_host" check-type)
-                  magic-exgid
-                  (or (:execution_group_id check) customer-id))
-          response (rpc/try-bastions exgid #(rpc/test-check % testCheck))]
-      (log/info "exgid" exgid)
-      (log/info "check" check)
-      (log/info "resp" response)
-      {:test-results response})))
-
-(defresource test-check-resource [testCheck]
-  :as-response (pb-as-response TestCheckResponse)
-  :available-media-types ["application/json" "application/x-protobuf"]
-  :allowed-methods [:post]
-  :authorized? (authorized?)
-  :post! (test-check! testCheck)
-  :handle-created (fn [ctx] (pb/proto->hash (:test-results ctx))))
-
 (defresource check-resource [id check]
   :as-response (pb-as-response Check)
   :available-media-types ["application/json" "application/x-protobuf"]
@@ -306,15 +283,6 @@
     :no-doc true
     (fn [request]
       (throw (Exception. "this is just a test"))))
-
-  (context* "/bastions" []
-    :tags ["bastions"]
-
-    (POST* "/test-check" []
-      :summary "Tells the bastion to test out a check and return the response"
-      :proto [testCheck TestCheckRequest]
-      :return (pb/proto->schema TestCheckResponse)
-      (test-check-resource testCheck)))
 
   (context* "/gql" []
     :tags ["gql"]
