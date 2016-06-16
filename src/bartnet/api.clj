@@ -189,8 +189,8 @@
     (let [login (:login ctx)
           customer-id (:customer_id login)
           db-checks (if (= customer-id magic-exgid)
-                      (sql/get-global-checks-by-execution-group-id @db id)
-                      (sql/get-checks-by-execution-group-id @db {:id id :customer_id customer-id}))
+                      (sql/get-global-checks-by-execution-group-id @db {:execution_group_id id})
+                      (sql/get-checks-by-execution-group-id @db {:execution_group_id id :customer_id customer-id}))
           checks (map #(-> %
                            (add-check-assertions @db)
                            (resolve-target)) db-checks)]
