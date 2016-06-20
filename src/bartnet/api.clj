@@ -1,7 +1,6 @@
 (ns bartnet.api
   (:require [bartnet.sql :as sql]
             [bartnet.rpc :as rpc :refer [all-bastions]]
-            [bartnet.results :as results]
             [opsee.middleware.protobuilder :as pb]
             [opsee.middleware.core :refer :all]
             [clojure.tools.logging :as log]
@@ -147,8 +146,7 @@
                                       (.setId id)
                                       .build))
                       .build)]
-          (all-bastions (:execution_group_id check) #(rpc/delete-check % req)))
-        (results/delete-results login id)))))
+          (all-bastions (:execution_group_id check) #(rpc/delete-check % req)))))))
 
 (defn create-check! [^Check check]
   (fn [ctx]
@@ -177,7 +175,6 @@
 (defn list-checks [ctx]
   (let [login (:login ctx)
         customer-id (:customer_id login)
-        results (get-http-body (results/get-results {:login login :customer_id customer-id}))
         checks (map #(-> %
                          (add-check-assertions @db)
                          (resolve-target)) (sql/get-checks-by-customer-id @db customer-id))]
