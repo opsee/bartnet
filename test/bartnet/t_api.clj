@@ -96,8 +96,7 @@
 (facts "checks endpoint works"
        (with-redefs [rpc/checker-client mock-checker-client
                      router/get-customer-bastions mock-get-customer-bastions
-                     router/get-service mock-get-service
-                     clj-http.client/get (mock-http {"/results" {:status 200 :body (:customer-query fixtures)}})]
+                     router/get-service mock-get-service]
          (with-state-changes
            [(before :facts (doto
                             (do-setup)))]
@@ -153,8 +152,7 @@
 (facts "check targets are valid"
        (with-redefs [rpc/checker-client mock-checker-client
                      router/get-customer-bastions mock-get-customer-bastions
-                     router/get-service mock-get-service
-                     clj-http.client/get (mock-http {"/results" {:status 200 :body (:customer-query-2 fixtures)}})]
+                     router/get-service mock-get-service]
          (with-state-changes
            [(before :facts (doto
                             (do-setup)))]
@@ -178,9 +176,7 @@
 (facts "check endpoint works"
        (with-redefs [rpc/checker-client mock-checker-client
                      router/get-customer-bastions mock-get-customer-bastions
-                     router/get-service mock-get-service
-                     clj-http.client/get (mock-http {"/results" {:status 200 :body (:customer-query fixtures)}})
-                     clj-http.client/delete (mock-http {"/results/checkid123" {:status 204 :body ""}})]
+                     router/get-service mock-get-service]
          (with-state-changes
            [(before :facts (do
                              (doto

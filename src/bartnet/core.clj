@@ -8,7 +8,6 @@
             [manifold.bus :as bus]
             [bartnet.upload-cmd :as upload-cmd]
             [bartnet.nsq :as nsq]
-            [bartnet.results :as results]
             [bartnet.websocket :as websocket]
             [bartnet.sql :as sql]
             [opsee.middleware.core :refer :all]
@@ -22,7 +21,6 @@
 (defn- start-ws-server [executor scheduler db bus producer consumer config]
   (if-not @ws-server
     (do
-      (reset! results/results-addr (get-in config [:beavis :addr]))
       (reset! ws-server
               (run-jetty
                (api/handler executor scheduler bus producer consumer db config)
