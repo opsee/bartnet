@@ -152,10 +152,6 @@
   (fn [ctx]
     (let [login (:login ctx)
           customer-id (:customer_id login)
-          check-type (get-in check [:target :type])
-          exgid (if (= "external_host" check-type)
-                  magic-exgid
-                  (or (:execution_group_id check) customer-id))
           check-id (identifiers/generate)
           assertions (.getAssertionsList check)
           check' (-> (.toBuilder check)
@@ -165,6 +161,10 @@
                      (.addChecks check')
                      .build)
           ided-check (pb/proto->hash check')
+          check-type (get-in ided-check [:target :type])
+          exgid (if (= "external_host" check-type)
+                  magic-exgid
+                  (or (:execution_group_id ided-check) customer-id))
           db-check (resolve-target ided-check)]
       (doall (map #(sql/insert-into-assertions! @db (assoc % :check_id check-id :customer_id customer-id)) (map pb/proto->hash assertions)))
       (sql/insert-into-checks! @db (assoc db-check :customer_id customer-id :execution_group_id exgid))

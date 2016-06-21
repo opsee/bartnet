@@ -147,7 +147,28 @@
                      (let [check (first (sql/get-checks-by-customer-id @db "154ba57a-5188-11e5-8067-9b5f2d96dce1"))]
                        check => (contains {:interval 10})
                        (first (sql/get-assertions @db {:customer_id "154ba57a-5188-11e5-8067-9b5f2d96dce1"
-                                                       :check_id (:id check)})) => (contains {:key "foo"}))))))))
+                                                       :check_id (:id check)})) => (contains {:key "foo"}))))
+             (fact "creates new global checks"
+                   (let [response ((app) (-> (mock/request :post "/checks" (generate-string
+                                                                            {:interval 10
+                                                                             :name "A Good Global Check"
+                                                                             :target {:type "external_host"
+                                                                                      :id "www.google.com"}
+                                                                             :check_spec {:type_url "HttpCheck"
+                                                                                          :value {:name "A Good Check"
+                                                                                                  :path "/health_check"
+                                                                                                  :port 80
+                                                                                                  :verb "GET"
+                                                                                                  :protocol "http"}}
+                                                                             :assertions [{:key "foo"
+                                                                                           :value "bar"
+                                                                                           :relationship "equal"
+                                                                                           :operand "bar"
+                                                                                           }]}))
+                                             (mock/header "Authorization" auth-header)))]
+                     (:status response) => 201
+                     (let [check (first (sql/get-global-checks-by-execution-group-id @db {:execution_group_id "127a7354-290e-11e6-b178-2bc1f6aefc14"}))]
+                       check => (contains {:name "A Good Global Check"}))))))))
 
 (facts "check targets are valid"
        (with-redefs [rpc/checker-client mock-checker-client
