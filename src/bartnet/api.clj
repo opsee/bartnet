@@ -160,7 +160,8 @@
       (sql/insert-into-checks! @db (assoc db-check :customer_id customer-id :execution_group_id exgid))
       (all-bastions exgid #(rpc/create-check % checks))
       (log/debug "check" ided-check)
-      {:checks-resource {:checks [ided-check]}})))
+      (let [new-check (sql/get-check-by-id @db {:id check-id :customer_id customer-id})]
+        {:checks-resource {:checks [new-check]}}))))
 
 (defn list-checks [ctx]
   (let [login (:login ctx)
