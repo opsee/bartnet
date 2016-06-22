@@ -63,10 +63,10 @@
       :else (throw (Exception. (str "failed to get instances from the instance store " status))))))
 
 (defn add-check-assertions [check db]
-  (assoc 
-    check 
-    :assertions 
-    (let [db_assertions (sql/get-assertions db {:check_id (:id check) 
+  (assoc
+    check
+    :assertions
+    (let [db_assertions (sql/get-assertions db {:check_id (:id check)
                                                 :customer_id (:customer_id check)})]
       (map #(dissoc % :customer_id :check_id) db_assertions))))
 
@@ -79,16 +79,6 @@
                                   :type (:target_type check)})
             :target_id :target_name :target_type)))
 
-(defn resolve-lastrun [check customer-id]
-  (try
-    (let [req (-> (CheckResourceRequest/newBuilder)
-                  (.addChecks (pb/hash->proto Check check))
-                  .build)
-          retr-checks (all-bastions (:execution_group_id check) #(rpc/retrieve-check % req))
-          max-check (max-key #(:seconds (:last_run %)) retr-checks)]
-      (assoc check :last_run (:last_run max-check)))
-    (catch Exception _ check)))
-
 (defn gql-check-exists? [id]
   (fn [ctx]
     (let [login (:login ctx)
@@ -96,7 +86,6 @@
       (if-let [check (first (sql/get-check-by-id @db {:id id :customer_id customer-id}))]
         {:check (-> check
                     (resolve-target)
-                    (resolve-lastrun customer-id)
                     (add-check-assertions @db))}))))
 
 (defn check-exists? [id]
@@ -106,7 +95,6 @@
       (if-let [check (first (sql/get-check-by-id @db {:id id :customer_id customer-id}))]
         {:check (-> check
                     (resolve-target)
-                    (resolve-lastrun customer-id)
                     (add-check-assertions @db))}))))
 
 (defn update-check! [id pb-check]
@@ -180,7 +168,6 @@
         checks (map #(-> %
                          (add-check-assertions @db)
                          (resolve-target)) (sql/get-checks-by-customer-id @db customer-id))]
-    (map #(resolve-lastrun % customer-id) checks)
     {:checks checks}))
 
 (defn exgid-list-checks [id]
@@ -201,7 +188,6 @@
         checks (map #(-> %
                          (add-check-assertions @db)
                          (resolve-target)) (sql/get-checks-by-customer-id @db customer-id))]
-    (map #(resolve-lastrun % customer-id) checks)
     {:checks checks}))
 
 (defresource check-resource [id check]
@@ -334,7 +320,7 @@
       :produces ["application/json" "application/x-protobuf"]
       :return [(pb/proto->schema Check)]
       (checks-exgid-resource id)))
- 
+
   (rt/not-found "Not found."))
 
 (defn handler [exe sched message-bus prod con database conf]
