@@ -454,4 +454,19 @@
     create unique index idx_memos_bastion_id_check_id on check_state_memos (bastion_id, check_id);
   </sql>
 </changeSet>
+<changeSet id="34" author="brexit" runInTransaction="true" failOnError="true">
+  <sql>
+    CREATE FUNCTION update_time() RETURNS trigger
+        LANGUAGE plpgsql
+        AS $$
+          BEGIN
+          NEW.updated_at := CURRENT_TIMESTAMP;
+          RETURN NEW;
+          END;
+          $$;
+          alter table checks add column created_at timestamp with time zone DEFAULT now() NOT NULL;
+          alter table checks add column updated_at timestamp with time zone DEFAULT now() NOT NULL;
+          create trigger update_checks before update on checks for each row execute procedure update_time();
+  </sql>
+</changeSet>
 </databaseChangeLog>
