@@ -14,27 +14,27 @@ update checks set customer_id = :customer_id::UUID,
                   target_name = :target_name,
                   min_failing_count = coalesce(:min_failing_count, 1),
                   min_failing_time = coalesce(:min_failing_time, 90),
-                  target_type = :target_type where id=:id;
+                  target_type = :target_type where id=:id and deleted=false;
 
 -- name: get-check-by-id
 -- Retrieves a health check record.
-select checks.*, coalesce(states.failing_count, 0) as failing_count, coalesce(states.response_count, 0) as response_count, coalesce(states.state_name, 'INITIALIZING') as state from checks left outer join check_states as states on (checks.id = states.check_id) where checks.id=:id and checks.customer_id=:customer_id::UUID;
+select checks.*, coalesce(states.failing_count, 0) as failing_count, coalesce(states.response_count, 0) as response_count, coalesce(states.state_name, 'INITIALIZING') as state from checks left outer join check_states as states on (checks.id = states.check_id) where checks.id=:id and checks.customer_id=:customer_id::UUID and checks.deleted=false;
 
 -- name: get-checks-by-customer-id
 -- Retrieves a list of health checks by env id.
-select checks.*, coalesce(states.failing_count, 0) as failing_count, coalesce(states.response_count, 0) as response_count, coalesce(states.state_name, 'INITIALIZING') as state from checks left outer join check_states as states on (checks.id = states.check_id) where checks.customer_id=:customer_id::UUID;
+select checks.*, coalesce(states.failing_count, 0) as failing_count, coalesce(states.response_count, 0) as response_count, coalesce(states.state_name, 'INITIALIZING') as state from checks left outer join check_states as states on (checks.id = states.check_id) where checks.customer_id=:customer_id::UUID and checks.deleted=false;
 
 -- name: get-global-checks-by-execution-group-id
 -- Retrieves a list of health checks by execution group id.
-select * from checks where execution_group_id=:execution_group_id::UUID;
+select * from checks where execution_group_id=:execution_group_id::UUID and deleted=false;
 
 -- name: get-checks-by-execution-group-id
 -- Retrieves a list of health checks by execution group id.
-select checks.*, coalesce(states.failing_count, 0) as failing_count, coalesce(states.response_count, 0) as response_count, coalesce(states.state_name, 'INITIALIZING') as state from checks left outer join check_states as states on (checks.id = states.check_id) where checks.execution_group_id=:execution_group_id::UUID and checks.customer_id=:customer_id::UUID;
+select checks.*, coalesce(states.failing_count, 0) as failing_count, coalesce(states.response_count, 0) as response_count, coalesce(states.state_name, 'INITIALIZING') as state from checks left outer join check_states as states on (checks.id = states.check_id) where checks.execution_group_id=:execution_group_id::UUID and checks.customer_id=:customer_id::UUID and checks.deleted=false;
 
 -- name: delete-check-by-id!
 -- Deletes a check record by id.
-delete from checks where id=:id and customer_id=:customer_id::UUID;
+update checks set deleted=true where id=:id and customer_id=:customer_id::UUID;
 
 -----------------------------------------------------------------------------
 
