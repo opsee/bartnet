@@ -3,7 +3,6 @@
   (:require [clojure.tools.logging :as log]
             [clojure.tools.cli :refer [parse-opts]]
             [opsee.middleware.config :refer [config]]
-            [opsee.middleware.migrate :as migrate]
             [bartnet.api :as api]
             [manifold.bus :as bus]
             [bartnet.upload-cmd :as upload-cmd]
@@ -54,6 +53,5 @@
         subargs (rest args)]
     (case cmd
       "server" (start-server subargs)
-      "db" (migrate/db-cmd subargs)
       "upload" (upload-cmd/upload subargs))))
 

@@ -45,22 +45,11 @@ for arg in "$@"; do
     test|start)
       COMMAND="server"
       ;;
-    migrate)
-      COMMAND="db"
-      SUBCOMMAND="migrate"
-      ;;
-    migrate-start)
-      MIGRATESTART=1
-      ;;
     *)
       CONFIG="$arg"
       unset GEN_CONFIG
      ;;
   esac
 done
-
-if [ "x$MIGRATESTART" != "x" ]; then
-  (COMMAND="db" SUBCOMMAND="migrate" run)
-fi
 
 run
