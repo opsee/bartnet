@@ -42,15 +42,8 @@ for arg in "$@"; do
     -*)
       OPTS="$OPTS $arg"
       ;;
-    test|start)
+    test|start|migrate-start)
       COMMAND="server"
-      ;;
-    migrate)
-      COMMAND="db"
-      SUBCOMMAND="migrate"
-      ;;
-    migrate-start)
-      MIGRATESTART=1
       ;;
     *)
       CONFIG="$arg"
@@ -58,9 +51,5 @@ for arg in "$@"; do
      ;;
   esac
 done
-
-if [ "x$MIGRATESTART" != "x" ]; then
-  (COMMAND="db" SUBCOMMAND="migrate" run)
-fi
 
 run
