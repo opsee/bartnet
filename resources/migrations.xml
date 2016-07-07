@@ -461,4 +461,10 @@
     create trigger update_checks before update on checks for each row execute procedure update_time();
   </sql>
 </changeSet>
+<changeSet id="34" author="getlost" runInTransaction="true" failOnError="true">
+  <sql>
+    alter table checks add column deleted boolean default false not null;
+    create index idx_checks_customer_id_deleted ON checks USING btree (customer_id, deleted);
+  </sql>
+</changeSet>
 </databaseChangeLog>
