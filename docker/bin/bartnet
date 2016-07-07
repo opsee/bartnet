@@ -42,7 +42,7 @@ for arg in "$@"; do
     -*)
       OPTS="$OPTS $arg"
       ;;
-    test|start|migrate-start)
+    test|start)
       COMMAND="server"
       ;;
     *)
